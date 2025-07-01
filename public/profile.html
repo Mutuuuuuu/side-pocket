@@ -43,7 +43,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
         const firebaseConfig = {
@@ -155,14 +155,15 @@
                     photoURL: photoURL
                 });
 
-                // この時点ではドキュメントは必ず存在するので、updateDocを安全に使える
+                // *** ここを修正 ***
+                // setDocに { merge: true } を付けて、更新または新規作成を安全に行う
                 const userDocRef = doc(db, "users", currentUser.uid);
-                await updateDoc(userDocRef, {
+                await setDoc(userDocRef, {
                     lastName: lastName,
                     firstName: firstName,
                     displayName: displayName,
                     photoURL: photoURL
-                });
+                }, { merge: true });
 
                 statusDiv.textContent = 'プロフィールを更新しました！';
                 statusDiv.style.color = 'green';
