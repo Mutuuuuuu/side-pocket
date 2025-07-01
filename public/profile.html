@@ -43,7 +43,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"; // updateDocをsetDocに変更
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
         const firebaseConfig = {
@@ -74,7 +74,7 @@
             }
         });
         
-        // プロフィール情報を読み込んでフォームに表示
+        // プロフィール情報を読み込み、存在しなければ作成する
         const loadUserProfile = async () => {
             if (!currentUser) return;
             
@@ -82,12 +82,34 @@
             const userDoc = await getDoc(userDocRef);
 
             if (userDoc.exists()) {
+                // ドキュメントが存在する場合、フォームに情報を表示
                 const userData = userDoc.data();
                 document.getElementById('profileLastName').value = userData.lastName || '';
                 document.getElementById('profileFirstName').value = userData.firstName || '';
                 document.getElementById('profileDisplayName').value = userData.displayName || '';
                 document.getElementById('profileEmail').value = currentUser.email;
                 document.getElementById('profileIconPreview').src = userData.photoURL || `https://placehold.co/96x96/EFEFEF/333333?text=${(userData.displayName || '?').charAt(0)}`;
+            } else {
+                // ドキュメントが存在しない場合、基本情報で新規作成する
+                try {
+                    console.log(`User document for ${currentUser.uid} not found. Creating...`);
+                    const newUserDoc = {
+                        uid: currentUser.uid,
+                        email: currentUser.email,
+                        displayName: currentUser.displayName || '',
+                        photoURL: currentUser.photoURL || null,
+                        lastName: '',
+                        firstName: '',
+                        createdAt: serverTimestamp()
+                    };
+                    await setDoc(userDocRef, newUserDoc);
+                    console.log("Document created successfully.");
+                    // 作成後、再度読み込んでフォームに表示する
+                    loadUserProfile();
+                } catch (error) {
+                    console.error("Error creating user document:", error);
+                    document.getElementById('profile-status').textContent = 'プロファイルの初期化に失敗しました。';
+                }
             }
         };
 
@@ -111,7 +133,6 @@
             const iconFile = document.getElementById('profileIconFile').files[0];
             const statusDiv = document.getElementById('profile-status');
             
-            // Add validation for required fields
             if (!lastName || !firstName || !displayName) {
                 statusDiv.textContent = '姓、名、ディスプレイ名は必須項目です。';
                 statusDiv.style.color = 'red';
@@ -119,31 +140,29 @@
             }
 
             statusDiv.textContent = '更新中...';
-            statusDiv.style.color = 'black'; // Reset color
+            statusDiv.style.color = 'black';
 
             try {
-                let photoURL = currentUser.photoURL; // 現在のURLを保持
-                // 1. 新しいアイコンファイルがあればアップロード
+                let photoURL = currentUser.photoURL;
                 if (iconFile) {
                     const storageRef = ref(storage, `user_icons/${currentUser.uid}/${iconFile.name}`);
                     const snapshot = await uploadBytes(storageRef, iconFile);
                     photoURL = await getDownloadURL(snapshot.ref);
                 }
 
-                // 2. Authプロファイルを更新
                 await updateProfile(currentUser, {
                     displayName: displayName,
                     photoURL: photoURL
                 });
 
-                // 3. Firestoreドキュメントを更新（存在しない場合は作成）
+                // この時点ではドキュメントは必ず存在するので、updateDocを安全に使える
                 const userDocRef = doc(db, "users", currentUser.uid);
-                await setDoc(userDocRef, {
+                await updateDoc(userDocRef, {
                     lastName: lastName,
                     firstName: firstName,
                     displayName: displayName,
                     photoURL: photoURL
-                }, { merge: true }); // merge:true を使うことで、ドキュメントがなくてもエラーにならず、新規作成される
+                });
 
                 statusDiv.textContent = 'プロフィールを更新しました！';
                 statusDiv.style.color = 'green';
