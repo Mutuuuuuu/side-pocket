@@ -124,7 +124,7 @@
             apiKey: "AIzaSyBuRc0oRFQk-GvVAh_90S9NGAYu5sOkxyM",
             authDomain: "side-pocket-sl.firebaseapp.com",
             projectId: "side-pocket-sl",
-            storageBucket: "side-pocket-sl.firebasestorage.app", // CORRECTED
+            storageBucket: "side-pocket-sl.firebasestorage.app",
             messagingSenderId: "887116583823",
             appId: "1:887116583823:web:5783488bd573f5be4bf1fa",
             measurementId: "G-QSBDN1TX68"
@@ -232,7 +232,8 @@
         
         // --- Project Loading ---
         function listenToActiveProjects() {
-            const q = query(collection(db, "projects"), where("status", "==", "Active"));
+            if (!currentUser) return;
+            const q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid), where("status", "==", "Active"));
             if (projectsUnsubscribe) projectsUnsubscribe();
             projectsUnsubscribe = onSnapshot(q, (querySnapshot) => {
                 const projects = [];
@@ -256,8 +257,9 @@
 
         // --- Summary Dashboard Logic ---
         async function getProjectsMap() {
+            if (!currentUser) return {};
             const projectsMap = {};
-            const q = query(collection(db, "projects"));
+            const q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid));
             const querySnapshot = await getDocs(q);
             querySnapshot.forEach((doc) => {
                 const project = doc.data();
@@ -270,6 +272,7 @@
         }
 
         function listenToTimestamps() {
+            if (!currentUser) return;
             const summaryStatus = document.getElementById('summaryStatus');
             summaryStatus.textContent = 'データを読み込んでいます...';
             const q = query(collection(db, "timestamps"), where("userId", "==", currentUser.uid), orderBy("clockInTime", "desc"));
@@ -372,7 +375,6 @@
             const projectData = fullDashboardData[month]?.[projectCode];
             if (!projectData) { alert("PDF生成用のデータが見つかりません。"); return; }
             
-            // Set the font that was loaded from the CDN
             doc.setFont("mplus-1p-regular", "normal");
             
             doc.setFontSize(18);
@@ -402,7 +404,8 @@
 
         // --- Project Management Logic ---
         function listenToAllProjects() {
-            const q = query(collection(db, "projects"), orderBy("code"));
+            if (!currentUser) return;
+            const q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid), orderBy("code"));
             if (projectsUnsubscribe) projectsUnsubscribe();
             projectsUnsubscribe = onSnapshot(q, (snapshot) => {
                 const projects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -442,7 +445,7 @@
             if (!code || !name) { statusElem.textContent = "エラー: コードと名前は必須です。"; return; }
             statusElem.textContent = "追加しています...";
             try {
-                const q = query(collection(db, "projects"), where("code", "==", code));
+                const q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid), where("code", "==", code));
                 const querySnapshot = await getDocs(q);
                 if (!querySnapshot.empty) { throw new Error("同じプロジェクトコードが既に存在します。"); }
                 await addDoc(collection(db, "projects"), { code: code, name: name, status: "Active", color: "#808080", ownerId: currentUser.uid });
