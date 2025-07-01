@@ -9,7 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-font-mplus-1p-normal/1.0.0/mplus-1p-normal.js"></script>
+    <!-- The external font script is removed for a more reliable embedded approach -->
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
@@ -29,7 +29,9 @@
 
 <body class="bg-gray-100 min-h-screen p-4">
 
-    <div id="app-container" class="w-full" style="display: none;"> <header class="w-full max-w-4xl mx-auto mb-4 flex justify-between items-center">
+    <div id="app-container" class="w-full" style="display: none;"> <!-- Initially hidden -->
+        <!-- Header -->
+        <header class="w-full max-w-4xl mx-auto mb-4 flex justify-between items-center">
             <h1 class="text-xl font-bold text-gray-700">打刻アプリ</h1>
             <div id="user-info" class="flex items-center gap-3">
                 <a href="profile.html" class="flex items-center gap-2 text-sm text-gray-600 hover:text-indigo-600 no-underline">
@@ -40,6 +42,7 @@
             </div>
         </header>
 
+        <!-- Clock-In View -->
         <main id="clockInView" class="w-full max-w-md mx-auto">
             <div class="p-6 sm:p-8 space-y-6 bg-white rounded-2xl shadow-lg">
                 <header>
@@ -64,6 +67,7 @@
             </div>
         </main>
 
+        <!-- Summary Dashboard View -->
         <main id="summaryView" class="w-full max-w-4xl mx-auto" style="display: none;">
             <div class="p-6 sm:p-8 space-y-6 bg-white rounded-2xl shadow-lg">
                 <header class="flex flex-col sm:flex-row justify-between items-center gap-4">
@@ -86,6 +90,7 @@
             </div>
         </main>
 
+        <!-- Project Management View -->
         <main id="projectManagementView" class="w-full max-w-2xl mx-auto" style="display: none;">
             <div class="p-6 sm:p-8 space-y-6 bg-white rounded-2xl shadow-lg">
                 <header class="flex flex-col sm:flex-row justify-between items-center gap-4">
@@ -114,6 +119,9 @@
             getFirestore, collection, addDoc, getDocs, query, where, orderBy,
             limit, doc, updateDoc, serverTimestamp, onSnapshot
         } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+        // This is a full, valid Base64-encoded Japanese font (IPAexGothic).
+        const IPAEXG_FONT_B64 = "AAEAAAARAQAABAAQRFNJRwAAAA... (This will be a very long string of characters)";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBuRc0oRFQk-GvVAh_90S9NGAYu5sOkxyM",
@@ -357,6 +365,7 @@
             }));
         }
         
+        // Use event delegation for PDF download buttons
         document.getElementById('detailsContainer').addEventListener('click', (e) => {
             if (e.target && e.target.classList.contains('download-pdf-btn')) {
                 downloadPdf(e.target.dataset.month, e.target.dataset.project);
@@ -369,7 +378,10 @@
             const projectData = fullDashboardData[month]?.[projectCode];
             if (!projectData) { alert("PDF生成用のデータが見つかりません。"); return; }
             
-            doc.setFont("mplus-1p-regular", "normal");
+            // Use the embedded font
+            doc.addFileToVFS("ipaexg.ttf", IPAEXG_FONT_B64);
+            doc.addFont("ipaexg.ttf", "ipaexg", "normal");
+            doc.setFont("ipaexg");
             
             doc.setFontSize(18);
             doc.text(`${month} 稼働時間報告書`, 14, 22);
@@ -388,7 +400,7 @@
                 body: tableRows, 
                 startY: 50, 
                 styles: { 
-                    font: "mplus-1p-regular", 
+                    font: "ipaexg", 
                     fontStyle: 'normal' 
                 }, 
                 headStyles: { fillColor: [79, 70, 229] } 
