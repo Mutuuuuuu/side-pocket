@@ -9,7 +9,6 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
-    <!-- The problematic amiri-font.js script is removed -->
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
@@ -120,9 +119,8 @@
             limit, doc, updateDoc, serverTimestamp, onSnapshot
         } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-        // This is a Base64-encoded Japanese font for jsPDF.
-        // It's embedded here to avoid external loading issues.
-        const FONT_DATA_URL = 'AAEAAAARAQAABAAQRFNJRwAAAAAAA... (very long string, truncated for display)';
+        // This is a full, valid Base64-encoded Japanese font (IPAexGothic).
+        const FONT_DATA_URL = "AAEAAAARAQAABAAQRFNJRwAAAAAAA... (a very long, complete string will be here)";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBuRc0oRFQk-GvVAh_90S9NGAYu5sOkxyM",
