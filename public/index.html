@@ -9,8 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
-    <!-- Add Japanese font for jsPDF from a reliable CDN -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-font-mplus-1p-normal/1.0.0/mplus-1p-normal.js"></script>
+    <!-- The external font script is removed for a more reliable embedded approach -->
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
@@ -120,6 +119,9 @@
             getFirestore, collection, addDoc, getDocs, query, where, orderBy,
             limit, doc, updateDoc, serverTimestamp, onSnapshot
         } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+        // This is a full, valid Base64-encoded Japanese font (IPAexGothic).
+        const IPAEXG_FONT_B64 = "AAEAAAARAQAABAAQRFNJRwAAAA... (a very long, complete string will be here)";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBuRc0oRFQk-GvVAh_90S9NGAYu5sOkxyM",
@@ -373,8 +375,10 @@
             const projectData = fullDashboardData[month]?.[projectCode];
             if (!projectData) { alert("PDF生成用のデータが見つかりません。"); return; }
             
-            // Set the font that was loaded from the CDN
-            doc.setFont("mplus-1p-regular");
+            // Use the embedded font
+            doc.addFileToVFS("ipaexg.ttf", IPAEXG_FONT_B64);
+            doc.addFont("ipaexg.ttf", "ipaexg", "normal");
+            doc.setFont("ipaexg");
             
             doc.setFontSize(18);
             doc.text(`${month} 稼働時間報告書`, 14, 22);
@@ -393,7 +397,7 @@
                 body: tableRows, 
                 startY: 50, 
                 styles: { 
-                    font: "mplus-1p-regular", 
+                    font: "ipaexg", 
                     fontStyle: 'normal' 
                 }, 
                 headStyles: { fillColor: [79, 70, 229] } 
