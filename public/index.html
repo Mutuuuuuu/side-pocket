@@ -321,7 +321,7 @@
                         where("userId", "==", currentUser.uid),
                         where("projectCode", "==", projectCode),
                         where("clockOutTime", "==", null),
-                        // orderBy("clockInTime", "desc"), // This line is removed to avoid needing a composite index.
+                        orderBy("clockInTime", "desc"), // This line requires the composite index.
                         limit(1)
                     );
                     const querySnapshot = await getDocs(q);
@@ -622,4 +622,110 @@
 
         function listenToAllProjects() {
             const q = query(collection(db, "projects"), orderBy("code"));
-            if (projectsUnsubscribe) projectsUnsubscribe(); // Re
+            if (projectsUnsubscribe) projectsUnsubscribe(); // Reuse the same unsubscribe variable
+            
+            projectsUnsubscribe = onSnapshot(q, (snapshot) => {
+                const projects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderProjectList(projects);
+            }, (error) => {
+                console.error("Error fetching all projects: ", error);
+                document.getElementById('projectManagementStatus').textContent = "プロジェクトリストの取得に失敗しました。";
+            });
+        }
+
+        function renderProjectList(projects) {
+            const container = document.getElementById('projectListContainer');
+            if (!projects || projects.length === 0) {
+                container.innerHTML = '<p class="text-center text-gray-500">プロジェクトがありません。</p>';
+                return;
+            }
+            container.innerHTML = projects.map(p => `
+                <div class="flex justify-between items-center p-2 border-b gap-4">
+                    <input type="color" class="p-1 h-10 w-10 block bg-white border border-gray-200 cursor-pointer rounded-lg" value="${p.color || '#808080'}" data-project-id="${p.id}">
+                    <div class="flex-grow">
+                        <p class="font-bold">${p.name}</p>
+                        <p class="text-sm text-gray-500">${p.code}</p>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" data-project-id="${p.id}" ${p.status === 'Active' ? 'checked' : ''}>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            `).join('');
+        }
+        
+        document.getElementById('addProjectBtn').addEventListener('click', async () => {
+            const codeInput = document.getElementById('newProjectCode');
+            const nameInput = document.getElementById('newProjectName');
+            const code = codeInput.value.trim();
+            const name = nameInput.value.trim();
+            const statusElem = document.getElementById('projectManagementStatus');
+
+            if (!code || !name) {
+                statusElem.textContent = "エラー: コードと名前は必須です。";
+                return;
+            }
+            
+            statusElem.textContent = "追加しています...";
+            try {
+                // Check if project code already exists
+                const q = query(collection(db, "projects"), where("code", "==", code));
+                const querySnapshot = await getDocs(q);
+                if (!querySnapshot.empty) {
+                    throw new Error("同じプロジェクトコードが既に存在します。");
+                }
+
+                await addDoc(collection(db, "projects"), {
+                    code: code,
+                    name: name,
+                    status: "Active",
+                    color: "#808080", // Default color
+                    ownerId: currentUser.uid // Track who created it
+                });
+                statusElem.textContent = "プロジェクトを追加しました。";
+                codeInput.value = '';
+                nameInput.value = '';
+            } catch (error) {
+                statusElem.textContent = `追加エラー: ${error.message}`;
+            }
+        });
+
+        document.getElementById('projectListContainer').addEventListener('change', async (e) => {
+            const target = e.target;
+            const projectId = target.dataset.projectId;
+            if (!projectId) return;
+
+            const statusElem = document.getElementById('projectManagementStatus');
+            const docRef = doc(db, "projects", projectId);
+            
+            try {
+                if (target.type === 'checkbox') {
+                    statusElem.textContent = "ステータスを更新しています...";
+                    const newStatus = target.checked ? 'Active' : 'Inactive';
+                    await updateDoc(docRef, { status: newStatus });
+                    statusElem.textContent = "ステータスを更新しました。";
+                } else if (target.type === 'color') {
+                    statusElem.textContent = "色を更新しています...";
+                    await updateDoc(docRef, { color: target.value });
+                    statusElem.textContent = "色を更新しました。";
+                }
+            } catch (error) {
+                statusElem.textContent = `更新エラー: ${error.message}`;
+            }
+        });
+
+    </script>
+</body>
+</html>
+```
+
+### ステップ3：修正をデプロイする
+
+1.  PCの`public/index.html`の内容を、上のコードで完全に上書き保存します。
+2.  （もし設定していれば）GitHub Actionsが自動でデプロイを実行します。
+3.  （手動の場合）コマンドプロンプトで、以下のコマンドを実行します。
+    ```bash
+    firebase deploy
+    ```
+
+この手順で、ログイン画面のボタンが押せない問題と、退勤ボタンのエラーの両方が解決されるはずです。お手数ですが、ご確認をお願いいたし
