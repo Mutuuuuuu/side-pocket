@@ -134,6 +134,7 @@
         let monthlyChartInstance = null;
         let projectsUnsubscribe = null;
         let timestampsUnsubscribe = null;
+        let projectDataMap = new Map(); // To store project data for editing
 
         // --- Auth State Handling ---
         onAuthStateChanged(auth, (user) => {
@@ -142,7 +143,7 @@
                 document.getElementById('app-container').style.display = 'block';
                 document.getElementById('user-display-name').textContent = user.displayName || user.email;
                 document.getElementById('user-icon').src = user.photoURL || `https://placehold.co/32x32/EFEFEF/333333?text=${(user.displayName || user.email || '?').charAt(0)}`;
-                showClockInView(); // Show default view for logged-in user
+                showClockInView();
             } else {
                 window.location.href = 'login.html';
             }
@@ -150,7 +151,6 @@
 
         document.getElementById('logoutBtn').addEventListener('click', () => {
             signOut(auth);
-            // onAuthStateChanged will handle the redirect
         });
 
         // --- Main App UI Navigation ---
@@ -168,11 +168,11 @@
         
         document.getElementById('showSummaryBtn').addEventListener('click', () => {
             showMainView('summaryView');
-            listenToTimestamps(); // Load data when view is shown
+            listenToTimestamps();
         });
         document.getElementById('showProjectManagementBtn').addEventListener('click', () => {
              showMainView('projectManagementView');
-             listenToAllProjects(); // Load data when view is shown
+             listenToAllProjects();
         });
         document.querySelectorAll('.btn-back').forEach(btn => btn.addEventListener('click', showClockInView));
 
@@ -274,7 +274,7 @@
             if (timestampsUnsubscribe) timestampsUnsubscribe();
             timestampsUnsubscribe = onSnapshot(q, async (snapshot) => {
                 const records = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                const projectsMap = await getProjectsMap(); // Get latest project details
+                const projectsMap = await getProjectsMap();
                 initializeDashboard(records, projectsMap);
                 summaryStatus.textContent = '';
             }, (error) => {
@@ -357,7 +357,6 @@
             }));
         }
         
-        // Use event delegation for PDF download buttons
         document.getElementById('detailsContainer').addEventListener('click', (e) => {
             if (e.target && e.target.classList.contains('download-pdf-btn')) {
                 downloadPdf(e.target.dataset.month, e.target.dataset.project);
@@ -405,13 +404,14 @@
             projectsUnsubscribe = onSnapshot(q, (snapshot) => {
                 const projects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderProjectList(projects);
-            }, (error) => { console.error("Error fetching all projects: ", error); document.getElementById('projectManagementStatus').textContent = "プロジェクトリストの取得に失敗しました。"; });
+            }, (error) => {
+                console.error("プロジェクトリストの取得に失敗: ", error);
+                document.getElementById('projectManagementStatus').textContent = "プロジェクトリストの取得に失敗しました。"; 
+            });
         }
         
-        function renderProjectList(projects) {
-            const container = document.getElementById('projectListContainer');
-            if (!projects || projects.length === 0) { container.innerHTML = '<p class="text-center text-gray-500">プロジェクトがありません。</p>'; return; }
-            container.innerHTML = projects.map(p => `
+        function renderProjectItem(p) {
+            return `
                 <div class="project-item flex justify-between items-center p-3 border-b gap-2" data-project-id="${p.id}">
                     <input type="color" class="project-color-input p-1 h-10 w-10 block bg-white border border-gray-200 cursor-pointer rounded-lg" value="${p.color || '#808080'}">
                     <div class="flex-grow">
@@ -423,7 +423,18 @@
                         <label class="switch"><input type="checkbox" class="project-status-toggle" ${p.status === 'Active' ? 'checked' : ''}><span class="slider"></span></label>
                     </div>
                 </div>
-            `).join('');
+            `;
+        }
+        
+        function renderProjectList(projects) {
+            const container = document.getElementById('projectListContainer');
+            projectDataMap.clear(); // Clear old data
+            if (!projects || projects.length === 0) { container.innerHTML = '<p class="text-center text-gray-500">プロジェクトがありません。</p>'; return; }
+            
+            container.innerHTML = projects.map(p => {
+                projectDataMap.set(p.id, p); // Store project data by ID
+                return renderProjectItem(p);
+            }).join('');
         }
 
         document.getElementById('projectListContainer').addEventListener('change', (e) => {
@@ -445,26 +456,25 @@
 
         function toggleProjectEdit(button, cancel = false) {
             const projectItem = button.closest('.project-item');
-            const nameDiv = projectItem.querySelector('[data-field="name"]');
+            const projectId = projectItem.dataset.projectId;
+            
+            if (cancel) {
+                const originalProject = projectDataMap.get(projectId);
+                projectItem.outerHTML = renderProjectItem(originalProject);
+                return;
+            }
+            
             const isEditing = projectItem.classList.contains('is-editing');
-
-            if (isEditing && cancel) {
-                // Cancel: Restore original text
-                const originalName = projectItem.dataset.originalName;
-                nameDiv.innerHTML = `<div data-field="name" class="font-bold">${originalName}</div>`;
-                projectItem.classList.remove('is-editing');
-                projectItem.querySelector('[data-role="action-buttons"]').innerHTML = `
-                    <button class="edit-project-btn btn text-sm bg-gray-200 px-3 py-1 rounded-lg">修正</button>
-                    <label class="switch">${projectItem.querySelector('.switch').innerHTML}</label>`;
-            } else if (!isEditing) {
-                // Start editing
+            if (!isEditing) {
                 projectItem.classList.add('is-editing');
+                const nameDiv = projectItem.querySelector('[data-field="name"]');
                 const currentName = nameDiv.textContent;
-                projectItem.dataset.originalName = currentName;
+                
                 nameDiv.innerHTML = `<input type="text" class="project-name-input w-full p-1 border rounded" value="${currentName}">`;
                 projectItem.querySelector('[data-role="action-buttons"]').innerHTML = `
                     <button class="save-project-btn btn text-sm bg-green-500 text-white px-3 py-1 rounded-lg">保存</button>
                     <button class="cancel-project-btn btn text-sm bg-gray-400 text-white px-3 py-1 rounded-lg">取消</button>`;
+                projectItem.querySelector('.project-name-input').focus();
             }
         }
 
@@ -483,7 +493,7 @@
             try {
                 await updateDoc(docRef, { name: newName });
                 statusElem.textContent = '更新しました。';
-                toggleProjectEdit(button, true); // Revert UI after save
+                // The onSnapshot listener will automatically re-render the list with the updated name.
             } catch (error) {
                 statusElem.textContent = `更新エラー: ${error.message}`;
             }
@@ -510,6 +520,7 @@
         }
         
         document.getElementById('addProjectBtn').addEventListener('click', async () => {
+            if (!currentUser) return;
             const codeInput = document.getElementById('newProjectCode');
             const nameInput = document.getElementById('newProjectName');
             const code = codeInput.value.trim();
