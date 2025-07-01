@@ -1,0 +1,153 @@
+<!-- ======================================================================= -->
+<!-- FILE: public/profile.html                                               -->
+<!-- ======================================================================= -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>プロフィール管理 - 打刻アプリ</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap');
+        body { font-family: 'Noto Sans JP', sans-serif; }
+        .btn { transition: all 0.2s ease-in-out; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+
+    <div id="profileView" class="w-full max-w-lg mx-auto">
+        <div class="p-8 space-y-6 bg-white rounded-2xl shadow-lg">
+            <header class="flex justify-between items-center">
+                <h1 class="text-3xl font-bold text-gray-800">プロフィール管理</h1>
+                <a href="index.html" class="btn px-4 py-2 text-base font-semibold text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 no-underline">戻る</a>
+            </header>
+            <div class="space-y-4">
+                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="text" id="profileLastName" placeholder="姓" class="w-full px-4 py-3 bg-gray-50 border rounded-lg">
+                    <input type="text" id="profileFirstName" placeholder="名" class="w-full px-4 py-3 bg-gray-50 border rounded-lg">
+                </div>
+                <input type="text" id="profileDisplayName" placeholder="ディスプレイ名" class="w-full px-4 py-3 bg-gray-50 border rounded-lg">
+                <input type="email" id="profileEmail" placeholder="メールアドレス" class="w-full px-4 py-3 bg-gray-200 border rounded-lg" readonly>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">アイコン画像</label>
+                    <div class="mt-1 flex items-center space-x-4">
+                        <img id="profileIconPreview" src="https://placehold.co/96x96/EFEFEF/333333?text=Icon" class="w-24 h-24 rounded-full object-cover bg-gray-200">
+                        <input type="file" id="profileIconFile" accept="image/*" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100">
+                    </div>
+                </div>
+                <button id="updateProfileBtn" class="btn w-full px-4 py-3 font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700">更新する</button>
+            </div>
+            <div id="profile-status" class="pt-2 text-center font-medium h-8"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAuth, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getFirestore, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBuRc0oRFQk-GvVAh_90S9NGAYu5sOkxyM",
+            authDomain: "side-pocket-sl.firebaseapp.com",
+            projectId: "side-pocket-sl",
+            storageBucket: "side-pocket-sl.appspot.com",
+            messagingSenderId: "887116583823",
+            appId: "1:887116583823:web:5783488bd573f5be4bf1fa",
+            measurementId: "G-QSBDN1TX68"
+        };
+        
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const storage = getStorage(app);
+
+        let currentUser = null;
+
+        // ログイン状態をチェック
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                loadUserProfile();
+            } else {
+                // 未ログインの場合はログインページへリダイレクト
+                window.location.href = 'login.html';
+            }
+        });
+        
+        // プロフィール情報を読み込んでフォームに表示
+        const loadUserProfile = async () => {
+            if (!currentUser) return;
+            
+            const userDocRef = doc(db, "users", currentUser.uid);
+            const userDoc = await getDoc(userDocRef);
+
+            if (userDoc.exists()) {
+                const userData = userDoc.data();
+                document.getElementById('profileLastName').value = userData.lastName || '';
+                document.getElementById('profileFirstName').value = userData.firstName || '';
+                document.getElementById('profileDisplayName').value = userData.displayName || '';
+                document.getElementById('profileEmail').value = currentUser.email;
+                document.getElementById('profileIconPreview').src = userData.photoURL || `https://placehold.co/96x96/EFEFEF/333333?text=${(userData.displayName || '?').charAt(0)}`;
+            }
+        };
+
+        // アイコンプレビュー
+        document.getElementById('profileIconFile').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => { document.getElementById('profileIconPreview').src = e.target.result; }
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // 更新処理
+        document.getElementById('updateProfileBtn').addEventListener('click', async () => {
+            if (!currentUser) return;
+
+            const lastName = document.getElementById('profileLastName').value.trim();
+            const firstName = document.getElementById('profileFirstName').value.trim();
+            const displayName = document.getElementById('profileDisplayName').value.trim();
+            const iconFile = document.getElementById('profileIconFile').files[0];
+            const statusDiv = document.getElementById('profile-status');
+
+            statusDiv.textContent = '更新中...';
+
+            try {
+                let photoURL = currentUser.photoURL; // 現在のURLを保持
+                // 1. 新しいアイコンファイルがあればアップロード
+                if (iconFile) {
+                    const storageRef = ref(storage, `user_icons/${currentUser.uid}/${iconFile.name}`);
+                    const snapshot = await uploadBytes(storageRef, iconFile);
+                    photoURL = await getDownloadURL(snapshot.ref);
+                }
+
+                // 2. Authプロファイルを更新
+                await updateProfile(currentUser, {
+                    displayName: displayName,
+                    photoURL: photoURL
+                });
+
+                // 3. Firestoreドキュメントを更新
+                const userDocRef = doc(db, "users", currentUser.uid);
+                await updateDoc(userDocRef, {
+                    lastName: lastName,
+                    firstName: firstName,
+                    displayName: displayName,
+                    photoURL: photoURL
+                });
+
+                statusDiv.textContent = 'プロフィールを更新しました！';
+                statusDiv.style.color = 'green';
+
+            } catch (error) {
+                statusDiv.textContent = '更新に失敗しました: ' + error.message;
+                statusDiv.style.color = 'red';
+            }
+        });
+    </script>
+</body>
+</html>
