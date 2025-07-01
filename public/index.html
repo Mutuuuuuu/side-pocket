@@ -255,32 +255,44 @@
         }
 
         // --- Summary Dashboard Logic ---
+        async function getProjectsMap() {
+            const projectsMap = {};
+            const q = query(collection(db, "projects"));
+            const querySnapshot = await getDocs(q);
+            querySnapshot.forEach((doc) => {
+                const project = doc.data();
+                projectsMap[project.code] = {
+                    name: project.name,
+                    color: project.color || null
+                };
+            });
+            return projectsMap;
+        }
+
         function listenToTimestamps() {
             const summaryStatus = document.getElementById('summaryStatus');
             summaryStatus.textContent = 'データを読み込んでいます...';
             const q = query(collection(db, "timestamps"), where("userId", "==", currentUser.uid), orderBy("clockInTime", "desc"));
             if (timestampsUnsubscribe) timestampsUnsubscribe();
-            timestampsUnsubscribe = onSnapshot(q, (snapshot) => {
+            timestampsUnsubscribe = onSnapshot(q, async (snapshot) => {
                 const records = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                initializeDashboard(records);
+                const projectsMap = await getProjectsMap(); // Get latest project details
+                initializeDashboard(records, projectsMap);
                 summaryStatus.textContent = '';
             }, (error) => {
                 summaryStatus.textContent = `エラー: ${error.message}`;
                 console.error(error);
             });
         }
-        function initializeDashboard(records) {
+        function initializeDashboard(records, projectsMap) {
             const monthlyData = {};
-            const projectDetails = {};
             records.forEach(record => {
                 if (!record.clockInTime) return;
                 const clockInTime = record.clockInTime.toDate();
                 const yearMonth = `${clockInTime.getFullYear()}-${(clockInTime.getMonth() + 1).toString().padStart(2, '0')}`;
                 const projectCode = record.projectCode || '未指定';
                 const duration = record.durationHours || 0;
-                if (!projectDetails[projectCode]) {
-                    projectDetails[projectCode] = { name: record.projectName, color: record.projectColor || null };
-                }
+                
                 if (!monthlyData[yearMonth]) monthlyData[yearMonth] = {};
                 if (!monthlyData[yearMonth][projectCode]) {
                     monthlyData[yearMonth][projectCode] = { projectName: record.projectName, total: 0, details: [] };
@@ -300,7 +312,7 @@
             const allMonths = Object.keys(monthlyData).sort();
             const allProjects = [...new Set(Object.values(monthlyData).flatMap(month => Object.keys(month)))];
             const datasets = allProjects.map(projectCode => {
-                const projectInfo = projectDetails[projectCode] || {};
+                const projectInfo = projectsMap[projectCode] || {};
                 const color = projectInfo.color || `rgba(${Math.floor(Math.random()*255)}, ${Math.floor(Math.random()*255)}, ${Math.floor(Math.random()*255)}, 0.8)`;
                 const dataPoints = allMonths.map(month => monthlyData[month][projectCode]?.total || 0);
                 return { label: `${projectInfo.name || projectCode}`, data: dataPoints, borderColor: color, backgroundColor: color, fill: false, };
@@ -345,8 +357,15 @@
                 tabsContainer.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.project === targetProject));
                 contentContainer.querySelectorAll('[data-content]').forEach(c => c.classList.toggle('hidden', c.dataset.content !== targetProject));
             }));
-            contentContainer.querySelectorAll('.download-pdf-btn').forEach(btn => btn.addEventListener('click', (e) => downloadPdf(e.target.dataset.month, e.target.dataset.project)));
         }
+        
+        // Use event delegation for PDF download buttons
+        document.getElementById('detailsContainer').addEventListener('click', (e) => {
+            if (e.target && e.target.classList.contains('download-pdf-btn')) {
+                downloadPdf(e.target.dataset.month, e.target.dataset.project);
+            }
+        });
+
         function downloadPdf(month, projectCode) {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
