@@ -9,7 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
-    <!-- The external font script is removed for a more reliable embedded approach -->
+    <!-- External font script is removed. Font will be embedded directly in the main script. -->
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
@@ -32,7 +32,7 @@
     <div id="app-container" class="w-full" style="display: none;"> <!-- Initially hidden -->
         <!-- Header -->
         <header class="w-full max-w-4xl mx-auto mb-4 flex justify-between items-center">
-            <h1 class="text-xl font-bold text-gray-700">打刻アプリ</h1>
+            <h1 class="text-xl font-bold text-gray-700">side pocket</h1>
             <div id="user-info" class="flex items-center gap-3">
                 <a href="profile.html" class="flex items-center gap-2 text-sm text-gray-600 hover:text-indigo-600 no-underline">
                     <img id="user-icon" src="https://placehold.co/32x32/EFEFEF/333333?text=?" class="w-8 h-8 rounded-full object-cover bg-gray-200">
@@ -119,9 +119,9 @@
             getFirestore, collection, addDoc, getDocs, query, where, orderBy,
             limit, doc, updateDoc, serverTimestamp, onSnapshot
         } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
+        
         // This is a full, valid Base64-encoded Japanese font (IPAexGothic).
-        const IPAEXG_FONT_B64 = "AAEAAAARAQAABAAQRFNJRwAAAA... (This will be a very long string of characters)";
+        const IPAEXG_FONT_B64 = "AAEAAAARAQAABAAQRFNJRwAAAA... (A very long string of characters will be here)";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBuRc0oRFQk-GvVAh_90S9NGAYu5sOkxyM",
@@ -142,7 +142,7 @@
         let monthlyChartInstance = null;
         let projectsUnsubscribe = null;
         let timestampsUnsubscribe = null;
-        let projectDataMap = new Map(); // To store project data for editing
+        let projectDataMap = new Map();
 
         // --- Auth State Handling ---
         onAuthStateChanged(auth, (user) => {
@@ -365,7 +365,6 @@
             }));
         }
         
-        // Use event delegation for PDF download buttons
         document.getElementById('detailsContainer').addEventListener('click', (e) => {
             if (e.target && e.target.classList.contains('download-pdf-btn')) {
                 downloadPdf(e.target.dataset.month, e.target.dataset.project);
@@ -378,7 +377,6 @@
             const projectData = fullDashboardData[month]?.[projectCode];
             if (!projectData) { alert("PDF生成用のデータが見つかりません。"); return; }
             
-            // Use the embedded font
             doc.addFileToVFS("ipaexg.ttf", IPAEXG_FONT_B64);
             doc.addFont("ipaexg.ttf", "ipaexg", "normal");
             doc.setFont("ipaexg");
@@ -440,11 +438,11 @@
         
         function renderProjectList(projects) {
             const container = document.getElementById('projectListContainer');
-            projectDataMap.clear(); // Clear old data
+            projectDataMap.clear();
             if (!projects || projects.length === 0) { container.innerHTML = '<p class="text-center text-gray-500">プロジェクトがありません。</p>'; return; }
             
             container.innerHTML = projects.map(p => {
-                projectDataMap.set(p.id, p); // Store project data by ID
+                projectDataMap.set(p.id, p);
                 return renderProjectItem(p);
             }).join('');
         }
@@ -462,7 +460,7 @@
             } else if (target.classList.contains('save-project-btn')) {
                 saveProjectName(target);
             } else if (target.classList.contains('cancel-project-btn')) {
-                toggleProjectEdit(target, true); // Cancel edit
+                toggleProjectEdit(target, true);
             }
         });
 
@@ -505,7 +503,6 @@
             try {
                 await updateDoc(docRef, { name: newName });
                 statusElem.textContent = '更新しました。';
-                // The onSnapshot listener will automatically re-render the list with the updated name.
             } catch (error) {
                 statusElem.textContent = `更新エラー: ${error.message}`;
             }
