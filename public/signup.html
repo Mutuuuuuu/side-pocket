@@ -43,7 +43,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getAuth, createUserWithEmailAndPassword, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
         import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
@@ -61,14 +61,6 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
         const storage = getStorage(app);
-
-        // ログイン状態をチェック
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                // 登録後にログイン状態になったらメインページへ
-                window.location.href = 'index.html';
-            }
-        });
 
         // アイコンプレビュー
         document.getElementById('signupIconFile').addEventListener('change', (e) => {
@@ -90,9 +82,13 @@
             const iconFile = document.getElementById('signupIconFile').files[0];
             const errorDiv = document.getElementById('signup-error');
             
+            const signupButton = document.getElementById('signupBtn');
+            signupButton.disabled = true;
             errorDiv.textContent = '登録中...';
+
             if (!lastName || !firstName || !displayName || !email || !password) {
                 errorDiv.textContent = 'すべての必須項目を入力してください。';
+                signupButton.disabled = false;
                 return;
             }
 
@@ -126,11 +122,13 @@
                     createdAt: serverTimestamp()
                 });
 
-                // 登録完了後、onAuthStateChangedがリダイレクトを処理する
+                // 5. 全ての処理が完了してから、メインページへ移動
                 errorDiv.textContent = '登録が完了しました。メインページに移動します...';
+                window.location.href = 'index.html';
 
             } catch (error) {
                 errorDiv.textContent = '登録に失敗しました: ' + error.message;
+                signupButton.disabled = false;
             }
         });
     </script>
