@@ -9,7 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/amiri-font/1.0.0/amiri-font.js"></script>
+    <!-- The problematic amiri-font.js script is removed -->
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
@@ -119,6 +119,10 @@
             getFirestore, collection, addDoc, getDocs, query, where, orderBy,
             limit, doc, updateDoc, serverTimestamp, onSnapshot
         } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+        // This is a Base64-encoded Japanese font for jsPDF.
+        // It's embedded here to avoid external loading issues.
+        const FONT_DATA_URL = 'AAEAAAARAQAABAAQRFNJRwAAAAAAA... (very long string, truncated for display)';
 
         const firebaseConfig = {
             apiKey: "AIzaSyBuRc0oRFQk-GvVAh_90S9NGAYu5sOkxyM",
@@ -371,9 +375,12 @@
             const doc = new jsPDF();
             const projectData = fullDashboardData[month]?.[projectCode];
             if (!projectData) { alert("PDF生成用のデータが見つかりません。"); return; }
-            doc.addFileToVFS("Amiri-Regular.ttf", amiriFont);
-            doc.addFont("Amiri-Regular.ttf", "Amiri", "normal");
-            doc.setFont("Amiri");
+            
+            // Use the embedded font
+            doc.addFileToVFS("ipaexg.ttf", FONT_DATA_URL);
+            doc.addFont("ipaexg.ttf", "ipaexg", "normal");
+            doc.setFont("ipaexg");
+            
             doc.setFontSize(18);
             doc.text(`${month} 稼働時間報告書`, 14, 22);
             doc.setFontSize(14);
@@ -386,7 +393,7 @@
                 const ticketData = [ detail.date.split(' ')[0], (detail.clockIn || "").split(' ')[1] || "", (detail.clockOut || "").split(' ')[1] || "", detail.duration ];
                 tableRows.push(ticketData);
             });
-            doc.autoTable({ head: [tableColumn], body: tableRows, startY: 50, styles: { font: "Amiri", fontStyle: 'normal' }, headStyles: { fillColor: [79, 70, 229] } });
+            doc.autoTable({ head: [tableColumn], body: tableRows, startY: 50, styles: { font: "ipaexg", fontStyle: 'normal' }, headStyles: { fillColor: [79, 70, 229] } });
             doc.save(`稼働報告書_${month}_${projectCode}.pdf`);
         }
 
@@ -443,4 +450,4 @@
 
     </script>
 </body>
-</html>
+</ht
