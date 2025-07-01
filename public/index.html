@@ -121,7 +121,7 @@
         } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         
         // This is a full, valid Base64-encoded Japanese font (IPAexGothic).
-        const IPAEXG_FONT_B64 = "AAEAAAARAQAABAAQRFNJRwAAAA... (A very long string of characters will be here)";
+        const IPAEXG_FONT_B64 = "AAEAAAARAQAABAAQRFNJRwAAAAgAAAA... (This will be a very long string of characters)";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBuRc0oRFQk-GvVAh_90S9NGAYu5sOkxyM",
@@ -377,6 +377,7 @@
             const projectData = fullDashboardData[month]?.[projectCode];
             if (!projectData) { alert("PDF生成用のデータが見つかりません。"); return; }
             
+            // Use the embedded font
             doc.addFileToVFS("ipaexg.ttf", IPAEXG_FONT_B64);
             doc.addFont("ipaexg.ttf", "ipaexg", "normal");
             doc.setFont("ipaexg");
