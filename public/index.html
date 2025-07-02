@@ -20,22 +20,20 @@
         body { font-family: 'Noto Sans JP', sans-serif; }
         .btn { transition: all 0.2s ease-in-out; }
         .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-        .tab-button.active { border-color: #4f46e5; color: #4f46e5; background-color: #eef2ff; }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .tab-btn.active { border-color: #4f46e5; color: #4f46e5; }
         .switch { position: relative; display: inline-block; width: 60px; height: 34px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
         .slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
         input:checked + .slider { background-color: #4f46e5; }
         input:checked + .slider:before { transform: translateX(26px); }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
+
 <body class="bg-gray-100 min-h-screen p-4">
 
-    <!-- Loading Indicator -->
     <div id="loading" class="flex justify-center items-center h-screen">
         <div class="loader"></div>
         <p class="ml-4 text-lg">データを読み込んでいます...</p>
@@ -54,20 +52,8 @@
             </div>
         </header>
 
-        <!-- ★★★ 新しいタブナビゲーション ★★★ -->
-        <div class="w-full max-w-4xl mx-auto mb-6">
-            <div class="border-b border-gray-200">
-                <nav class="flex space-x-4" aria-label="Tabs">
-                    <button class="tab-button active" data-tab="clockInView">打刻</button>
-                    <button class="tab-button" data-tab="calendarView">カレンダー連携</button>
-                    <button class="tab-button" data-tab="summaryView">稼働時間ダッシュボード</button>
-                    <button class="tab-button" data-tab="projectManagementView">プロジェクト管理</button>
-                </nav>
-            </div>
-        </div>
-
         <!-- Views -->
-        <main id="clockInView" class="tab-content active w-full max-w-md mx-auto">
+        <main id="clockInView" class="w-full max-w-md mx-auto" style="display: none;">
             <div class="p-6 sm:p-8 space-y-6 bg-white rounded-2xl shadow-lg">
                 <header>
                     <h2 class="text-2xl sm:text-3xl font-bold text-center text-gray-800">打刻システム</h2>
@@ -84,12 +70,20 @@
                     <button id="clockOutBtn" class="btn w-full px-6 py-3 text-lg font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700">退勤</button>
                 </div>
                 <div id="status" class="pt-4 text-center font-medium h-10"></div>
+                <div class="pt-4 border-t space-y-2">
+                    <button id="showCalendarBtn" class="btn w-full px-6 py-2 text-base font-semibold text-white bg-teal-600 rounded-lg hover:bg-teal-700">カレンダー連携</button>
+                    <button id="showSummaryBtn" class="btn w-full px-6 py-2 text-base font-semibold text-white bg-gray-600 rounded-lg hover:bg-gray-700">稼働時間の集計を見る</button>
+                    <button id="showProjectManagementBtn" class="btn w-full px-6 py-2 text-base font-semibold text-white bg-slate-600 rounded-lg hover:bg-slate-700">プロジェクト管理</button>
+                </div>
             </div>
         </main>
 
-        <main id="summaryView" class="tab-content w-full max-w-4xl mx-auto">
+        <main id="summaryView" class="w-full max-w-4xl mx-auto" style="display: none;">
             <div class="p-6 sm:p-8 space-y-6 bg-white rounded-2xl shadow-lg">
-                <header><h2 class="text-2xl sm:text-3xl font-bold text-gray-800">稼働時間ダッシュボード</h2></header>
+                <header class="flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <h2 class="text-2xl sm:text-3xl font-bold text-gray-800">稼働時間ダッシュボード</h2>
+                    <button class="btn-back btn w-full sm:w-auto px-6 py-2 text-base font-semibold text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">戻る</button>
+                </header>
                 <div class="bg-gray-50 p-4 rounded-lg"><canvas id="monthlyChart"></canvas></div>
                 <div>
                     <label for="monthSelector" class="text-sm font-medium text-gray-700">表示月を選択:</label>
@@ -103,9 +97,12 @@
             </div>
         </main>
 
-        <main id="projectManagementView" class="tab-content w-full max-w-2xl mx-auto">
-             <div class="p-6 sm:p-8 space-y-6 bg-white rounded-2xl shadow-lg">
-                <header><h2 class="text-2xl sm:text-3xl font-bold text-gray-800">プロジェクト管理</h2></header>
+        <main id="projectManagementView" class="w-full max-w-2xl mx-auto" style="display: none;">
+            <div class="p-6 sm:p-8 space-y-6 bg-white rounded-2xl shadow-lg">
+                <header class="flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <h2 class="text-2xl sm:text-3xl font-bold text-gray-800">プロジェクト管理</h2>
+                    <button class="btn-back btn w-full sm:w-auto px-6 py-2 text-base font-semibold text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">戻る</button>
+                </header>
                 <div id="projectManagementStatus" class="text-center font-medium h-8"></div>
                 <div class="p-4 border rounded-lg space-y-3">
                     <h3 class="text-lg font-bold">新規プロジェクト追加</h3>
@@ -120,10 +117,12 @@
             </div>
         </main>
 
-        <!-- ★★★ 新しいカレンダー連携ビュー ★★★ -->
-        <main id="calendarView" class="tab-content w-full max-w-4xl mx-auto">
+        <main id="calendarView" class="w-full max-w-4xl mx-auto" style="display: none;">
             <div class="p-6 sm:p-8 space-y-6 bg-white rounded-2xl shadow-lg">
-                <h2 class="text-2xl sm:text-3xl font-bold text-gray-800">Googleカレンダー連携</h2>
+                <header class="flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <h2 class="text-2xl sm:text-3xl font-bold text-gray-800">Googleカレンダー連携</h2>
+                    <button class="btn-back btn w-full sm:w-auto px-6 py-2 text-base font-semibold text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">戻る</button>
+                </header>
                 <div id="gcal-status-container" class="bg-gray-50 p-4 rounded-lg">
                     <p id="gcal-auth-status" class="text-gray-600 mb-4">ステータス：初期化中...</p>
                     <div class="flex flex-wrap gap-2">
@@ -207,7 +206,6 @@
                 document.getElementById('app-container').style.display = 'block';
                 document.getElementById('user-display-name').textContent = user.displayName || user.email;
                 document.getElementById('user-icon').src = user.photoURL || `https://placehold.co/32x32/EFEFEF/333333?text=${(user.displayName || user.email || '?').charAt(0)}`;
-                setupTabs();
                 showMainView('clockInView');
 
                 gapi.load('client', initializeGapiClient);
@@ -243,24 +241,12 @@
         }
 
         // --- UI Navigation ---
-        function setupTabs() {
-            const tabs = document.querySelectorAll('.tab-button');
-            tabs.forEach(tab => {
-                tab.addEventListener('click', () => {
-                    tabs.forEach(item => item.classList.remove('active'));
-                    tab.classList.add('active');
-                    showMainView(tab.dataset.tab);
-                });
-            });
-        }
-
+        const mainViews = ['clockInView', 'summaryView', 'projectManagementView', 'calendarView'];
+        
         function showMainView(viewId) {
-            document.querySelectorAll('.tab-content').forEach(view => {
-                view.style.display = 'none';
+            mainViews.forEach(id => {
+                document.getElementById(id).style.display = (id === viewId) ? 'block' : 'none';
             });
-            document.getElementById(viewId).style.display = 'block';
-            document.getElementById(viewId).classList.add('active');
-
             unsubscribeAllListeners();
             if (viewId === 'clockInView') {
                 listenToActiveProjects();
@@ -270,6 +256,11 @@
                 listenToAllProjects();
             }
         }
+
+        document.getElementById('showSummaryBtn').addEventListener('click', () => showMainView('summaryView'));
+        document.getElementById('showProjectManagementBtn').addEventListener('click', () => showMainView('projectManagementView'));
+        document.getElementById('showCalendarBtn').addEventListener('click', () => showMainView('calendarView'));
+        document.querySelectorAll('.btn-back').forEach(btn => btn.addEventListener('click', () => showMainView('clockInView')));
         
         // --- Original App Logic ---
         function updateClock() { document.getElementById('realtime-clock').textContent = new Date().toLocaleTimeString('ja-JP'); }
@@ -322,6 +313,14 @@
                 showStatus(`エラー: ${error.message}`, true, 'status');
             } finally {
                 setButtonsDisabled(false);
+            }
+        }
+        
+        function showStatus(message, isError, elementId) {
+            const statusDiv = document.getElementById(elementId);
+            if (statusDiv) {
+                statusDiv.textContent = message;
+                statusDiv.className = `pt-4 text-center font-medium h-10 ${isError ? 'text-red-600' : 'text-green-600'}`;
             }
         }
 
@@ -605,7 +604,7 @@
                 showStatus('更新しました。', false, 'projectManagementStatus');
                 const updatedProject = { ...projectDataMap.get(projectId), name: newName };
                 projectDataMap.set(projectId, updatedProject);
-                cancelProjectEdit(button); // Re-render the item to exit edit mode
+                cancelProjectEdit(button);
             } catch (error) {
                 showStatus(`更新エラー: ${error.message}`, true, 'projectManagementStatus');
             }
@@ -716,8 +715,10 @@
                 events.forEach(event => {
                     const start = event.start.dateTime || event.start.date;
                     const projectCode = event.extendedProperties?.private?.projectCode;
-                    const project = projectDataMap.get(projects.find(p => p.code === projectCode)?.id);
+                    
+                    const project = Array.from(projectDataMap.values()).find(p => p.code === projectCode);
                     const projectInfo = project ? `【${project.name}】` : '';
+
                     const eventEl = document.createElement('div');
                     eventEl.className = 'p-2 border rounded bg-gray-50';
                     eventEl.innerHTML = `<p class="font-bold">${event.summary} ${projectInfo}</p><p class="text-sm text-gray-600">${new Date(start).toLocaleString()}</p>`;
@@ -764,6 +765,7 @@
         async function createPunchFromEvent(event) {
             const projectCode = event.extendedProperties?.private?.projectCode;
             if (!projectCode) return;
+            
             const project = Array.from(projectDataMap.values()).find(p => p.code === projectCode);
             if (!project) return;
 
@@ -788,6 +790,14 @@
                 });
             } catch (error) { console.error("予定の更新に失敗:", error); }
         }
+
+        function showStatus(message, isError, elementId) {
+            const statusDiv = document.getElementById(elementId);
+            if (statusDiv) {
+                statusDiv.textContent = message;
+                statusDiv.className = `pt-4 text-center font-medium h-10 ${isError ? 'text-red-600' : 'text-green-600'}`;
+            }
+        }
     </script>
 </body>
-</ht
+</html>
