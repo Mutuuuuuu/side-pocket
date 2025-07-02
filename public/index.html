@@ -66,6 +66,7 @@
                 showStatus("エラー: プロジェクトを選択してください。", true, 'status');
                 return;
             }
+            setButtonsDisabled(true);
             showStatus("記録しています...", false, 'status');
 
             try {
