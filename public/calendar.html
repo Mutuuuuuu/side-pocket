@@ -6,7 +6,6 @@
     <link rel="icon" href="images/sidepocket_symbol.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google APIクライアントライブラリとGoogle Identity Servicesライブラリを非同期で読み込む -->
-    <!-- onload属性は削除し、JavaScript側でロード完了を待つ -->
     <script async defer src="https://apis.google.com/js/api.js"></script>
     <script async defer src="https://accounts.google.com/gsi/client"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -63,23 +62,17 @@
         import { initializePage, auth, db, showStatus } from './shared.js';
 
         // Google APIのクライアントIDとAPIキーはFirebaseプロジェクトの設定から取得できます
-        // shared.jsにFirebaseConfigがあるため、そこからprojectIdなどを利用することも可能
-        // ただし、Google Calendar APIは別途APIキーやOAuthクライアントIDが必要な場合があるため、
-        // ここでは仮のプレースホルダーを置いています。
-        // 実際の値はGoogle Cloud Consoleで取得してください。
         const GOOGLE_CLIENT_ID = "887116583823-32evpk9fa2m0ondbbco6tv4m1980i7bj.apps.googleusercontent.com"; 
         const GOOGLE_API_KEY = "AIzaSyBuRc0oRFQk-GvVAh_90S9NGAYu5sOkxyM"; 
         const GOOGLE_DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"];
-        // スコープを読み書き可能に変更
-        const GOOGLE_SCOPES = "https://www.googleapis.com/auth/calendar.events"; 
+        const GOOGLE_SCOPES = "https://www.googleapis.com/auth/calendar.events"; // 読み書き可能スコープ
 
         let gapiInited = false; // gapiクライアントが初期化されたか
         let gisInited = false;  // Google Identity Servicesが初期化されたか
-        let tokenClient;        // Google Identity Servicesのトークンクライアント
+        let tokenClient;        // Google Identity Servicesのトークンクライアント (ポップアップ用)
         let currentUser = null; // Firebaseから認証されたユーザー情報
 
         const authStatusElement = document.getElementById('gcal-auth-status');
-        const authContainer = document.getElementById('gcal-auth-container');
         const authorizeButton = document.getElementById('gcal-authorize-button');
         const signoutButton = document.getElementById('gcal-signout-button');
         const gcalControls = document.getElementById('gcal-controls');
@@ -111,11 +104,12 @@
         };
 
         /**
-         * Google Identity Services (GIS) の初期化
+         * Google Identity Services (GIS) の初期化 (ポップアップ用)
          */
         const initGisClient = () => {
             console.log("initGisClient() called.");
             try {
+                // ポップアップフロー用のトークンクライアントを初期化
                 tokenClient = google.accounts.oauth2.initTokenClient({
                     client_id: GOOGLE_CLIENT_ID,
                     scope: GOOGLE_SCOPES,
@@ -161,7 +155,6 @@
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('app-container').style.display = 'block';
             } else if (currentUser) {
-                // Firebase認証は完了しているが、Google APIの初期化がまだの場合
                 authStatusElement.textContent = 'ステータス：Google APIを読み込み中...';
             }
         }
@@ -189,12 +182,11 @@
             listenToUserProjects();
 
             // Google APIライブラリが利用可能になったら初期化を開始
-            // window.gapiとwindow.google.accountsが存在するかをポーリングで確認
             const checkGoogleApiReady = setInterval(() => {
                 if (typeof window.gapi !== 'undefined' && typeof window.google !== 'undefined' && typeof window.google.accounts !== 'undefined') {
                     clearInterval(checkGoogleApiReady); // ポーリング停止
                     gapi.load('client', initGapiClient);
-                    initGisClient();
+                    initGisClient(); // GISクライアントはポップアップ用を初期化
                 }
             }, 100); // 100msごとにチェック
         }
@@ -211,7 +203,6 @@
                 snapshot.forEach(doc => {
                     userProjects.set(doc.data().code, { id: doc.id, ...doc.data() });
                 });
-                // プロジェクトが更新されたら、カレンダー選択肢も更新する
                 updateCalendarProjectDropdown();
             }, (error) => {
                 console.error("Error listening to projects:", error);
@@ -223,21 +214,21 @@
          * カレンダーイベント反映時に使用するプロジェクト選択ドロップダウンを更新
          */
         function updateCalendarProjectDropdown() {
-            // この関数は、calendar-events-container 内の各イベントにプロジェクト選択ドロップダウンを動的に追加する場合に必要
-            // 現状のHTMLには直接のドロップダウンがないため、イベント表示時に動的に生成するロジックと連携させる
+            // イベントレンダリング時に動的に生成されるため、ここでは何もしない
         }
 
         /**
-         * Google認証ボタンがクリックされたときのハンドラー
+         * Google認証ボタンがクリックされたときのハンドラー (ポップアップを開始)
          */
         async function handleAuthClick() {
-            // tokenClientが初期化されているか確認
             if (!tokenClient) {
                 console.error("tokenClientがまだ初期化されていません。");
                 showStatus("Google認証ライブラリの準備ができていません。しばらくお待ちください。", true, 'gcal-auth-status');
-                return; // tokenClientが未定義の場合は処理を中断
+                return;
             }
-            
+            // 既存のトークンがあれば再利用、なければ同意プロンプトを表示
+            // 'prompt' パラメータを指定しないことで、既存のセッションがあればそれを利用し、
+            // なければアカウント選択画面などを表示するようにする
             tokenClient.callback = async (resp) => {
                 if (resp.error) {
                     authStatusElement.textContent = `認証エラー: ${resp.error.message}`;
@@ -251,8 +242,6 @@
                 }
                 updateSignInStatus(); // 認証状態を更新し、カレンダーリストをロード
             };
-            // 'prompt' パラメータを指定しないことで、既存のセッションがあればそれを利用し、
-            // なければアカウント選択画面などを表示するようにする
             tokenClient.requestAccessToken(); 
         }
 
@@ -263,8 +252,8 @@
             const token = gapi.client.getToken();
             if (token !== null) {
                 google.accounts.oauth2.revoke(token.access_token, () => {
-                    gapi.client.setToken('');
-                    updateSignInStatus();
+                    gapi.client.setToken(''); // gapiクライアントからトークンをクリア
+                    updateSignInStatus(); // 引数なしで呼び出し
                     authStatusElement.textContent = 'ステータス：連携解除済み';
                     calendarSelect.innerHTML = ''; // カレンダー選択肢をクリア
                     calendarEventsContainer.innerHTML = '<p class="text-gray-500 text-center py-4">カレンダーと月を選択して「予定を読み込む」を押してください。</p>';
@@ -276,9 +265,9 @@
 
         /**
          * 認証状態に基づいてUIを更新する
+         * @param {boolean} [isSignedIn] - 現在Googleに認証済みかどうかのフラグ (オプション)
          */
-        function updateSignInStatus() {
-            const isSignedIn = gapi.client.getToken() !== null;
+        function updateSignInStatus(isSignedIn = gapi.client.getToken() !== null) { // デフォルト値を設定
             if (isSignedIn) {
                 authStatusElement.textContent = 'ステータス：Googleアカウントと連携済み';
                 authorizeButton.classList.add('hidden');
@@ -310,7 +299,6 @@
                         option.textContent = calendar.summary;
                         calendarSelect.appendChild(option);
                     });
-                    // デフォルトで最初のカレンダーを選択し、イベントを読み込む
                     loadCalendarEvents();
                 } else {
                     calendarSelect.innerHTML = '<option value="">カレンダーが見つかりません</option>';
@@ -319,12 +307,9 @@
             } catch (error) {
                 console.error("Error listing calendars:", error);
                 showStatus("カレンダーリストの取得に失敗しました。", true, 'reflect-status');
-                // 認証エラーの場合は再度認証を促す
                 if (error.result && error.result.error && error.result.error.code === 401) {
                     authStatusElement.textContent = 'ステータス：認証が無効です。再連携してください。';
-                    authorizeButton.classList.remove('hidden');
-                    signoutButton.classList.add('hidden');
-                    gcalControls.classList.add('hidden');
+                    updateSignInStatus(false); // 未連携状態に更新
                 }
             }
         }
@@ -379,9 +364,7 @@
                 calendarEventsContainer.innerHTML = '<p class="text-red-500 text-center py-4">イベントの読み込み中にエラーが発生しました。</p>';
                 if (error.result && error.result.error && error.result.error.code === 401) {
                     authStatusElement.textContent = 'ステータス：認証が無効です。再連携してください。';
-                    authorizeButton.classList.remove('hidden');
-                    signoutButton.classList.add('hidden');
-                    gcalControls.classList.add('hidden');
+                    updateSignInStatus(false); // 未連携状態に更新
                 }
             }
         }
