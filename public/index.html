@@ -18,176 +18,157 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap');
         body { font-family: 'Noto Sans JP', sans-serif; }
-        .tab-button.active { border-color: #3B82F6; color: #3B82F6; background-color: #EFF6FF; }
+        .btn { transition: all 0.2s ease-in-out; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .tab-button.active { border-color: #4f46e5; color: #4f46e5; background-color: #eef2ff; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
         .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        /* モーダル用のスタイル */
-        .modal { transition: opacity 0.25s ease; }
+        .switch { position: relative; display: inline-block; width: 60px; height: 34px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #4f46e5; }
+        input:checked + .slider:before { transform: translateX(26px); }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-800">
+<body class="bg-gray-100 min-h-screen p-4">
 
-    <!-- Header -->
-    <header class="bg-white shadow-md p-4 flex justify-between items-center">
-        <h1 class="text-2xl font-bold text-gray-800">打刻システム</h1>
-        <div class="flex items-center space-x-4">
-            <div id="user-info" class="text-right hidden">
-                <p id="user-name" class="font-semibold"></p>
-                <p id="user-email" class="text-sm text-gray-500"></p>
+    <!-- Loading Indicator -->
+    <div id="loading" class="flex justify-center items-center h-screen">
+        <div class="loader"></div>
+        <p class="ml-4 text-lg">データを読み込んでいます...</p>
+    </div>
+
+    <div id="app-container" class="w-full" style="display: none;">
+        <!-- Header -->
+        <header class="w-full max-w-4xl mx-auto mb-4 flex justify-between items-center">
+            <h1 class="text-xl font-bold text-gray-700">side pocket</h1>
+            <div id="user-info" class="flex items-center gap-3">
+                <a href="profile.html" class="flex items-center gap-2 text-sm text-gray-600 hover:text-indigo-600 no-underline">
+                    <img id="user-icon" src="https://placehold.co/32x32/EFEFEF/333333?text=?" class="w-8 h-8 rounded-full object-cover bg-gray-200">
+                    <span id="user-display-name"></span>
+                </a>
+                <button id="logoutBtn" class="btn px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700">ログアウト</button>
             </div>
-            <img id="user-icon" class="w-12 h-12 rounded-full hidden" src="https://placehold.co/100x100/ccc/fff?text=User">
-            <div class="relative">
-                <button id="menu-button" class="p-2 rounded-full hover:bg-gray-200 focus:outline-none">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" /></svg>
-                </button>
-                <div id="dropdown-menu" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-xl z-20 hidden">
-                    <a href="profile.html" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">プロフィール管理</a>
-                    <button id="logout-button" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">ログアウト</button>
-                </div>
-            </div>
-        </div>
-    </header>
+        </header>
 
-    <main class="p-4 md:p-8">
-        <!-- Loading Indicator -->
-        <div id="loading" class="flex justify-center items-center h-64">
-            <div class="loader"></div>
-            <p class="ml-4 text-lg">データを読み込んでいます...</p>
-        </div>
-
-        <!-- Main Content (hidden until loaded) -->
-        <div id="main-content" class="hidden">
-            <!-- Tabs -->
-            <div class="border-b border-gray-200 mb-6">
+        <!-- ★★★ 新しいタブナビゲーション ★★★ -->
+        <div class="w-full max-w-4xl mx-auto mb-6">
+            <div class="border-b border-gray-200">
                 <nav class="flex space-x-4" aria-label="Tabs">
-                    <button class="tab-button active" data-tab="tab-punch">打刻</button>
-                    <button class="tab-button" data-tab="tab-calendar">カレンダー連携</button>
-                    <button class="tab-button" data-tab="tab-report">月次レポート</button>
-                    <button class="tab-button" data-tab="tab-projects">プロジェクト管理</button>
+                    <button class="tab-button active" data-tab="clockInView">打刻</button>
+                    <button class="tab-button" data-tab="calendarView">カレンダー連携</button>
+                    <button class="tab-button" data-tab="summaryView">稼働時間ダッシュボード</button>
+                    <button class="tab-button" data-tab="projectManagementView">プロジェクト管理</button>
                 </nav>
             </div>
+        </div>
 
-            <!-- Tab Content -->
-            <div id="tab-punch" class="tab-content active">
-                <div class="bg-white p-6 rounded-lg shadow space-y-4 max-w-2xl mx-auto">
-                    <div class="text-center">
-                        <div id="mainTimer" class="text-6xl font-mono bg-gray-900 text-white rounded-lg py-4">00:00:00</div>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <button id="startWorkBtn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg text-lg">出勤</button>
-                        <button id="endWorkBtn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-4 rounded-lg text-lg" disabled>退勤</button>
-                    </div>
-                    <div class="pt-4 space-y-2">
-                        <label for="projectSelectPunch" class="block font-medium text-gray-700">プロジェクト</label>
-                        <select id="projectSelectPunch" class="w-full p-2 border border-gray-300 rounded-md"></select>
-                    </div>
-                    <div class="space-y-2">
-                        <label for="memoInput" class="block font-medium text-gray-700">メモ</label>
-                        <textarea id="memoInput" rows="2" class="w-full p-2 border border-gray-300 rounded-md" placeholder="作業内容などを記録できます"></textarea>
-                    </div>
-                    <div id="punchMessage" class="text-center text-sm text-gray-500 h-5"></div>
+        <!-- Views -->
+        <main id="clockInView" class="tab-content active w-full max-w-md mx-auto">
+            <div class="p-6 sm:p-8 space-y-6 bg-white rounded-2xl shadow-lg">
+                <header>
+                    <h2 class="text-2xl sm:text-3xl font-bold text-center text-gray-800">打刻システム</h2>
+                    <p id="realtime-clock" class="text-xl sm:text-2xl text-center text-gray-500 mt-2 font-mono"></p>
+                </header>
+                <div class="space-y-2">
+                    <label for="projectCode" class="text-sm font-medium text-gray-700">プロジェクト</label>
+                    <select id="projectCode" class="w-full px-4 py-3 text-base bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+                        <option value="">プロジェクトを選択してください</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <button id="clockInBtn" class="btn w-full px-6 py-3 text-lg font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700">出勤</button>
+                    <button id="clockOutBtn" class="btn w-full px-6 py-3 text-lg font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700">退勤</button>
+                </div>
+                <div id="status" class="pt-4 text-center font-medium h-10"></div>
+            </div>
+        </main>
+
+        <main id="summaryView" class="tab-content w-full max-w-4xl mx-auto">
+            <div class="p-6 sm:p-8 space-y-6 bg-white rounded-2xl shadow-lg">
+                <header><h2 class="text-2xl sm:text-3xl font-bold text-gray-800">稼働時間ダッシュボード</h2></header>
+                <div class="bg-gray-50 p-4 rounded-lg"><canvas id="monthlyChart"></canvas></div>
+                <div>
+                    <label for="monthSelector" class="text-sm font-medium text-gray-700">表示月を選択:</label>
+                    <select id="monthSelector" class="mt-1 block w-full sm:w-auto p-2 border border-gray-300 rounded-md"></select>
+                </div>
+                <div id="detailsContainer">
+                    <div id="projectTabs" class="border-b border-gray-200"></div>
+                    <div id="projectTabContent" class="mt-4"></div>
+                </div>
+                <div id="summaryStatus" class="pt-2 text-center text-gray-600 font-medium h-8"></div>
+            </div>
+        </main>
+
+        <main id="projectManagementView" class="tab-content w-full max-w-2xl mx-auto">
+             <div class="p-6 sm:p-8 space-y-6 bg-white rounded-2xl shadow-lg">
+                <header><h2 class="text-2xl sm:text-3xl font-bold text-gray-800">プロジェクト管理</h2></header>
+                <div id="projectManagementStatus" class="text-center font-medium h-8"></div>
+                <div class="p-4 border rounded-lg space-y-3">
+                    <h3 class="text-lg font-bold">新規プロジェクト追加</h3>
+                    <input type="text" id="newProjectCode" placeholder="プロジェクトコード (例: P-001)" class="w-full p-2 border rounded">
+                    <input type="text" id="newProjectName" placeholder="プロジェクト名" class="w-full p-2 border rounded">
+                    <button id="addProjectBtn" class="btn w-full text-white bg-blue-600 hover:bg-blue-700 p-2 rounded-lg">追加</button>
+                </div>
+                <div class="space-y-3">
+                    <h3 class="text-lg font-bold">プロジェクト一覧</h3>
+                    <div id="projectListContainer" class="space-y-2"></div>
                 </div>
             </div>
+        </main>
 
-            <div id="tab-calendar" class="tab-content space-y-6">
-                <div class="bg-white p-6 rounded-lg shadow">
-                    <h2 class="text-xl font-bold mb-4">Googleカレンダー連携</h2>
+        <!-- ★★★ 新しいカレンダー連携ビュー ★★★ -->
+        <main id="calendarView" class="tab-content w-full max-w-4xl mx-auto">
+            <div class="p-6 sm:p-8 space-y-6 bg-white rounded-2xl shadow-lg">
+                <h2 class="text-2xl sm:text-3xl font-bold text-gray-800">Googleカレンダー連携</h2>
+                <div id="gcal-status-container" class="bg-gray-50 p-4 rounded-lg">
                     <p id="gcal-auth-status" class="text-gray-600 mb-4">ステータス：初期化中...</p>
                     <div class="flex flex-wrap gap-2">
-                        <button id="gcal-authorize-button" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded hidden">Googleと連携する</button>
-                        <button id="gcal-signout-button" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded hidden">連携を解除</button>
-                        <button id="gcal-load-events-button" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded hidden">予定を読み込む</button>
-                        <button id="gcal-add-event-button" class="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded hidden">予定を作成</button>
+                        <button id="gcal-authorize-button" class="btn bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded hidden">Googleと連携する</button>
+                        <button id="gcal-signout-button" class="btn bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded hidden">連携を解除</button>
+                        <button id="gcal-load-events-button" class="btn bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded hidden">予定を読み込む</button>
+                        <button id="gcal-add-event-button" class="btn bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded hidden">予定を作成</button>
                     </div>
                 </div>
-                <div class="bg-white p-6 rounded-lg shadow">
+                <div class="bg-gray-50 p-4 rounded-lg">
                      <h3 class="text-lg font-bold mb-2">カレンダーの予定</h3>
                      <div id="calendar-events-container" class="space-y-2 max-h-96 overflow-y-auto">
                         <p class="text-gray-500">連携後に「予定を読み込む」ボタンを押してください。</p>
                      </div>
                 </div>
             </div>
-
-            <div id="tab-report" class="tab-content">
-                <div class="bg-white p-6 rounded-lg shadow space-y-4">
-                    <div class="flex flex-wrap items-center justify-between gap-4">
-                        <h2 class="text-xl font-bold">月次レポート</h2>
-                        <div class="flex items-center gap-2">
-                            <button id="prevMonthBtn" class="px-3 py-1 border rounded-md">&lt;</button>
-                            <input type="month" id="reportMonth" class="p-2 border rounded-md">
-                            <button id="nextMonthBtn" class="px-3 py-1 border rounded-md">&gt;</button>
-                        </div>
-                        <button id="exportPdfBtn" class="bg-gray-700 hover:bg-gray-800 text-white font-bold py-2 px-4 rounded-md">PDFでエクスポート</button>
-                    </div>
-                    <!-- ★★★ グラフ表示用のCanvasを追加 ★★★ -->
-                    <div class="my-4"><canvas id="reportChart"></canvas></div>
-                    <div id="reportOutput" class="space-y-4 overflow-x-auto"></div>
-                    <div id="reportSummary" class="text-right font-bold text-lg pr-4"></div>
-                </div>
-            </div>
-            <div id="tab-projects" class="tab-content">
-                <div class="grid md:grid-cols-2 gap-6">
-                    <div class="bg-white p-6 rounded-lg shadow space-y-4">
-                        <h2 class="text-xl font-bold">プロジェクト追加</h2>
-                        <form id="addProjectForm" class="space-y-3">
-                            <input type="text" id="projectCode" placeholder="プロジェクトコード" required class="w-full p-2 border rounded-md">
-                            <input type="text" id="projectName" placeholder="プロジェクト名" required class="w-full p-2 border rounded-md">
-                            <input type="color" id="projectColor" value="#808080" class="w-full h-10 p-1 border rounded-md">
-                            <button type="submit" class="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded-md">追加</button>
-                        </form>
-                        <div id="projectManagementStatus" class="text-center h-5"></div>
-                    </div>
-                    <div class="bg-white p-6 rounded-lg shadow space-y-4">
-                        <h2 class="text-xl font-bold">プロジェクト一覧</h2>
-                        <div id="projectList" class="space-y-2 max-h-96 overflow-y-auto"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </main>
-
-    <!-- Modals -->
-    <div id="add-event-modal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center">
-        <!-- ... (内容は変更なし) ... -->
+        </main>
     </div>
-    
-    <!-- ★★★ プロジェクト編集用モーダルを追加 ★★★ -->
-    <div id="edit-project-modal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center p-4">
+
+    <!-- Calendar Event Add Modal -->
+    <div id="add-event-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center">
         <div class="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
-            <h2 class="text-2xl font-bold mb-6">プロジェクトを編集</h2>
-            <form id="editProjectForm">
-                <input type="hidden" id="editProjectId">
+            <h2 class="text-2xl font-bold mb-6">新しい予定を作成</h2>
+            <form id="add-event-form">
                 <div class="space-y-4">
-                    <div>
-                        <label for="editProjectCode" class="block text-sm font-medium text-gray-700">プロジェクトコード</label>
-                        <input type="text" id="editProjectCode" required class="mt-1 w-full px-4 py-2 border rounded-md">
-                    </div>
-                    <div>
-                        <label for="editProjectName" class="block text-sm font-medium text-gray-700">プロジェクト名</label>
-                        <input type="text" id="editProjectName" required class="mt-1 w-full px-4 py-2 border rounded-md">
-                    </div>
-                    <div>
-                        <label for="editProjectColor" class="block text-sm font-medium text-gray-700">色</label>
-                        <input type="color" id="editProjectColor" class="mt-1 w-full h-10 p-1 border rounded-md">
-                    </div>
+                    <input type="text" id="event-summary" placeholder="予定のタイトル" required class="w-full px-4 py-2 border rounded">
+                    <input type="datetime-local" id="event-start-time" required class="w-full px-4 py-2 border rounded">
+                    <input type="datetime-local" id="event-end-time" required class="w-full px-4 py-2 border rounded">
+                    <select id="event-project-select" class="w-full px-4 py-2 border rounded">
+                        <option value="">プロジェクトを選択（任意）</option>
+                    </select>
+                    <textarea id="event-description" placeholder="詳細（任意）" class="w-full px-4 py-2 border rounded"></textarea>
                 </div>
                 <div class="mt-6 flex justify-end gap-4">
-                    <button type="button" id="cancel-edit-project" class="px-4 py-2 bg-gray-200 rounded-md">キャンセル</button>
-                    <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-md">更新</button>
+                    <button type="button" id="cancel-add-event" class="px-4 py-2 bg-gray-200 rounded">キャンセル</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded">作成</button>
                 </div>
             </form>
         </div>
     </div>
 
-
-    <!-- Firebase & App Logic -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, getDoc, setDoc, addDoc, getDocs, query, where, serverTimestamp, Timestamp, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, query, where, orderBy, limit, doc, updateDoc, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { IPAEXG_FONT_B64 } from './fonts.js';
 
         const API_KEY = 'AIzaSyBuRc0oRFQk-GvVAh_90S9NGAYu5sOkxyM';
@@ -203,7 +184,7 @@
             apiKey: "AIzaSyBuRc0oRFQk-GvVAh_90S9NGAYu5sOkxyM",
             authDomain: "side-pocket-sl.firebaseapp.com",
             projectId: "side-pocket-sl",
-            storageBucket: "side-pocket-sl.firebasestorage.app",
+            storageBucket: "side-pocket-sl.appspot.com",
             messagingSenderId: "887116583823",
             appId: "1:887116583823:web:5783488bd573f5be4bf1fa",
             measurementId: "G-QSBDN1TX68"
@@ -211,18 +192,24 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        
-        let currentUser = null;
-        let projects = [];
-        let currentPunchId = null;
-        let timerInterval = null;
-        let reportData = [];
-        let reportChart = null;
 
-        onAuthStateChanged(auth, async (user) => {
+        let currentUser = null;
+        let fullDashboardData = {};
+        let monthlyChartInstance = null;
+        let projectsUnsubscribe = null;
+        let timestampsUnsubscribe = null;
+        const projectDataMap = new Map();
+
+        onAuthStateChanged(auth, (user) => {
             if (user) {
                 currentUser = user;
-                await setupUIForUser(user);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('app-container').style.display = 'block';
+                document.getElementById('user-display-name').textContent = user.displayName || user.email;
+                document.getElementById('user-icon').src = user.photoURL || `https://placehold.co/32x32/EFEFEF/333333?text=${(user.displayName || user.email || '?').charAt(0)}`;
+                setupTabs();
+                showMainView('clockInView');
+
                 gapi.load('client', initializeGapiClient);
                 setTimeout(() => {
                     try {
@@ -238,163 +225,419 @@
                         updateGcalUi();
                     } catch (e) { console.error("Error initializing Google Identity Services.", e); }
                 }, 1000);
-            } else { window.location.href = 'login.html'; }
-        });
-
-        async function setupUIForUser(user) {
-            const userDoc = await getDoc(doc(db, "users", user.uid));
-            if (userDoc.exists()) {
-                const userData = userDoc.data();
-                document.getElementById('user-name').textContent = userData.displayName || '名無しさん';
-                document.getElementById('user-email').textContent = user.email;
-                document.getElementById('user-icon').src = userData.photoURL || 'https://placehold.co/100x100/ccc/fff?text=User';
-            }
-            document.getElementById('user-info').classList.remove('hidden');
-            document.getElementById('user-icon').classList.remove('hidden');
-            
-            const projectsQuery = query(collection(db, "projects"), where("ownerId", "==", user.uid));
-            onSnapshot(projectsQuery, (snapshot) => {
-                projects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                updateProjectDropdowns();
-                displayProjectList();
-            });
-
-            await checkForOngoingPunch();
-            setupReportMonth();
-            setupProjectEditModal();
-
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('main-content').classList.remove('hidden');
-            setInterval(checkForAutoPunch, 30 * 60 * 1000);
-        }
-
-        function showStatus(message, isError, elementId) {
-            const elem = document.getElementById(elementId);
-            if (elem) {
-                elem.textContent = message;
-                elem.className = isError ? 'text-red-500 text-center h-5' : 'text-green-500 text-center h-5';
-            }
-        }
-
-        function updateProjectDropdowns() {
-            const punchSelect = document.getElementById('projectSelectPunch');
-            const eventSelect = document.getElementById('event-project-select');
-            [punchSelect, eventSelect].forEach(select => {
-                const currentValue = select.value;
-                select.innerHTML = '';
-                if (select.id === 'event-project-select') {
-                    select.innerHTML = '<option value="">プロジェクトを選択（任意）</option>';
-                } else { select.innerHTML = '<option value="">プロジェクトを選択</option>'; }
-                projects.forEach(p => {
-                    const option = document.createElement('option');
-                    option.value = p.id;
-                    option.textContent = `[${p.code}] ${p.name}`;
-                    select.appendChild(option);
-                });
-                select.value = currentValue;
-            });
-        }
-
-        // --- 打刻機能 ---
-        const startWorkBtn = document.getElementById('startWorkBtn');
-        const endWorkBtn = document.getElementById('endWorkBtn');
-        const timerDiv = document.getElementById('mainTimer');
-
-        async function checkForOngoingPunch() {
-            const q = query(collection(db, `users/${currentUser.uid}/punches`), where("endTime", "==", null));
-            const snapshot = await getDocs(q);
-            if (!snapshot.empty) {
-                const punchDoc = snapshot.docs[0];
-                currentPunchId = punchDoc.id;
-                const punchData = punchDoc.data();
-                const startTime = punchData.startTime.toDate();
-                startTimer(startTime);
-                startWorkBtn.disabled = true;
-                endWorkBtn.disabled = false;
-                document.getElementById('projectSelectPunch').value = punchData.projectId;
-                document.getElementById('memoInput').value = punchData.memo || '';
             } else {
-                startWorkBtn.disabled = false;
-                endWorkBtn.disabled = true;
-                timerDiv.textContent = "00:00:00";
-                if(timerInterval) clearInterval(timerInterval);
+                window.location.href = 'login.html';
             }
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            signOut(auth);
+            unsubscribeAllListeners();
+        });
+
+        function unsubscribeAllListeners() {
+            if (projectsUnsubscribe) projectsUnsubscribe();
+            if (timestampsUnsubscribe) timestampsUnsubscribe();
+            projectsUnsubscribe = null;
+            timestampsUnsubscribe = null;
         }
 
-        function startTimer(startTime) {
-            if (timerInterval) clearInterval(timerInterval);
-            timerInterval = setInterval(() => {
-                const diff = new Date() - startTime;
-                const hours = String(Math.floor(diff / 3600000)).padStart(2, '0');
-                const minutes = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0');
-                const seconds = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
-                timerDiv.textContent = `${hours}:${minutes}:${seconds}`;
-            }, 1000);
-        }
-
-        startWorkBtn.addEventListener('click', async () => {
-            const projectId = document.getElementById('projectSelectPunch').value;
-            if (!projectId) {
-                showStatus("プロジェクトを選択してください。", true, 'punchMessage');
-                return;
-            }
-            showStatus("", false, 'punchMessage');
-            try {
-                const punchRef = await addDoc(collection(db, `users/${currentUser.uid}/punches`), {
-                    userId: currentUser.uid, type: 'work', projectId: projectId,
-                    startTime: serverTimestamp(), endTime: null,
-                    memo: document.getElementById('memoInput').value
+        // --- UI Navigation ---
+        function setupTabs() {
+            const tabs = document.querySelectorAll('.tab-button');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    tabs.forEach(item => item.classList.remove('active'));
+                    tab.classList.add('active');
+                    showMainView(tab.dataset.tab);
                 });
-                currentPunchId = punchRef.id;
-                await checkForOngoingPunch();
-            } catch (error) { showStatus("出勤処理に失敗しました。", true, 'punchMessage'); }
-        });
-
-        endWorkBtn.addEventListener('click', async () => {
-            if (!currentPunchId) return;
-            try {
-                const punchDocRef = doc(db, `users/${currentUser.uid}/punches`, currentPunchId);
-                await setDoc(punchDocRef, { 
-                    endTime: serverTimestamp(), memo: document.getElementById('memoInput').value 
-                }, { merge: true });
-                clearInterval(timerInterval);
-                currentPunchId = null;
-                document.getElementById('memoInput').value = '';
-                await checkForOngoingPunch();
-                showStatus("退勤しました。", false, 'punchMessage');
-            } catch (error) { showStatus("退勤処理に失敗しました。", true, 'punchMessage'); }
-        });
-
-        // --- プロジェクト管理機能 ---
-        function displayProjectList() {
-            const listContainer = document.getElementById('projectList');
-            listContainer.innerHTML = '';
-            if (projects.length === 0) {
-                listContainer.innerHTML = '<p class="text-gray-500">プロジェクトがありません。</p>';
-                return;
-            }
-            projects.forEach(p => {
-                const div = document.createElement('div');
-                div.className = 'flex items-center justify-between p-2 border rounded hover:bg-gray-50';
-                div.innerHTML = `
-                    <div class="flex items-center gap-2">
-                        <span class="w-4 h-4 rounded-full" style="background-color: ${p.color || '#808080'};"></span>
-                        <span>[${p.code}] ${p.name}</span>
-                    </div>
-                    <button data-id="${p.id}" class="edit-project-btn text-sm text-blue-500 hover:underline">編集</button>
-                `;
-                listContainer.appendChild(div);
-            });
-            document.querySelectorAll('.edit-project-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => openProjectEditModal(e.target.dataset.id));
             });
         }
 
-        document.getElementById('addProjectForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const codeInput = document.getElementById('projectCode');
-            const nameInput = document.getElementById('projectName');
-            const colorInput = document.getElementById('projectColor');
+        function showMainView(viewId) {
+            document.querySelectorAll('.tab-content').forEach(view => {
+                view.style.display = 'none';
+            });
+            document.getElementById(viewId).style.display = 'block';
+            document.getElementById(viewId).classList.add('active');
+
+            unsubscribeAllListeners();
+            if (viewId === 'clockInView') {
+                listenToActiveProjects();
+            } else if (viewId === 'summaryView') {
+                listenToTimestamps();
+            } else if (viewId === 'projectManagementView') {
+                listenToAllProjects();
+            }
+        }
+        
+        // --- Original App Logic ---
+        function updateClock() { document.getElementById('realtime-clock').textContent = new Date().toLocaleTimeString('ja-JP'); }
+        setInterval(updateClock, 1000);
+
+        document.getElementById('clockInBtn').addEventListener('click', () => handleTimestamp('出勤'));
+        document.getElementById('clockOutBtn').addEventListener('click', () => handleTimestamp('退勤'));
+
+        async function handleTimestamp(action) {
+            const projectCode = document.getElementById('projectCode').value;
+            if (!projectCode) {
+                showStatus("エラー: プロジェクトを選択してください。", true, 'status');
+                return;
+            }
+            setButtonsDisabled(true);
+            showStatus("記録しています...", false, 'status');
+
+            try {
+                if (action === "出勤") {
+                    const q = query(collection(db, "timestamps"), where("userId", "==", currentUser.uid), where("projectCode", "==", projectCode), where("clockOutTime", "==", null));
+                    const querySnapshot = await getDocs(q);
+                    if (!querySnapshot.empty) throw new Error("このプロジェクトでは既に出勤済みです。");
+
+                    const projectOption = document.querySelector(`#projectCode option[value="${projectCode}"]`);
+                    const projectName = projectOption ? projectOption.dataset.name : projectCode;
+
+                    await addDoc(collection(db, "timestamps"), {
+                        userId: currentUser.uid, userEmail: currentUser.email,
+                        projectCode: projectCode, projectName: projectName,
+                        clockInTime: serverTimestamp(), clockOutTime: null, durationHours: null
+                    });
+                    showStatus(`成功:「出勤」を記録しました。`, false, 'status');
+                } else {
+                    const q = query(collection(db, "timestamps"), where("userId", "==", currentUser.uid), where("projectCode", "==", projectCode), where("clockOutTime", "==", null), orderBy("clockInTime", "desc"), limit(1));
+                    const querySnapshot = await getDocs(q);
+                    if (querySnapshot.empty) throw new Error("対応する出勤記録が見つかりません。");
+
+                    const recordDoc = querySnapshot.docs[0];
+                    const clockInTime = recordDoc.data().clockInTime.toDate();
+                    const now = new Date();
+                    const durationHours = (now.getTime() - clockInTime.getTime()) / 3600000;
+
+                    await updateDoc(doc(db, "timestamps", recordDoc.id), {
+                        clockOutTime: now,
+                        durationHours: parseFloat(durationHours.toFixed(2))
+                    });
+                    showStatus(`成功:「退勤」を ${now.toLocaleTimeString('ja-JP')} に記録しました。`, false, 'status');
+                }
+            } catch (error) {
+                showStatus(`エラー: ${error.message}`, true, 'status');
+            } finally {
+                setButtonsDisabled(false);
+            }
+        }
+
+        function setButtonsDisabled(disabled) {
+            [document.getElementById('clockInBtn'), document.getElementById('clockOutBtn')].forEach(btn => {
+                btn.disabled = disabled;
+                btn.classList.toggle('opacity-50', disabled);
+                btn.classList.toggle('cursor-not-allowed', disabled);
+            });
+        }
+
+        function listenToActiveProjects() {
+            if (!currentUser) return;
+            if (projectsUnsubscribe) projectsUnsubscribe();
+            const q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid), where("status", "==", "Active"), orderBy("code"));
+            projectsUnsubscribe = onSnapshot(q, (querySnapshot) => {
+                const projects = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                updateProjectDropdown(projects);
+            }, (error) => {
+                showStatus("プロジェクトの読み込みに失敗しました。", true, 'status');
+            });
+        }
+
+        function updateProjectDropdown(projects) {
+            const select = document.getElementById('projectCode');
+            const eventSelect = document.getElementById('event-project-select');
+            const currentValue = select.value;
+            select.innerHTML = '<option value="">プロジェクトを選択してください</option>';
+            eventSelect.innerHTML = '<option value="">プロジェクトを選択（任意）</option>';
+
+            projects.forEach(p => {
+                const option = document.createElement('option');
+                option.value = p.code;
+                option.textContent = `${p.code}: ${p.name}`;
+                option.dataset.name = p.name;
+                select.appendChild(option.cloneNode(true));
+                eventSelect.appendChild(option);
+            });
+            select.value = currentValue;
+        }
+
+        async function getProjectsMap() {
+            if (!currentUser) return {};
+            const projectsMap = {};
+            const q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid));
+            const querySnapshot = await getDocs(q);
+            querySnapshot.forEach((doc) => {
+                const project = doc.data();
+                projectsMap[project.code] = { name: project.name, color: project.color || null };
+            });
+            return projectsMap;
+        }
+
+        function listenToTimestamps() {
+            if (!currentUser) return;
+            showStatus('データを読み込んでいます...', false, 'summaryStatus');
+            if (timestampsUnsubscribe) timestampsUnsubscribe();
+            const q = query(collection(db, "timestamps"), where("userId", "==", currentUser.uid), orderBy("clockInTime", "desc"));
+            timestampsUnsubscribe = onSnapshot(q, async (snapshot) => {
+                const records = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                const projectsMap = await getProjectsMap();
+                processDashboardData(records, projectsMap);
+                showStatus('', false, 'summaryStatus');
+            }, (error) => {
+                showStatus(`エラー: ${error.message}`, true, 'summaryStatus');
+            });
+        }
+
+        function processDashboardData(records, projectsMap) {
+            const monthlyData = {};
+            records.forEach(record => {
+                if (!record.clockInTime) return;
+                const clockInTime = record.clockInTime.toDate();
+                const yearMonth = `${clockInTime.getFullYear()}-${(clockInTime.getMonth() + 1).toString().padStart(2, '0')}`;
+                const projectCode = record.projectCode || '未指定';
+                const duration = record.durationHours || 0;
+                if (!monthlyData[yearMonth]) monthlyData[yearMonth] = {};
+                if (!monthlyData[yearMonth][projectCode]) {
+                    const projectName = projectsMap[projectCode]?.name || record.projectName || projectCode;
+                    monthlyData[yearMonth][projectCode] = { projectName: projectName, total: 0, details: [] };
+                }
+                monthlyData[yearMonth][projectCode].total += duration;
+                if (record.durationHours !== null) {
+                    monthlyData[yearMonth][projectCode].details.push({
+                        recordId: record.id, date: clockInTime.toLocaleDateString('ja-JP'),
+                        clockIn: clockInTime.toLocaleString('ja-JP'),
+                        clockOut: record.clockOutTime ? record.clockOutTime.toDate().toLocaleString('ja-JP') : 'N/A',
+                        duration: duration.toFixed(2)
+                    });
+                }
+            });
+
+            fullDashboardData = monthlyData;
+            const allMonths = Object.keys(monthlyData).sort();
+            const allProjects = [...new Set(Object.values(monthlyData).flatMap(month => Object.keys(month)))];
+            const datasets = allProjects.map(projectCode => {
+                const projectInfo = projectsMap[projectCode] || {};
+                const color = projectInfo.color || `rgba(${Math.floor(Math.random()*255)}, ${Math.floor(Math.random()*255)}, ${Math.floor(Math.random()*255)}, 0.8)`;
+                const dataPoints = allMonths.map(month => monthlyData[month][projectCode]?.total || 0);
+                return { label: `${projectInfo.name || projectCode}`, data: dataPoints, borderColor: color, backgroundColor: color, fill: false };
+            });
+            renderMonthlyChart({ labels: allMonths, datasets });
+
+            const availableMonths = Object.keys(fullDashboardData).sort().reverse();
+            document.getElementById('monthSelector').innerHTML = availableMonths.map(month => `<option value="${month}">${month}</option>`).join('');
+            if (availableMonths.length > 0) {
+                renderMonthData(availableMonths[0]);
+            } else {
+                document.getElementById('detailsContainer').innerHTML = '<p class="text-center text-gray-500 py-4">表示できるデータがありません。</p>';
+            }
+        }
+
+        function renderMonthlyChart(graphData) {
+            if (monthlyChartInstance) monthlyChartInstance.destroy();
+            const ctx = document.getElementById('monthlyChart').getContext('2d');
+            monthlyChartInstance = new Chart(ctx, {
+                type: 'line', data: graphData,
+                options: { responsive: true, scales: { y: { beginAtZero: true, ticks: { callback: value => value + 'h' } } } }
+            });
+        }
+
+        document.getElementById('monthSelector').addEventListener('change', (e) => renderMonthData(e.target.value));
+
+        function renderMonthData(month) {
+            const dataForMonth = fullDashboardData[month] || {};
+            const projects = Object.keys(dataForMonth);
+            const tabsContainer = document.getElementById('projectTabs');
+            const contentContainer = document.getElementById('projectTabContent');
+            if (projects.length === 0) {
+                tabsContainer.innerHTML = '';
+                contentContainer.innerHTML = '<p class="text-center text-gray-500 py-4">この月には記録がありません。</p>';
+                return;
+            }
+            tabsContainer.innerHTML = `<nav class="-mb-px flex space-x-4 overflow-x-auto">${projects.map((p, i) => `<button data-project="${p}" class="tab-btn whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm ${i===0 ? 'active' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}">${dataForMonth[p].projectName}</button>`).join('')}</nav>`;
+            contentContainer.innerHTML = projects.map((p, i) => {
+                const projectData = dataForMonth[p];
+                const totalHours = projectData.total.toFixed(2);
+                let detailsHtml = `<div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-200"><thead><tr><th class="px-4 py-2 text-left text-xs font-medium text-gray-500">出勤</th><th class="px-4 py-2 text-left text-xs font-medium text-gray-500">退勤</th><th class="px-4 py-2 text-right text-xs font-medium text-gray-500">時間(h)</th></tr></thead><tbody>
+                    ${projectData.details.sort((a, b) => new Date(a.clockIn) - new Date(b.clockIn)).map(d => `<tr><td class="px-4 py-2 text-sm">${d.clockIn}</td><td class="px-4 py-2 text-sm">${d.clockOut}</td><td class="px-4 py-2 text-sm text-right">${d.duration}</td></tr>`).join('')}
+                </tbody></table></div>`;
+                return `<div data-content="${p}" class="${i===0 ? '' : 'hidden'}">
+                    <div class="flex flex-col sm:flex-row justify-between items-center p-4 bg-indigo-50 rounded-lg gap-4">
+                        <h3 class="text-lg font-bold">合計時間: <span class="text-indigo-600">${totalHours}</span> 時間</h3>
+                        <button data-month="${month}" data-project="${p}" class="download-pdf-btn btn w-full sm:w-auto text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg">PDF出力</button>
+                    </div>
+                    <div class="mt-4">${detailsHtml}</div>
+                </div>`;
+            }).join('');
+            tabsContainer.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => {
+                const targetProject = btn.dataset.project;
+                tabsContainer.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.project === targetProject));
+                contentContainer.querySelectorAll('[data-content]').forEach(c => c.classList.toggle('hidden', c.dataset.content !== targetProject));
+            }));
+        }
+
+        document.getElementById('detailsContainer').addEventListener('click', (e) => {
+            if (e.target && e.target.classList.contains('download-pdf-btn')) {
+                downloadPdf(e.target.dataset.month, e.target.dataset.project);
+            }
+        });
+
+        function downloadPdf(month, projectCode) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const projectData = fullDashboardData[month]?.[projectCode];
+            if (!projectData) return;
+            doc.addFileToVFS("ipaexg.ttf", IPAEXG_FONT_B64);
+            doc.addFont("ipaexg.ttf", "ipaexg", "normal");
+            doc.setFont("ipaexg");
+            doc.setFontSize(18);
+            doc.text(`${month} 稼働時間報告書`, 14, 22);
+            doc.setFontSize(14);
+            doc.text(`${projectData.projectName} (${projectCode})`, 14, 32);
+            doc.setFontSize(12);
+            doc.text(`合計時間: ${projectData.total.toFixed(2)} 時間`, 14, 42);
+            const tableColumn = ["日付", "出勤", "退勤", "時間(h)"];
+            const tableRows = [];
+            projectData.details.sort((a, b) => new Date(a.clockIn) - new Date(b.clockIn)).forEach(detail => {
+                const datePart = detail.date.split(' ')[0];
+                const clockInTimePart = (detail.clockIn || "").split(' ')[1] || "";
+                const clockOutTimePart = (detail.clockOut || "").split(' ')[1] || "";
+                tableRows.push([datePart, clockInTimePart, clockOutTimePart, detail.duration]);
+            });
+            doc.autoTable({ head: [tableColumn], body: tableRows, startY: 50, styles: { font: "ipaexg", fontStyle: 'normal' }, headStyles: { fillColor: [79, 70, 229] }, margin: { top: 10, right: 10, bottom: 10, left: 10 } });
+            doc.save(`稼働報告書_${month}_${projectCode}.pdf`);
+        }
+
+        function listenToAllProjects() {
+            if (!currentUser) return;
+            if (projectsUnsubscribe) projectsUnsubscribe();
+            const q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid), orderBy("code"));
+            projectsUnsubscribe = onSnapshot(q, (snapshot) => {
+                const projects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderProjectList(projects);
+            }, (error) => {
+                showStatus("プロジェクトリストの取得に失敗しました。", true, 'projectManagementStatus');
+            });
+        }
+
+        function renderProjectItem(p) {
+            return `<div class="project-item flex justify-between items-center p-3 border-b gap-2 rounded-lg bg-white shadow-sm" data-project-id="${p.id}">
+                <input type="color" class="project-color-input p-1 h-10 w-10 block bg-white border border-gray-200 cursor-pointer rounded-lg" value="${p.color || '#808080'}">
+                <div class="flex-grow">
+                    <div data-field="name" class="font-bold text-gray-800">${p.name}</div>
+                    <div class="text-sm text-gray-500">${p.code}</div>
+                </div>
+                <div class="flex items-center gap-2" data-role="action-buttons">
+                    <button class="edit-project-btn btn text-sm bg-gray-200 text-gray-700 px-3 py-1 rounded-lg hover:bg-gray-300">修正</button>
+                    <label class="switch"><input type="checkbox" class="project-status-toggle" ${p.status === 'Active' ? 'checked' : ''}><span class="slider"></span></label>
+                </div>
+            </div>`;
+        }
+
+        function renderProjectList(projects) {
+            const container = document.getElementById('projectListContainer');
+            projectDataMap.clear();
+            if (!projects || projects.length === 0) {
+                container.innerHTML = '<p class="text-center text-gray-500">プロジェクトがありません。</p>';
+                return;
+            }
+            container.innerHTML = projects.map(p => {
+                projectDataMap.set(p.id, p);
+                return renderProjectItem(p);
+            }).join('');
+        }
+
+        document.getElementById('projectListContainer').addEventListener('change', (e) => {
+            if (e.target.classList.contains('project-color-input') || e.target.classList.contains('project-status-toggle')) {
+                handleProjectUpdate(e.target);
+            }
+        });
+
+        document.getElementById('projectListContainer').addEventListener('click', (e) => {
+            const target = e.target;
+            if (target.classList.contains('edit-project-btn')) {
+                toggleProjectEdit(target);
+            } else if (target.classList.contains('save-project-btn')) {
+                saveProjectName(target);
+            } else if (target.classList.contains('cancel-project-btn')) {
+                cancelProjectEdit(target);
+            }
+        });
+
+        function toggleProjectEdit(button) {
+            const projectItem = button.closest('.project-item');
+            const nameDiv = projectItem.querySelector('[data-field="name"]');
+            const actionButtonsDiv = projectItem.querySelector('[data-role="action-buttons"]');
+            const currentName = nameDiv.textContent;
+            nameDiv.innerHTML = `<input type="text" class="project-name-input w-full p-1 border rounded" value="${currentName}">`;
+            actionButtonsDiv.innerHTML = `<button class="save-project-btn btn text-sm bg-green-500 text-white px-3 py-1 rounded-lg hover:bg-green-600">保存</button>
+                <button class="cancel-project-btn btn text-sm bg-gray-400 text-white px-3 py-1 rounded-lg hover:bg-gray-500">取消</button>`;
+            projectItem.querySelector('.project-name-input').focus();
+        }
+
+        function cancelProjectEdit(button) {
+            const projectItem = button.closest('.project-item');
+            const projectId = projectItem.dataset.projectId;
+            const originalProject = projectDataMap.get(projectId);
+            if (originalProject) {
+                const nameDiv = projectItem.querySelector('[data-field="name"]');
+                const actionButtonsDiv = projectItem.querySelector('[data-role="action-buttons"]');
+                nameDiv.textContent = originalProject.name;
+                actionButtonsDiv.innerHTML = `<button class="edit-project-btn btn text-sm bg-gray-200 text-gray-700 px-3 py-1 rounded-lg hover:bg-gray-300">修正</button>
+                    <label class="switch"><input type="checkbox" class="project-status-toggle" ${originalProject.status === 'Active' ? 'checked' : ''}><span class="slider"></span></label>`;
+            }
+        }
+
+        async function saveProjectName(button) {
+            const projectItem = button.closest('.project-item');
+            const projectId = projectItem.dataset.projectId;
+            const nameInput = projectItem.querySelector('.project-name-input');
+            const newName = nameInput.value.trim();
+            if (!newName) {
+                showStatus('プロジェクト名は必須です。', true, 'projectManagementStatus');
+                return;
+            }
+            showStatus('プロジェクト名を更新しています...', false, 'projectManagementStatus');
+            const docRef = doc(db, "projects", projectId);
+            try {
+                await updateDoc(docRef, { name: newName });
+                showStatus('更新しました。', false, 'projectManagementStatus');
+                const updatedProject = { ...projectDataMap.get(projectId), name: newName };
+                projectDataMap.set(projectId, updatedProject);
+                cancelProjectEdit(button); // Re-render the item to exit edit mode
+            } catch (error) {
+                showStatus(`更新エラー: ${error.message}`, true, 'projectManagementStatus');
+            }
+        }
+
+        async function handleProjectUpdate(target) {
+            const projectItem = target.closest('.project-item');
+            const projectId = projectItem.dataset.projectId;
+            if (!projectId) return;
+            const docRef = doc(db, "projects", projectId);
+            try {
+                const updateData = {};
+                if (target.type === 'checkbox') {
+                    updateData.status = target.checked ? 'Active' : 'Inactive';
+                    showStatus("ステータスを更新しています...", false, 'projectManagementStatus');
+                } else if (target.type === 'color') {
+                    updateData.color = target.value;
+                    showStatus("色を更新しています...", false, 'projectManagementStatus');
+                }
+                await updateDoc(docRef, updateData);
+                showStatus("更新しました。", false, 'projectManagementStatus');
+                const currentProject = projectDataMap.get(projectId);
+                projectDataMap.set(projectId, { ...currentProject, ...updateData });
+            } catch (error) {
+                showStatus(`更新エラー: ${error.message}`, true, 'projectManagementStatus');
+            }
+        }
+
+        document.getElementById('addProjectBtn').addEventListener('click', async () => {
+            if (!currentUser) return;
+            const codeInput = document.getElementById('newProjectCode');
+            const nameInput = document.getElementById('newProjectName');
             const code = codeInput.value.trim();
             const name = nameInput.value.trim();
             if (!code || !name) {
@@ -405,193 +648,18 @@
             try {
                 const q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid), where("code", "==", code));
                 const querySnapshot = await getDocs(q);
-                if (!querySnapshot.empty) { throw new Error("同じプロジェクトコードが既に存在します。"); }
-                
+                if (!querySnapshot.empty) throw new Error("同じプロジェクトコードが既に存在します。");
                 await addDoc(collection(db, "projects"), {
-                    code: code, name: name, color: colorInput.value, ownerId: currentUser.uid
+                    code: code, name: name, status: "Active", color: "#808080", ownerId: currentUser.uid
                 });
                 showStatus("プロジェクトを追加しました。", false, 'projectManagementStatus');
                 codeInput.value = ''; nameInput.value = '';
-            } catch (error) { showStatus(`追加エラー: ${error.message}`, true, 'projectManagementStatus'); }
+            } catch (error) {
+                showStatus(`追加エラー: ${error.message}`, true, 'projectManagementStatus');
+            }
         });
-        
-        // ★★★ プロジェクト編集モーダルのロジックを追加 ★★★
-        function setupProjectEditModal() {
-            const modal = document.getElementById('edit-project-modal');
-            document.getElementById('cancel-edit-project').addEventListener('click', () => modal.classList.add('hidden'));
-            document.getElementById('editProjectForm').addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const projectId = document.getElementById('editProjectId').value;
-                const projectRef = doc(db, "projects", projectId);
-                try {
-                    await updateDoc(projectRef, {
-                        code: document.getElementById('editProjectCode').value,
-                        name: document.getElementById('editProjectName').value,
-                        color: document.getElementById('editProjectColor').value,
-                    });
-                    modal.classList.add('hidden');
-                } catch(error) {
-                    alert('更新に失敗しました: ' + error.message);
-                }
-            });
-        }
 
-        function openProjectEditModal(projectId) {
-            const project = projects.find(p => p.id === projectId);
-            if (!project) return;
-            document.getElementById('editProjectId').value = project.id;
-            document.getElementById('editProjectCode').value = project.code;
-            document.getElementById('editProjectName').value = project.name;
-            document.getElementById('editProjectColor').value = project.color || '#808080';
-            document.getElementById('edit-project-modal').classList.remove('hidden');
-        }
-
-        // --- 月次レポート機能 ---
-        const reportMonthInput = document.getElementById('reportMonth');
-        function setupReportMonth() {
-            reportMonthInput.value = new Date().toISOString().slice(0, 7);
-            reportMonthInput.addEventListener('change', generateReport);
-            document.getElementById('prevMonthBtn').addEventListener('click', () => changeMonth(-1));
-            document.getElementById('nextMonthBtn').addEventListener('click', () => changeMonth(1));
-            document.getElementById('exportPdfBtn').addEventListener('click', exportPDF);
-            generateReport();
-        }
-
-        function changeMonth(offset) {
-            const [year, month] = reportMonthInput.value.split('-').map(Number);
-            reportMonthInput.value = new Date(year, month - 1 + offset, 1).toISOString().slice(0, 7);
-            generateReport();
-        }
-
-        async function generateReport() {
-            const reportMonth = reportMonthInput.value;
-            if (!reportMonth) return;
-            
-            const [year, month] = reportMonth.split('-').map(Number);
-            const startDate = new Date(year, month - 1, 1);
-            const endDate = new Date(year, month, 1);
-
-            const q = query(collection(db, `users/${currentUser.uid}/punches`),
-                where("startTime", ">=", startDate), where("startTime", "<", endDate));
-            
-            const snapshot = await getDocs(q);
-            reportData = snapshot.docs
-                .map(doc => ({id: doc.id, ...doc.data()}))
-                .filter(p => p.startTime && p.endTime)
-                .sort((a, b) => a.startTime.toMillis() - b.startTime.toMillis());
-            
-            renderReportTable();
-            renderReportChart(); // ★★★ グラフ描画関数を呼び出す ★★★
-        }
-        
-        function renderReportTable() {
-            const outputDiv = document.getElementById('reportOutput');
-            outputDiv.innerHTML = '';
-            if (reportData.length === 0) {
-                outputDiv.innerHTML = '<p class="text-center py-4">この月の打刻データはありません。</p>';
-                document.getElementById('reportSummary').textContent = '';
-                return;
-            }
-            const table = document.createElement('table');
-            table.className = 'w-full text-left border-collapse';
-            table.innerHTML = `<thead><tr>
-                <th class="border p-2">日付</th><th class="border p-2">プロジェクト</th>
-                <th class="border p-2">開始</th><th class="border p-2">終了</th>
-                <th class="border p-2">勤務時間</th><th class="border p-2">メモ</th>
-            </tr></thead>`;
-            const tbody = document.createElement('tbody');
-            let totalMillis = 0;
-            reportData.forEach(p => {
-                const start = p.startTime.toDate();
-                const end = p.endTime.toDate();
-                const duration = end - start;
-                totalMillis += duration;
-                const project = projects.find(proj => proj.id === p.projectId);
-                tbody.innerHTML += `
-                    <tr>
-                        <td class="border p-2">${start.toLocaleDateString()}</td>
-                        <td class="border p-2"><div class="flex items-center gap-2">
-                            <span class="w-3 h-3 rounded-full" style="background-color: ${project?.color || '#808080'};"></span>
-                            <span>${project?.name || 'N/A'}</span>
-                        </div></td>
-                        <td class="border p-2">${start.toLocaleTimeString()}</td>
-                        <td class="border p-2">${end.toLocaleTimeString()}</td>
-                        <td class="border p-2">${new Date(duration).toISOString().substr(11, 8)}</td>
-                        <td class="border p-2">${p.memo || ''}</td>
-                    </tr>`;
-            });
-            table.appendChild(tbody);
-            outputDiv.appendChild(table);
-            const totalHours = Math.floor(totalMillis / 3600000);
-            const totalMinutes = Math.floor((totalMillis % 3600000) / 60000);
-            document.getElementById('reportSummary').textContent = `合計勤務時間: ${totalHours}時間 ${totalMinutes}分`;
-        }
-
-        // ★★★ グラフ描画ロジックを追加 ★★★
-        function renderReportChart() {
-            const ctx = document.getElementById('reportChart').getContext('2d');
-            if (reportChart) {
-                reportChart.destroy();
-            }
-            if (reportData.length === 0) {
-                return;
-            }
-
-            const dailyData = {};
-            reportData.forEach(p => {
-                const date = p.startTime.toDate().getDate();
-                const duration = p.endTime.toDate() - p.startTime.toDate();
-                dailyData[date] = (dailyData[date] || 0) + duration;
-            });
-
-            const labels = Object.keys(dailyData).map(d => `${d}日`);
-            const data = Object.values(dailyData).map(ms => (ms / (1000 * 60 * 60)).toFixed(2));
-
-            reportChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: '勤務時間 (時間)',
-                        data: data,
-                        backgroundColor: 'rgba(54, 162, 235, 0.6)',
-                        borderColor: 'rgba(54, 162, 235, 1)',
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    scales: { y: { beginAtZero: true } }
-                }
-            });
-        }
-        
-        function exportPDF() {
-            if (reportData.length === 0) { alert("エクスポートするデータがありません。"); return; }
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            doc.addFileToVFS("ipaexg.ttf", IPAEXG_FONT_B64);
-            doc.addFont("ipaexg.ttf", "ipaexg", "normal");
-            doc.setFont("ipaexg");
-            const reportMonth = reportMonthInput.value;
-            const summaryText = document.getElementById('reportSummary').textContent;
-            doc.text(`${reportMonth} 勤務レポート`, 14, 16);
-            doc.text(summaryText, 14, 24);
-            const head = [['日付', 'プロジェクト', '開始', '終了', '勤務時間', 'メモ']];
-            const body = reportData.map(p => {
-                const start = p.startTime.toDate();
-                const end = p.endTime.toDate();
-                const duration = end - start;
-                const projectName = projects.find(proj => proj.id === p.projectId)?.name || 'N/A';
-                return [
-                    start.toLocaleDateString(), projectName, start.toLocaleTimeString(),
-                    end.toLocaleTimeString(), new Date(duration).toISOString().substr(11, 8), p.memo || ''
-                ];
-            });
-            doc.autoTable({ head: head, body: body, startY: 30, styles: { font: 'ipaexg', fontStyle: 'normal' } });
-            doc.save(`report-${reportMonth}.pdf`);
-        }
-
-        // --- Googleカレンダー連携 ---
+        // --- Google Calendar Integration ---
         async function initializeGapiClient() {
             try {
                 await gapi.client.init({ apiKey: API_KEY, discoveryDocs: [DISCOVERY_DOC] });
@@ -647,7 +715,9 @@
                 container.innerHTML = '';
                 events.forEach(event => {
                     const start = event.start.dateTime || event.start.date;
-                    const projectInfo = event.extendedProperties?.private?.projectId ? `【${projects.find(p => p.id === event.extendedProperties.private.projectId)?.name || '不明'}】` : '';
+                    const projectCode = event.extendedProperties?.private?.projectCode;
+                    const project = projectDataMap.get(projects.find(p => p.code === projectCode)?.id);
+                    const projectInfo = project ? `【${project.name}】` : '';
                     const eventEl = document.createElement('div');
                     eventEl.className = 'p-2 border rounded bg-gray-50';
                     eventEl.innerHTML = `<p class="font-bold">${event.summary} ${projectInfo}</p><p class="text-sm text-gray-600">${new Date(start).toLocaleString()}</p>`;
@@ -668,7 +738,7 @@
                 'description': document.getElementById('event-description').value,
                 'start': { 'dateTime': new Date(document.getElementById('event-start-time').value).toISOString() },
                 'end': { 'dateTime': new Date(document.getElementById('event-end-time').value).toISOString() },
-                'extendedProperties': { 'private': { 'projectId': document.getElementById('event-project-select').value, 'autoPunch': 'pending' } }
+                'extendedProperties': { 'private': { 'projectCode': document.getElementById('event-project-select').value, 'autoPunch': 'pending' } }
             };
             try {
                 await gapi.client.calendar.events.insert({ 'calendarId': 'primary', 'resource': event });
@@ -692,14 +762,21 @@
             } catch (error) { console.error("自動打刻チェック中にエラー:", error); }
         }
         async function createPunchFromEvent(event) {
-            const projectId = event.extendedProperties.private.projectId;
-            if (!projectId) return;
+            const projectCode = event.extendedProperties?.private?.projectCode;
+            if (!projectCode) return;
+            const project = Array.from(projectDataMap.values()).find(p => p.code === projectCode);
+            if (!project) return;
+
+            const clockInTime = new Date(event.start.dateTime);
+            const clockOutTime = new Date(event.end.dateTime);
+            const durationHours = (clockOutTime - clockInTime) / 3600000;
+
             try {
-                await addDoc(collection(db, `users/${currentUser.uid}/punches`), {
-                    userId: currentUser.uid, type: 'work', projectId: projectId,
-                    startTime: Timestamp.fromDate(new Date(event.start.dateTime)),
-                    endTime: Timestamp.fromDate(new Date(event.end.dateTime)),
-                    memo: `[自動打刻] ${event.summary}`, createdAt: serverTimestamp()
+                await addDoc(collection(db, "timestamps"), {
+                    userId: currentUser.uid, userEmail: currentUser.email,
+                    projectCode: projectCode, projectName: project.name,
+                    clockInTime: clockInTime, clockOutTime: clockOutTime,
+                    durationHours: parseFloat(durationHours.toFixed(2))
                 });
             } catch (error) { console.error("自動打刻のFirestoreへの保存に失敗:", error); }
         }
@@ -711,21 +788,6 @@
                 });
             } catch (error) { console.error("予定の更新に失敗:", error); }
         }
-        
-        // --- その他 ---
-        document.querySelectorAll('.tab-button').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.tab-button').forEach(item => item.classList.remove('active'));
-                tab.classList.add('active');
-                document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-                document.getElementById(tab.dataset.tab).classList.add('active');
-            });
-        });
-        document.getElementById('menu-button').addEventListener('click', () => {
-            document.getElementById('dropdown-menu').classList.toggle('hidden');
-        });
-        document.getElementById('logout-button').addEventListener('click', () => { signOut(auth); });
-
     </script>
 </body>
-</html>
+</ht
