@@ -5,8 +5,10 @@
     <title>カレンダー連携 - side pocket</title>
     <link rel="icon" href="images/sidepocket_symbol.png">
     <script src="https://cdn.tailwindcss.com"></script>
-    <script async defer src="https://apis.google.com/js/api.js"></script>
-    <script async defer src="https://accounts.google.com/gsi/client"></script>
+    <!-- Google APIクライアントライブラリとGoogle Identity Servicesライブラリを非同期で読み込む -->
+    <!-- onload属性で、スクリプトがロードされた後に実行される関数を指定 -->
+    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -60,7 +62,409 @@
         import { collection, addDoc, query, where, onSnapshot, getDocs, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { initializePage, auth, db, showStatus } from './shared.js';
 
-        // ... (The rest of the calendar logic script)
+        // Google APIのクライアントIDとAPIキーはFirebaseプロジェクトの設定から取得できます
+        // shared.jsにFirebaseConfigがあるため、そこからprojectIdなどを利用することも可能
+        // ただし、Google Calendar APIは別途APIキーやOAuthクライアントIDが必要な場合があるため、
+        // ここでは仮のプレースホルダーを置いています。
+        // 実際の値はGoogle Cloud Consoleで取得してください。
+        const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID_FROM_GOOGLE_CLOUD_CONSOLE"; 
+        const GOOGLE_API_KEY = "YOUR_GOOGLE_API_KEY_FROM_GOOGLE_CLOUD_CONSOLE"; 
+        const GOOGLE_DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"];
+        const GOOGLE_SCOPES = "https://www.googleapis.com/auth/calendar.events.readonly"; // 読み取り専用スコープ
+
+        let gapiInited = false; // gapiクライアントが初期化されたか
+        let gisInited = false;  // Google Identity Servicesが初期化されたか
+        let tokenClient;        // Google Identity Servicesのトークンクライアント
+        let currentUser = null; // Firebaseから認証されたユーザー情報
+
+        const authStatusElement = document.getElementById('gcal-auth-status');
+        const authContainer = document.getElementById('gcal-auth-container');
+        const authorizeButton = document.getElementById('gcal-authorize-button');
+        const signoutButton = document.getElementById('gcal-signout-button');
+        const gcalControls = document.getElementById('gcal-controls');
+        const addEventButton = document.getElementById('gcal-add-event-button');
+        const calendarSelect = document.getElementById('calendar-select');
+        const calendarMonthInput = document.getElementById('calendar-month');
+        const loadEventsBtn = document.getElementById('load-calendar-events-btn');
+        const calendarEventsContainer = document.getElementById('calendar-events-container');
+        const reflectEventsBtn = document.getElementById('reflect-events-btn');
+        const calendarActionBar = document.getElementById('calendar-action-bar');
+
+        /**
+         * Google APIクライアントライブラリ (gapi) がロードされた後に呼び出される
+         * gapi.client.init を実行し、APIキーとディスカバリドキュメントを設定する
+         */
+        window.gapiLoaded = () => {
+            gapi.load('client', async () => {
+                try {
+                    await gapi.client.init({
+                        apiKey: GOOGLE_API_KEY,
+                        discoveryDocs: GOOGLE_DISCOVERY_DOCS,
+                    });
+                    gapiInited = true;
+                    maybeEnableCalendarFeatures();
+                } catch (error) {
+                    console.error("Error initializing gapi client:", error);
+                    showStatus("Google APIクライアントの初期化に失敗しました。", true, 'gcal-auth-status');
+                }
+            });
+        };
+
+        /**
+         * Google Identity Services (GIS) ライブラリがロードされた後に呼び出される
+         * google.accounts.oauth2.initTokenClient を実行し、OAuth2トークンクライアントを初期化する
+         */
+        window.gisLoaded = () => {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: GOOGLE_CLIENT_ID,
+                scope: GOOGLE_SCOPES,
+                callback: '', // トークンが返されたときにGISが呼び出すコールバックは後で設定
+            });
+            gisInited = true;
+            maybeEnableCalendarFeatures();
+        };
+
+        /**
+         * gapiとGISの初期化が両方完了し、かつFirebase認証が完了したら、カレンダー機能を有効にする
+         */
+        function maybeEnableCalendarFeatures() {
+            if (gapiInited && gisInited && currentUser) {
+                authStatusElement.textContent = 'ステータス：準備完了';
+                authorizeButton.classList.remove('hidden');
+                signoutButton.classList.remove('hidden');
+                gcalControls.classList.remove('hidden');
+                addEventButton.classList.remove('hidden'); // 必要に応じて表示
+
+                // 初回ロード時に認証状態を確認し、UIを更新
+                updateSignInStatus();
+
+                // ローディング画面を非表示にし、アプリコンテナを表示
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('app-container').style.display = 'block';
+            } else if (currentUser) {
+                // Firebase認証は完了しているが、Google APIの初期化がまだの場合
+                authStatusElement.textContent = 'ステータス：Google APIを読み込み中...';
+            }
+        }
+
+        /**
+         * Firebase認証完了後に呼び出されるメインのセットアップ関数
+         * @param {object} user - Firebase認証ユーザーオブジェクト
+         */
+        async function setupCalendarPage(user) {
+            currentUser = user; // ユーザー情報を設定
+            // 月の入力フィールドの初期値を今月に設定
+            const now = new Date();
+            calendarMonthInput.value = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+
+            // Google APIの初期化状態をチェックし、準備ができていればUIを有効化
+            maybeEnableCalendarFeatures();
+
+            // イベントリスナーの設定
+            authorizeButton.addEventListener('click', handleAuthClick);
+            signoutButton.addEventListener('click', handleSignoutClick);
+            loadEventsBtn.addEventListener('click', loadCalendarEvents);
+            reflectEventsBtn.addEventListener('click', reflectSelectedEvents);
+            
+            // プロジェクトリストをFirestoreから読み込み、カレンダーイベント反映時のプロジェクト選択に利用
+            listenToUserProjects();
+        }
+
+        /**
+         * ユーザーのプロジェクトリストをFirestoreから購読し、マップに保存する
+         */
+        let userProjects = new Map();
+        function listenToUserProjects() {
+            if (!currentUser) return;
+            const q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid));
+            onSnapshot(q, (snapshot) => {
+                userProjects.clear();
+                snapshot.forEach(doc => {
+                    userProjects.set(doc.data().code, { id: doc.id, ...doc.data() });
+                });
+                // プロジェクトが更新されたら、カレンダー選択肢も更新する
+                updateCalendarProjectDropdown();
+            }, (error) => {
+                console.error("Error listening to projects:", error);
+                showStatus("プロジェクトの読み込みに失敗しました。", true, 'reflect-status');
+            });
+        }
+
+        /**
+         * カレンダーイベント反映時に使用するプロジェクト選択ドロップダウンを更新
+         */
+        function updateCalendarProjectDropdown() {
+            // この関数は、calendar-events-container 内の各イベントにプロジェクト選択ドロップダウンを動的に追加する場合に必要
+            // 現状のHTMLには直接のドロップダウンがないため、イベント表示時に動的に生成するロジックと連携させる
+        }
+
+        /**
+         * Google認証ボタンがクリックされたときのハンドラー
+         */
+        async function handleAuthClick() {
+            tokenClient.callback = async (resp) => {
+                if (resp.error) {
+                    authStatusElement.textContent = `認証エラー: ${resp.error.message}`;
+                    console.error('認証エラー:', resp.error);
+                    return;
+                }
+                updateSignInStatus();
+                // 認証成功後、カレンダーリストをロード
+                await listCalendars();
+            };
+            // 既存のトークンがあれば再利用、なければ同意プロンプトを表示
+            if (gapi.client.getToken() === null) {
+                tokenClient.requestAccessToken({ prompt: 'consent' });
+            } else {
+                // 既にトークンがある場合はそのままカレンダーリストをロード
+                await listCalendars();
+            }
+        }
+
+        /**
+         * Google連携解除ボタンがクリックされたときのハンドラー
+         */
+        function handleSignoutClick() {
+            const token = gapi.client.getToken();
+            if (token !== null) {
+                google.accounts.oauth2.revoke(token.access_token, () => {
+                    gapi.client.setToken('');
+                    updateSignInStatus();
+                    authStatusElement.textContent = 'ステータス：連携解除済み';
+                    calendarSelect.innerHTML = ''; // カレンダー選択肢をクリア
+                    calendarEventsContainer.innerHTML = '<p class="text-gray-500 text-center py-4">カレンダーと月を選択して「予定を読み込む」を押してください。</p>';
+                    gcalControls.classList.add('hidden'); // コントロールを非表示
+                    addEventButton.classList.add('hidden'); // 予定作成ボタンも非表示
+                });
+            }
+        }
+
+        /**
+         * 認証状態に基づいてUIを更新する
+         */
+        function updateSignInStatus() {
+            const isSignedIn = gapi.client.getToken() !== null;
+            if (isSignedIn) {
+                authStatusElement.textContent = 'ステータス：Googleアカウントと連携済み';
+                authorizeButton.classList.add('hidden');
+                signoutButton.classList.remove('hidden');
+                gcalControls.classList.remove('hidden');
+                addEventButton.classList.remove('hidden');
+                listCalendars(); // 認証済みならカレンダーリストをロード
+            } else {
+                authStatusElement.textContent = 'ステータス：Googleアカウントと未連携';
+                authorizeButton.classList.remove('hidden');
+                signoutButton.classList.add('hidden');
+                gcalControls.classList.add('hidden'); // 未連携ならコントロールを非表示
+                addEventButton.classList.add('hidden'); // 予定作成ボタンも非表示
+            }
+        }
+
+        /**
+         * Googleカレンダーリストを取得し、ドロップダウンに表示する
+         */
+        async function listCalendars() {
+            try {
+                const response = await gapi.client.calendar.calendarList.list();
+                const calendars = response.result.items;
+                calendarSelect.innerHTML = ''; // 既存のオプションをクリア
+                if (calendars.length > 0) {
+                    calendars.forEach(calendar => {
+                        const option = document.createElement('option');
+                        option.value = calendar.id;
+                        option.textContent = calendar.summary;
+                        calendarSelect.appendChild(option);
+                    });
+                    // デフォルトで最初のカレンダーを選択し、イベントを読み込む
+                    loadCalendarEvents();
+                } else {
+                    calendarSelect.innerHTML = '<option value="">カレンダーが見つかりません</option>';
+                    showStatus("Googleカレンダーが見つかりませんでした。", true, 'reflect-status');
+                }
+            } catch (error) {
+                console.error("Error listing calendars:", error);
+                showStatus("カレンダーリストの取得に失敗しました。", true, 'reflect-status');
+                // 認証エラーの場合は再度認証を促す
+                if (error.result && error.result.error && error.result.error.code === 401) {
+                    authStatusElement.textContent = 'ステータス：認証が無効です。再連携してください。';
+                    authorizeButton.classList.remove('hidden');
+                    signoutButton.classList.add('hidden');
+                    gcalControls.classList.add('hidden');
+                }
+            }
+        }
+
+        /**
+         * 選択されたカレンダーと月のイベントを読み込む
+         */
+        async function loadCalendarEvents() {
+            const calendarId = calendarSelect.value;
+            const selectedMonth = calendarMonthInput.value;
+
+            if (!calendarId || !selectedMonth) {
+                showStatus("カレンダーと月を選択してください。", true, 'reflect-status');
+                return;
+            }
+
+            showStatus("カレンダーイベントを読み込み中...", false, 'reflect-status');
+            calendarEventsContainer.innerHTML = '<p class="text-gray-500 text-center py-4">読み込み中...</p>';
+            calendarActionBar.classList.add('hidden'); // アクションバーを一時的に隠す
+
+            try {
+                const startOfMonth = new Date(selectedMonth + '-01T00:00:00');
+                const endOfMonth = new Date(startOfMonth.getFullYear(), startOfMonth.getMonth() + 1, 0, 23, 59, 59);
+
+                const response = await gapi.client.calendar.events.list({
+                    'calendarId': calendarId,
+                    'timeMin': startOfMonth.toISOString(),
+                    'timeMax': endOfMonth.toISOString(),
+                    'showDeleted': false,
+                    'singleEvents': true,
+                    'maxResults': 100,
+                    'orderBy': 'startTime'
+                });
+
+                const events = response.result.items;
+                renderCalendarEvents(events);
+                showStatus("イベントを読み込みました。", false, 'reflect-status');
+                if (events.length > 0) {
+                    calendarActionBar.classList.remove('hidden');
+                } else {
+                    calendarActionBar.classList.add('hidden');
+                }
+
+            } catch (error) {
+                console.error("Error loading calendar events:", error);
+                showStatus(`イベントの読み込みに失敗しました: ${error.message}`, true, 'reflect-status');
+                calendarEventsContainer.innerHTML = '<p class="text-red-500 text-center py-4">イベントの読み込み中にエラーが発生しました。</p>';
+                // 認証エラーの場合は再度認証を促す
+                if (error.result && error.result.error && error.result.error.code === 401) {
+                    authStatusElement.textContent = 'ステータス：認証が無効です。再連携してください。';
+                    authorizeButton.classList.remove('hidden');
+                    signoutButton.classList.add('hidden');
+                    gcalControls.classList.add('hidden');
+                }
+            }
+        }
+
+        /**
+         * 読み込んだカレンダーイベントをHTMLにレンダリングする
+         * @param {Array} events - Googleカレンダーイベントの配列
+         */
+        function renderCalendarEvents(events) {
+            calendarEventsContainer.innerHTML = '';
+            if (events.length === 0) {
+                calendarEventsContainer.innerHTML = '<p class="text-gray-500 text-center py-4">この月には予定がありません。</p>';
+                return;
+            }
+
+            events.forEach(event => {
+                const start = event.start.dateTime ? new Date(event.start.dateTime) : new Date(event.start.date + 'T00:00:00');
+                const end = event.end.dateTime ? new Date(event.end.dateTime) : new Date(event.end.date + 'T23:59:59');
+                const isAllDay = !event.start.dateTime;
+
+                const eventHtml = `
+                    <div class="flex items-start p-3 border-b last:border-b-0 bg-white rounded-lg shadow-sm">
+                        <input type="checkbox" class="event-checkbox mt-1 mr-3 h-5 w-5 text-main rounded" data-event-id="${event.id}">
+                        <div class="flex-grow">
+                            <h4 class="font-semibold text-gray-800">${event.summary || 'タイトルなし'}</h4>
+                            <p class="text-sm text-gray-600">
+                                ${start.toLocaleDateString('ja-JP')} ${isAllDay ? '終日' : start.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })} 
+                                ${!isAllDay ? ` - ${end.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}` : ''}
+                            </p>
+                            <p class="text-xs text-gray-500">${event.location || ''}</p>
+                            <div class="mt-2">
+                                <label for="project-select-${event.id}" class="block text-xs font-medium text-gray-700">プロジェクト:</label>
+                                <select id="project-select-${event.id}" class="mt-1 block w-full text-sm p-1 border border-gray-300 rounded-md project-select">
+                                    <option value="">プロジェクトを選択</option>
+                                    ${Array.from(userProjects.values()).map(p => `<option value="${p.code}" data-project-name="${p.name}">${p.code}: ${p.name}</option>`).join('')}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                calendarEventsContainer.insertAdjacentHTML('beforeend', eventHtml);
+            });
+        }
+
+        /**
+         * 選択されたカレンダーイベントを稼働実績としてFirestoreに反映する
+         */
+        async function reflectSelectedEvents() {
+            const selectedCheckboxes = document.querySelectorAll('.event-checkbox:checked');
+            if (selectedCheckboxes.length === 0) {
+                showStatus("反映する予定を選択してください。", true, 'reflect-status');
+                return;
+            }
+
+            showStatus("稼働実績を反映中...", false, 'reflect-status');
+            const reflectPromises = [];
+
+            for (const checkbox of selectedCheckboxes) {
+                const eventId = checkbox.dataset.eventId;
+                const eventElement = checkbox.closest('.flex');
+                const projectSelect = eventElement.querySelector(`.project-select`);
+                const projectCode = projectSelect.value;
+                const projectName = projectSelect.options[projectSelect.selectedIndex].dataset.projectName;
+
+                if (!projectCode) {
+                    showStatus("選択されたすべての予定にプロジェクトを選択してください。", true, 'reflect-status');
+                    return; // プロジェクトが選択されていない場合は処理を中断
+                }
+
+                // Google Calendar APIからイベント詳細を再取得（確実な時間情報のため）
+                try {
+                    const calendarId = calendarSelect.value;
+                    const eventResponse = await gapi.client.calendar.events.get({
+                        'calendarId': calendarId,
+                        'eventId': eventId
+                    });
+                    const event = eventResponse.result;
+
+                    const start = event.start.dateTime ? new Date(event.start.dateTime) : new Date(event.start.date + 'T00:00:00');
+                    const end = event.end.dateTime ? new Date(event.end.dateTime) : new Date(event.end.date + 'T23:59:59');
+                    
+                    // 終日イベントの場合、期間を24時間として計算（またはビジネスロジックに応じて調整）
+                    let durationHours;
+                    if (!event.start.dateTime) { // 終日イベント
+                        // 終日イベントの期間計算はビジネスロジックによる。ここでは単純に1日8時間とする例
+                        durationHours = 8; 
+                    } else {
+                        durationHours = (end.getTime() - start.getTime()) / 3600000;
+                    }
+                    
+                    reflectPromises.push(addDoc(collection(db, "timestamps"), {
+                        userId: currentUser.uid,
+                        userEmail: currentUser.email,
+                        projectCode: projectCode,
+                        projectName: projectName,
+                        clockInTime: Timestamp.fromDate(start),
+                        clockOutTime: Timestamp.fromDate(end),
+                        durationHours: parseFloat(durationHours.toFixed(2)),
+                        source: 'Google Calendar',
+                        calendarEventId: event.id
+                    }));
+                } catch (error) {
+                    console.error(`イベント ${eventId} の詳細取得または反映に失敗しました:`, error);
+                    showStatus(`一部の予定の反映に失敗しました: ${error.message}`, true, 'reflect-status');
+                    return; // エラーが発生したら中断
+                }
+            }
+
+            try {
+                await Promise.all(reflectPromises);
+                showStatus("選択した予定を稼働実績に反映しました！", false, 'reflect-status');
+                // 反映後、チェックボックスをクリアし、アクションバーを隠す
+                selectedCheckboxes.forEach(cb => cb.checked = false);
+                calendarActionBar.classList.add('hidden');
+            } catch (error) {
+                console.error("Error reflecting events:", error);
+                showStatus(`稼働実績の反映中にエラーが発生しました: ${error.message}`, true, 'reflect-status');
+            }
+        }
+
+        // 共通の初期化処理を呼び出し、認証完了後にカレンダーページの処理を実行
+        initializePage(setupCalendarPage);
     </script>
 </body>
 </html>
