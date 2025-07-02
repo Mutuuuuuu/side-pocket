@@ -10,8 +10,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
     
-    <!-- ★★★ 追加 ★★★ Google API Client Library -->
+    <!-- ★★★ 修正点 ★★★ Google API Client Libraries -->
     <script async defer src="https://apis.google.com/js/api.js"></script>
+    <script async defer src="https://accounts.google.com/gsi/client"></script>
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
@@ -145,7 +146,6 @@
         let gapiInited = false;
         let gisInited = false;
 
-        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
         const firebaseConfig = {
             apiKey: "AIzaSyBuRc0oRFQk-GvVAh_90S9NGAYu5sOkxyM",
             authDomain: "side-pocket-sl.firebaseapp.com",
@@ -154,7 +154,7 @@
             messagingSenderId: "887116583823",
             appId: "1:887116583823:web:5783488bd573f5be4bf1fa",
             measurementId: "G-QSBDN1TX68"
-            };// セキュリティのためエンコード
+        };
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
@@ -201,15 +201,32 @@
                 document.getElementById('user-info').classList.remove('hidden');
                 document.getElementById('user-icon').classList.remove('hidden');
                 
-                // Google APIクライアントの初期化を試みる
+                // ★★★ 修正点 ★★★
+                // Google APIクライアントの初期化
                 gapi.load('client', initializeGapiClient);
-                gis.accounts.oauth2.initTokenClient({
-                    client_id: CLIENT_ID,
-                    scope: SCOPES,
-                    callback: '', // ハンドルAuthClickで動的に設定
-                });
-                gisInited = true;
-
+                
+                // GISクライアントの初期化
+                // 'google'オブジェクトがロードされるのを待つ必要があるため、少し遅延させる
+                setTimeout(() => {
+                    try {
+                        tokenClient = google.accounts.oauth2.initTokenClient({
+                            client_id: CLIENT_ID,
+                            scope: SCOPES,
+                            callback: (tokenResponse) => {
+                                if (tokenResponse.error) {
+                                    console.error('Authorization error:', tokenResponse.error);
+                                    return;
+                                }
+                                gapi.client.setToken(tokenResponse);
+                                updateGcalUi();
+                            },
+                        });
+                        gisInited = true;
+                        updateGcalUi();
+                    } catch (e) {
+                        console.error("Error initializing Google Identity Services. It might not be loaded yet.", e);
+                    }
+                }, 1000); // 1秒待つ
 
                 // メインコンテンツを表示
                 document.getElementById('loading').style.display = 'none';
@@ -237,16 +254,26 @@
         
         // --- Google APIクライアントの初期化 ---
         async function initializeGapiClient() {
-            await gapi.client.init({
-                apiKey: API_KEY,
-                discoveryDocs: [DISCOVERY_DOC],
-            });
-            gapiInited = true;
-            updateGcalUi();
+            try {
+                await gapi.client.init({
+                    apiKey: API_KEY,
+                    discoveryDocs: [DISCOVERY_DOC],
+                });
+                gapiInited = true;
+                updateGcalUi();
+            } catch (error) {
+                console.error("Error initializing GAPI client:", error);
+                document.getElementById('gcal-auth-status').textContent = 'エラー: Google APIの初期化に失敗しました。APIキーが正しいか確認してください。';
+            }
         }
 
         // --- 連携ボタンなどのUI更新 ---
         function updateGcalUi() {
+            // gapiとgisの両方が初期化されるまで何もしない
+            if (!gapiInited || !gisInited) {
+                return;
+            }
+
             const authorizeButton = document.getElementById('gcal-authorize-button');
             const signoutButton = document.getElementById('gcal-signout-button');
             const loadEventsButton = document.getElementById('gcal-load-events-button');
@@ -272,19 +299,12 @@
 
         // --- 連携/認証処理 ---
         document.getElementById('gcal-authorize-button').addEventListener('click', () => {
-            tokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: CLIENT_ID,
-                scope: SCOPES,
-                callback: (tokenResponse) => {
-                    if (tokenResponse.error) {
-                        console.error('Authorization error:', tokenResponse.error);
-                        return;
-                    }
-                    gapi.client.setToken(tokenResponse);
-                    updateGcalUi();
-                },
-            });
-            tokenClient.requestAccessToken();
+            if (tokenClient) {
+                tokenClient.requestAccessToken();
+            } else {
+                console.error("Token client is not initialized.");
+                alert("認証の準備ができていません。少し待ってからもう一度お試しください。");
+            }
         });
 
         // --- 連携解除処理 ---
