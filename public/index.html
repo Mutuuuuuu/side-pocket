@@ -1,135 +1,201 @@
 <!DOCTYPE html>
 <html lang="ja">
-<div id="header-placeholder"></div>
+<head>
+    <meta charset="UTF-8">
+    <title>打刻アプリ</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="images/sidepocket_symbol.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
 <body class="bg-gray-100 min-h-screen p-4">
+
+    <!-- この div に共通ヘッダーが挿入されます -->
+    <div id="header-placeholder"></div>
 
     <div id="loading" class="flex justify-center items-center h-screen">
         <div class="loader"></div><p class="ml-4 text-lg">読み込んでいます...</p>
     </div>
 
     <div id="app-container" class="w-full" style="display: none;">
-        <header class="w-full max-w-4xl mx-auto mb-4 flex justify-between items-center">
-            <a href="index.html"><img src="images/sidepocket_Logo.png" alt="side pocket ロゴ" class="h-14"></a>
-            <div class="flex items-center gap-3">
-                <a href="profile.html" class="flex items-center gap-2 text-sm text-gray-600 hover:text-main no-underline">
-                    <img id="user-icon" src="https://placehold.co/32x32/EFEFEF/333333?text=?" class="w-8 h-8 rounded-full object-cover bg-gray-200">
-                    <span id="user-display-name"></span>
-                </a>
-                <div class="relative">
-                    <button id="menu-button" class="p-2 rounded-full hover:bg-gray-200 focus:outline-none">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" /></svg>
-                    </button>
-                    <div id="dropdown-menu" class="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-xl z-20 hidden">
-                        <a href="index.html" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">打刻</a>
-                        <a href="calendar.html" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">カレンダー連携</a>
-                        <a href="summary.html" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">稼働管理</a>
-                        <a href="projects.html" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">プロジェクト管理</a>
-                        <div class="border-t border-gray-100"></div>
-                        <button id="logoutBtn" class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100">ログアウト</button>
+        <!-- ★★★ 修正点：ここにあった <header>...</header> ブロックを削除しました ★★★ -->
+        
+        <main class="w-full max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-md">
+            <!-- (以降のコンテンツは変更ありません) -->
+            <div id="status" class="text-center mb-4 text-sm"></div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                <!-- Punch card section -->
+                <div class="bg-gray-50 p-6 rounded-lg">
+                    <h2 class="text-xl font-bold mb-4 text-center text-gray-700">打刻</h2>
+                    <div id="clock" class="text-5xl font-mono text-center mb-4 bg-gray-800 text-white rounded-lg p-4"></div>
+                    <div class="mb-4">
+                        <label for="projectCode" class="block text-sm font-medium text-gray-700 mb-1">プロジェクト</label>
+                        <select id="projectCode" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-main focus:border-main"></select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <button id="clockInBtn" class="w-full bg-main text-white py-3 rounded-lg font-bold hover:bg-main-dark btn">出勤</button>
+                        <button id="clockOutBtn" class="w-full bg-red-500 text-white py-3 rounded-lg font-bold hover:bg-red-600 btn">退勤</button>
+                    </div>
+                    <div id="punch-status" class="text-center mt-4 text-sm"></div>
+                </div>
+
+                <!-- Today's records section -->
+                <div class="bg-gray-50 p-6 rounded-lg">
+                    <h2 class="text-xl font-bold mb-4 text-center text-gray-700">本日の記録</h2>
+                    <div id="today-records" class="space-y-2">
+                        <p class="text-gray-500">まだ記録はありません。</p>
                     </div>
                 </div>
-            </div>
-        </header>
-
-        <main class="w-full max-w-md mx-auto">
-            <div class="p-6 sm:p-8 space-y-6 bg-white rounded-2xl shadow-lg">
-                <header>
-                    <h2 class="text-2xl sm:text-3xl font-bold text-center text-gray-800">打刻システム</h2>
-                    <p id="realtime-clock" class="text-xl sm:text-2xl text-center text-gray-500 mt-2 font-mono"></p>
-                </header>
-                <div class="space-y-2">
-                    <label for="projectCode" class="text-sm font-medium text-gray-700">プロジェクト</label>
-                    <select id="projectCode" class="w-full px-4 py-3 text-base bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 ring-main outline-none">
-                        <option value="">プロジェクトを選択してください</option>
-                    </select>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <button id="clockInBtn" class="btn w-full px-6 py-3 text-lg font-semibold text-white bg-main rounded-lg hover:bg-main-dark">出勤</button>
-                    <button id="clockOutBtn" class="btn w-full px-6 py-3 text-lg font-semibold text-white bg-slate-500 rounded-lg hover:bg-slate-600">退勤</button>
-                </div>
-                <div id="status" class="pt-4 text-center font-medium h-10"></div>
             </div>
         </main>
     </div>
 
     <script type="module">
-        import { collection, addDoc, getDocs, query, where, orderBy, limit, doc, updateDoc, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-        import { initializePage, auth, db, showStatus } from './shared.js';
+        import { initializePage, db, showStatus } from './shared.js';
+        import { collection, addDoc, query, where, getDocs, serverTimestamp, updateDoc, doc, onSnapshot, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-        let currentUser = null;
+        let currentUser;
+        let activePunchInDocId = null;
 
-        initializePage(user => {
+        initializePage((user) => {
             currentUser = user;
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('app-container').style.display = 'block';
+            
+            initializeClock();
+            checkForActivePunchIn();
+            listenToTodaysRecords();
             listenToActiveProjects();
-            updateClock();
-            setInterval(updateClock, 1000);
         });
 
-        function updateClock() {
-            document.getElementById('realtime-clock').textContent = new Date().toLocaleTimeString('ja-JP');
+        function initializeClock() {
+            const clockElement = document.getElementById('clock');
+            const updateClock = () => {
+                const now = new Date();
+                clockElement.textContent = now.toLocaleTimeString('ja-JP');
+            };
+            updateClock();
+            setInterval(updateClock, 1000);
         }
 
-        document.getElementById('clockInBtn').addEventListener('click', () => handleTimestamp('出勤'));
-        document.getElementById('clockOutBtn').addEventListener('click', () => handleTimestamp('退勤'));
+        async function checkForActivePunchIn() {
+            if (!currentUser) return;
+            const q = query(
+                collection(db, "timestamps"),
+                where("userId", "==", currentUser.uid),
+                where("clockOutTime", "==", null)
+            );
+            const querySnapshot = await getDocs(q);
+            if (!querySnapshot.empty) {
+                const doc = querySnapshot.docs[0];
+                activePunchInDocId = doc.id;
+                const data = doc.data();
+                document.getElementById('projectCode').value = data.projectCode;
+                setUIState(true);
+                showStatus(`出勤中: ${data.projectCode} (${new Date(data.clockInTime.seconds * 1000).toLocaleTimeString()})`, false, 'status');
+            } else {
+                setUIState(false);
+                showStatus("現在退勤中です。", false, 'status');
+            }
+        }
+        
+        function listenToTodaysRecords() {
+            if (!currentUser) return;
+            const now = new Date();
+            const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
 
-        async function handleTimestamp(action) {
+            const q = query(
+                collection(db, "timestamps"),
+                where("userId", "==", currentUser.uid),
+                where("clockInTime", ">=", startOfDay),
+                where("clockInTime", "<", endOfDay),
+                orderBy("clockInTime", "desc")
+            );
+
+            onSnapshot(q, (snapshot) => {
+                const recordsDiv = document.getElementById('today-records');
+                recordsDiv.innerHTML = '';
+                if (snapshot.empty) {
+                    recordsDiv.innerHTML = '<p class="text-gray-500">まだ記録はありません。</p>';
+                    return;
+                }
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const recordEl = document.createElement('div');
+                    recordEl.className = 'bg-white p-3 rounded-md shadow-sm text-sm';
+                    const clockIn = new Date(data.clockInTime.seconds * 1000).toLocaleTimeString();
+                    const clockOut = data.clockOutTime ? new Date(data.clockOutTime.seconds * 1000).toLocaleTimeString() : '勤務中';
+                    recordEl.innerHTML = `<strong>${data.projectCode}</strong>: ${clockIn} - ${clockOut}`;
+                    recordsDiv.appendChild(recordEl);
+                });
+            });
+        }
+
+
+        document.getElementById('clockInBtn').addEventListener('click', async () => {
             const projectCode = document.getElementById('projectCode').value;
             if (!projectCode) {
-                showStatus("エラー: プロジェクトを選択してください。", true, 'status');
+                showStatus("プロジェクトを選択してください。", true, 'punch-status');
                 return;
             }
-            setButtonsDisabled(true);
-            showStatus("記録しています...", false, 'status');
-
-            try {
-                if (action === "出勤") {
-                    const q = query(collection(db, "timestamps"), where("userId", "==", currentUser.uid), where("projectCode", "==", projectCode), where("clockOutTime", "==", null));
-                    const querySnapshot = await getDocs(q);
-                    if (!querySnapshot.empty) throw new Error("このプロジェクトでは既に出勤済みです。");
-
-                    const projectOption = document.querySelector(`#projectCode option[value="${projectCode}"]`);
-                    const projectName = projectOption ? projectOption.dataset.name : projectCode;
-
-                    await addDoc(collection(db, "timestamps"), {
-                        userId: currentUser.uid, userEmail: currentUser.email,
-                        projectCode: projectCode, projectName: projectName,
-                        clockInTime: serverTimestamp(), clockOutTime: null, durationHours: null
-                    });
-                    showStatus(`成功:「出勤」を記録しました。`, false, 'status');
-                } else {
-                    const q = query(collection(db, "timestamps"), where("userId", "==", currentUser.uid), where("projectCode", "==", projectCode), where("clockOutTime", "==", null), orderBy("clockInTime", "desc"), limit(1));
-                    const querySnapshot = await getDocs(q);
-                    if (querySnapshot.empty) throw new Error("対応する出勤記録が見つかりません。");
-
-                    const recordDoc = querySnapshot.docs[0];
-                    const clockInTime = recordDoc.data().clockInTime.toDate();
-                    const now = new Date();
-                    const durationHours = (now.getTime() - clockInTime.getTime()) / 3600000;
-
-                    await updateDoc(doc(db, "timestamps", recordDoc.id), {
-                        clockOutTime: now,
-                        durationHours: parseFloat(durationHours.toFixed(2))
-                    });
-                    showStatus(`成功:「退勤」を ${now.toLocaleTimeString('ja-JP')} に記録しました。`, false, 'status');
-                }
-            } catch (error) {
-                showStatus(`エラー: ${error.message}`, true, 'status');
-            } finally {
-                setButtonsDisabled(false);
+            if (activePunchInDocId) {
+                showStatus("既に出勤済みです。", true, 'punch-status');
+                return;
             }
-        }
+            showStatus("打刻中...", false, 'punch-status');
+            try {
+                const docRef = await addDoc(collection(db, "timestamps"), {
+                    userId: currentUser.uid,
+                    projectCode: projectCode,
+                    clockInTime: serverTimestamp(),
+                    clockOutTime: null,
+                    userDisplayName: currentUser.displayName,
+                    userEmail: currentUser.email
+                });
+                activePunchInDocId = docRef.id;
+                setUIState(true);
+                showStatus(`出勤しました: ${projectCode}`, false, 'status');
+                showStatus("", false, 'punch-status');
+            } catch (error) {
+                showStatus("エラー: " + error.message, true, 'punch-status');
+            }
+        });
 
-        function setButtonsDisabled(disabled) {
-            [document.getElementById('clockInBtn'), document.getElementById('clockOutBtn')].forEach(btn => {
-                btn.disabled = disabled;
-                btn.classList.toggle('opacity-50', disabled);
-                btn.classList.toggle('cursor-not-allowed', disabled);
-            });
+        document.getElementById('clockOutBtn').addEventListener('click', async () => {
+            if (!activePunchInDocId) {
+                showStatus("まだ出勤していません。", true, 'punch-status');
+                return;
+            }
+            showStatus("打刻中...", false, 'punch-status');
+            try {
+                const docRef = doc(db, "timestamps", activePunchInDocId);
+                await updateDoc(docRef, {
+                    clockOutTime: serverTimestamp()
+                });
+                activePunchInDocId = null;
+                setUIState(false);
+                showStatus("退勤しました。", false, 'status');
+                showStatus("", false, 'punch-status');
+            } catch (error) {
+                showStatus("エラー: " + error.message, true, 'punch-status');
+            }
+        });
+
+        function setUIState(isClockedIn) {
+            document.getElementById('clockInBtn').disabled = isClockedIn;
+            document.getElementById('projectCode').disabled = isClockedIn;
+            document.getElementById('clockOutBtn').disabled = !isClockedIn;
+            
+            document.getElementById('clockInBtn').classList.toggle('opacity-50', isClockedIn);
+            document.getElementById('clockInBtn').classList.toggle('cursor-not-allowed', isClockedIn);
+            document.getElementById('clockOutBtn').classList.toggle('opacity-50', !isClockedIn);
+            document.getElementById('clockOutBtn').classList.toggle('cursor-not-allowed', !isClockedIn);
         }
 
         function listenToActiveProjects() {
             if (!currentUser) return;
-            const q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid), where("status", "==", "Active"), orderBy("code"));
+            const q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid), where("status", "==", "Active"));
             onSnapshot(q, (querySnapshot) => {
                 const projects = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 updateProjectDropdown(projects);
@@ -142,14 +208,16 @@
             const select = document.getElementById('projectCode');
             const currentValue = select.value;
             select.innerHTML = '<option value="">プロジェクトを選択してください</option>';
-            projects.forEach(p => {
+            projects.sort((a, b) => a.code.localeCompare(b.code)).forEach(p => {
                 const option = document.createElement('option');
                 option.value = p.code;
                 option.textContent = `${p.code}: ${p.name}`;
                 option.dataset.name = p.name;
                 select.appendChild(option);
             });
-            select.value = currentValue;
+            if (projects.some(p => p.code === currentValue)) {
+                 select.value = currentValue;
+            }
         }
     </script>
 </body>

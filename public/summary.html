@@ -1,105 +1,163 @@
 <!DOCTYPE html>
 <html lang="ja">
-<header class="w-full max-w-4xl mx-auto mb-4 flex justify-between items-center">
-    <a href="index.html"><img src="images/sidepocket_Logo.png" alt="side pocket ロゴ" class="h-14"></a>
-    <div class="flex items-center gap-3">
-        <a href="profile.html" class="flex items-center gap-2 text-sm text-gray-600 hover:text-main no-underline">
-            <img id="user-icon" src="https://placehold.co/32x32/EFEFEF/333333?text=?" class="w-8 h-8 rounded-full object-cover bg-gray-200">
-            <span id="user-display-name"></span>
-        </a>
-        <div class="relative">
-            <button id="menu-button" class="p-2 rounded-full hover:bg-gray-200 focus:outline-none">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" /></svg>
-            </button>
-            <div id="dropdown-menu" class="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-xl z-20 hidden">
-                <a href="index.html" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">打刻</a>
-                <a href="calendar.html" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">カレンダー連携</a>
-                <a href="summary.html" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">稼働管理</a>
-                <a href="projects.html" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">プロジェクト管理</a>
-                <div class="border-t border-gray-100"></div>
-                <button id="logoutBtn" class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100">ログアウト</button>
-            </div>
-        </div>
-    </div>
-</header>
+<head>
+    <meta charset="UTF-8">
+    <title>稼働サマリー - 打刻アプリ</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="images/sidepocket_symbol.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
 <body class="bg-gray-100 min-h-screen p-4">
+    <!-- ★★★ 修正点：HTML構造を修正し、ヘッダープレースホルダーをbody内に配置しました ★★★ -->
+    <!-- この div に共通ヘッダーが挿入されます -->
+    <div id="header-placeholder"></div>
 
     <div id="loading" class="flex justify-center items-center h-screen">
         <div class="loader"></div><p class="ml-4 text-lg">読み込んでいます...</p>
     </div>
 
     <div id="app-container" class="w-full" style="display: none;">
-        <header class="w-full max-w-4xl mx-auto mb-4 flex justify-between items-center">
-            <a href="index.html"><img src="images/sidepocket_Logo.png" alt="side pocket ロゴ" class="h-14"></a>
-            <div class="flex items-center gap-3">
-                <a href="profile.html" class="flex items-center gap-2 text-sm text-gray-600 hover:text-main no-underline">
-                    <img id="user-icon" src="https://placehold.co/32x32/EFEFEF/333333?text=?" class="w-8 h-8 rounded-full object-cover bg-gray-200">
-                    <span id="user-display-name"></span>
-                </a>
-                <div class="relative">
-                    <button id="menu-button" class="p-2 rounded-full hover:bg-gray-200 focus:outline-none">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" /></svg>
-                    </button>
-                    <div id="dropdown-menu" class="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-xl z-20 hidden">
-                        <button id="menu-home" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">打刻</button>
-                        <button id="menu-calendar" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">カレンダー連携</button>
-                        <button id="menu-summary" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">稼働管理</button>
-                        <button id="menu-projects" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">プロジェクト管理</button>
-                        <div class="border-t border-gray-100"></div>
-                        <button id="logoutBtn" class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100">ログアウト</button>
-                    </div>
-                </div>
-            </div>
-        </header>
+        <!-- ★★★ 修正点：ここにあった <header>...</header> ブロックを削除しました ★★★ -->
 
-        <main class="w-full max-w-4xl mx-auto">
-            <div class="p-6 sm:p-8 space-y-6 bg-white rounded-2xl shadow-lg">
-                <header class="flex flex-col sm:flex-row justify-between items-center gap-4">
-                    <h2 class="text-2xl sm:text-3xl font-bold text-gray-800">稼働管理</h2>
-                </header>
-                <div class="bg-gray-50 p-4 rounded-lg"><canvas id="monthlyChart"></canvas></div>
-                <div class="flex flex-wrap justify-between items-center gap-4">
-                    <div>
-                        <label for="monthSelector" class="text-sm font-medium text-gray-700">表示月を選択:</label>
-                        <select id="monthSelector" class="mt-1 block w-full sm:w-auto p-2 border border-gray-300 rounded-md"></select>
+        <main class="w-full max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-md">
+            <div class="flex justify-between items-center mb-6">
+                <h1 class="text-2xl font-bold">稼働サマリー</h1>
+                <button id="exportPdfBtn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded btn">PDF出力</button>
+            </div>
+            <div id="summaryStatus" class="mb-4 text-sm"></div>
+            
+            <div class="mb-6 flex gap-4 items-end">
+                <div>
+                    <label for="month-select" class="block text-sm font-medium text-gray-700">対象月</label>
+                    <input type="month" id="month-select" class="mt-1 p-2 border rounded-md">
+                </div>
+                <button id="filterBtn" class="bg-main text-white py-2 px-4 rounded-lg font-bold hover:bg-main-dark btn">表示</button>
+            </div>
+
+            <div id="pdf-export-area">
+                <h2 id="report-title" class="text-xl font-semibold mb-4 text-center"></h2>
+                <!-- Summary Cards -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-blue-100 p-4 rounded-lg text-center">
+                        <h3 class="text-sm font-medium text-blue-800">総稼働時間</h3>
+                        <p id="total-hours" class="text-2xl font-bold text-blue-900">-</p>
                     </div>
-                    <div id="monthTotalHours" class="text-lg font-bold text-right text-gray-800"></div>
+                    <div class="bg-green-100 p-4 rounded-lg text-center">
+                        <h3 class="text-sm font-medium text-green-800">稼働日数</h3>
+                        <p id="work-days" class="text-2xl font-bold text-green-900">-</p>
+                    </div>
+                    <div class="bg-yellow-100 p-4 rounded-lg text-center">
+                        <h3 class="text-sm font-medium text-yellow-800">平均稼働時間/日</h3>
+                        <p id="avg-hours-day" class="text-2xl font-bold text-yellow-900">-</p>
+                    </div>
+                    <div class="bg-purple-100 p-4 rounded-lg text-center">
+                        <h3 class="text-sm font-medium text-purple-800">プロジェクト数</h3>
+                        <p id="project-count" class="text-2xl font-bold text-purple-900">-</p>
+                    </div>
                 </div>
-                <div id="detailsContainer">
-                    <div id="projectTabs" class="border-b border-gray-200"></div>
-                    <div id="projectTabContent" class="mt-4"></div>
+
+                <!-- Chart -->
+                <div class="mb-6">
+                    <canvas id="project-chart"></canvas>
                 </div>
-                <div id="summaryStatus" class="pt-2 text-center text-gray-600 font-medium h-8"></div>
+
+                <!-- Detailed Table -->
+                <div>
+                    <h3 class="text-lg font-semibold mb-2">日別稼働時間</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full bg-white border">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    <th class="py-2 px-4 border-b text-left">日付</th>
+                                    <th class="py-2 px-4 border-b text-left">プロジェクト</th>
+                                    <th class="py-2 px-4 border-b text-left">開始</th>
+                                    <th class="py-2 px-4 border-b text-left">終了</th>
+                                    <th class="py-2 px-4 border-b text-left">稼働時間</th>
+                                </tr>
+                            </thead>
+                            <tbody id="summary-table">
+                                <!-- Data will be inserted here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </main>
     </div>
-    
+
+    <!-- (スクリプト部分は長いため、変更点のみコメントします。実際には全体をコピーしてください) -->
     <script type="module">
-        import { collection, query, where, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-        import { initializePage, auth, db, showStatus } from './shared.js';
+        import { initializePage, db, showStatus } from './shared.js';
+        import { collection, query, where, onSnapshot, getDocs, orderBy, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { IPAEXG_FONT_B64 } from './fonts.js';
 
-        let currentUser = null;
-        let fullDashboardData = {};
-        let monthlyChartInstance = null;
-        let timestampsUnsubscribe = null;
+        let currentUser;
+        let projectChart = null;
         let allProjects = [];
+        let timestampsUnsubscribe = null;
+        let fullDashboardData = {}; // To store all data for re-filtering
 
-        initializePage(user => {
+        initializePage((user) => {
             currentUser = user;
-            listenToAllProjects(); // Listen to all projects to get colors
-            listenToTimestamps(); // Then listen to timestamps
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('app-container').style.display = 'block';
+            
+            const now = new Date();
+            document.getElementById('month-select').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            
+            listenToAllProjects();
+            
+            document.getElementById('filterBtn').addEventListener('click', filterDataByMonth);
+            document.getElementById('exportPdfBtn').addEventListener('click', exportToPDF);
         });
 
         function listenToAllProjects() {
+            if (!currentUser) return;
             const q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid));
             onSnapshot(q, (snapshot) => {
                 allProjects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                // If dashboard data already exists, re-process it with new project info
-                if (Object.keys(fullDashboardData).length > 0) {
-                    processDashboardData(fullDashboardData.rawRecords, getProjectsMap());
+                // After projects are loaded, load the timestamps for the initial month
+                if (!timestampsUnsubscribe) {
+                     filterDataByMonth();
                 }
             });
+        }
+        
+        async function filterDataByMonth() {
+            if (!currentUser) return;
+            showStatus('データを読み込んでいます...', false, 'summaryStatus');
+            
+            const monthValue = document.getElementById('month-select').value;
+            if (!monthValue) {
+                showStatus('有効な月を選択してください。', true, 'summaryStatus');
+                return;
+            }
+            const [year, month] = monthValue.split('-').map(Number);
+            const startDate = new Date(year, month - 1, 1);
+            const endDate = new Date(year, month, 1);
+
+            const q = query(
+                collection(db, "timestamps"),
+                where("userId", "==", currentUser.uid),
+                where("clockInTime", ">=", Timestamp.fromDate(startDate)),
+                where("clockInTime", "<", Timestamp.fromDate(endDate)),
+                orderBy("clockInTime", "desc")
+            );
+
+            try {
+                const snapshot = await getDocs(q);
+                const records = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                const projectsMap = getProjectsMap();
+                processDashboardData(records, projectsMap);
+                showStatus('', false, 'summaryStatus');
+            } catch (error) {
+                 showStatus(`エラー: ${error.message}`, true, 'summaryStatus');
+                 console.error(error);
+            }
         }
 
         function getProjectsMap() {
@@ -110,22 +168,121 @@
             return projectsMap;
         }
 
-        function listenToTimestamps() {
-            if (!currentUser) return;
-            showStatus('データを読み込んでいます...', false, 'summaryStatus');
-            if (timestampsUnsubscribe) timestampsUnsubscribe();
-            const q = query(collection(db, "timestamps"), where("userId", "==", currentUser.uid), orderBy("clockInTime", "desc"));
-            timestampsUnsubscribe = onSnapshot(q, (snapshot) => {
-                const records = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                const projectsMap = getProjectsMap();
-                processDashboardData(records, projectsMap);
-                showStatus('', false, 'summaryStatus');
-            }, (error) => {
-                showStatus(`エラー: ${error.message}`, true, 'summaryStatus');
+        function processDashboardData(records, projectsMap) {
+            const monthValue = document.getElementById('month-select').value;
+            document.getElementById('report-title').textContent = `${monthValue}月度 稼働レポート`;
+
+            const dailyHours = {};
+            const projectHours = {};
+            let totalMinutes = 0;
+            
+            const tableBody = document.getElementById('summary-table');
+            tableBody.innerHTML = '';
+
+            records.forEach(rec => {
+                if (!rec.clockInTime || !rec.clockOutTime) return;
+
+                const clockIn = rec.clockInTime.toDate();
+                const clockOut = rec.clockOutTime.toDate();
+                const durationMinutes = (clockOut - clockIn) / 60000;
+                totalMinutes += durationMinutes;
+
+                const dateStr = clockIn.toLocaleDateString();
+                if (!dailyHours[dateStr]) dailyHours[dateStr] = 0;
+                dailyHours[dateStr] += durationMinutes;
+
+                const project = projectsMap[rec.projectCode] || { name: rec.projectCode, color: '#cccccc' };
+                if (!projectHours[rec.projectCode]) {
+                    projectHours[rec.projectCode] = { minutes: 0, name: project.name, color: project.color };
+                }
+                projectHours[rec.projectCode].minutes += durationMinutes;
+
+                const row = tableBody.insertRow();
+                row.innerHTML = `
+                    <td class="py-2 px-4 border-b">${dateStr}</td>
+                    <td class="py-2 px-4 border-b">${project.name}</td>
+                    <td class="py-2 px-4 border-b">${clockIn.toLocaleTimeString()}</td>
+                    <td class="py-2 px-4 border-b">${clockOut.toLocaleTimeString()}</td>
+                    <td class="py-2 px-4 border-b">${(durationMinutes / 60).toFixed(2)} h</td>
+                `;
+            });
+
+            if (records.length === 0) {
+                 tableBody.innerHTML = '<tr><td colspan="5" class="text-center py-4">この月の記録はありません。</td></tr>';
+            }
+
+            const totalHours = (totalMinutes / 60).toFixed(2);
+            const workDays = Object.keys(dailyHours).length;
+            const avgHoursDay = workDays > 0 ? (totalHours / workDays).toFixed(2) : '0.00';
+            const projectCount = Object.keys(projectHours).length;
+
+            document.getElementById('total-hours').textContent = `${totalHours} h`;
+            document.getElementById('work-days').textContent = `${workDays} 日`;
+            document.getElementById('avg-hours-day').textContent = `${avgHoursDay} h`;
+            document.getElementById('project-count').textContent = `${projectCount}`;
+
+            updateChart(projectHours);
+        }
+
+        function updateChart(projectHours) {
+            const ctx = document.getElementById('project-chart').getContext('2d');
+            const labels = Object.values(projectHours).map(p => p.name);
+            const data = Object.values(projectHours).map(p => (p.minutes / 60).toFixed(2));
+            const backgroundColors = Object.values(projectHours).map(p => p.color);
+
+            if (projectChart) {
+                projectChart.destroy();
+            }
+            projectChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'プロジェクト別稼働時間 (h)',
+                        data: data,
+                        backgroundColor: backgroundColors,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'top' },
+                        title: { display: true, text: 'プロジェクト別稼働時間' }
+                    }
+                }
             });
         }
-        
-        // ... (The rest of the script remains the same as the last version of index.html)
+
+        async function exportToPDF() {
+            showStatus("PDFを生成中...", false, 'summaryStatus');
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF({
+                orientation: 'p',
+                unit: 'mm',
+                format: 'a4'
+            });
+
+            pdf.addFileToVFS('ipaexg.ttf', IPAEXG_FONT_B64);
+            pdf.addFont('ipaexg.ttf', 'ipaexg', 'normal');
+            pdf.setFont('ipaexg');
+
+            const exportArea = document.getElementById('pdf-export-area');
+            try {
+                const canvas = await html2canvas(exportArea, { scale: 2 });
+                const imgData = canvas.toDataURL('image/png');
+                const imgProps = pdf.getImageProperties(imgData);
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+                
+                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                pdf.save(`${document.getElementById('month-select').value}-summary.pdf`);
+                showStatus("PDFがダウンロードされました。", false, 'summaryStatus');
+            } catch (error) {
+                console.error("PDF export failed:", error);
+                showStatus("PDFの生成に失敗しました。", true, 'summaryStatus');
+            }
+        }
     </script>
 </body>
 </html>
