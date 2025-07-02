@@ -464,28 +464,36 @@
 
             for (const checkbox of selectedCheckboxes) {
                 // 既に無効化されている（＝反映済みの）チェックボックスはスキップ
-                // ここでdisabledのチェックも行い、nullアクセスを防ぐ
                 if (checkbox.disabled) {
+                    console.log(`Event ID: ${checkbox.dataset.eventId} は既に反映済みのためスキップします。`);
                     continue;
                 }
 
                 const eventId = checkbox.dataset.eventId;
                 const eventElement = checkbox.closest('.flex');
+                
+                // イベント要素が見つからない場合はスキップし、ログを出力
+                if (!eventElement) {
+                    console.error(`エラー: イベント要素が見つかりません。Event ID: ${eventId}`);
+                    showStatus(`エラー: イベント要素が見つかりません。Event ID: ${eventId}`, true, 'reflect-status');
+                    continue; 
+                }
+
                 const projectSelect = eventElement.querySelector(`.project-select`);
                 
-                // projectSelectがnullでないことを確認
+                // プロジェクト選択ドロップダウンが見つからない場合はスキップし、ログを出力
                 if (!projectSelect) {
-                    console.error(`プロジェクト選択ドロップダウンが見つかりません。Event ID: ${eventId}`);
-                    showStatus("プロジェクト選択ドロップダウンが見つからない予定があります。", true, 'reflect-status');
-                    continue; // このイベントはスキップして次のイベントへ
+                    console.error(`エラー: プロジェクト選択ドロップダウンが見つかりません。Event ID: ${eventId}. HTML構造を確認してください。`);
+                    showStatus(`エラー: プロジェクト選択ドロップダウンが見つからない予定があります。Event ID: ${eventId}`, true, 'reflect-status');
+                    continue; 
                 }
 
                 const projectCode = projectSelect.value;
-                const projectName = projectSelect.options[projectSelect.selectedIndex]?.dataset.projectName; // ?. で安全にアクセス
+                const projectName = projectSelect.options[projectSelect.selectedIndex]?.dataset.projectName; 
 
                 if (!projectCode) {
                     showStatus("選択されたすべての予定にプロジェクトを選択してください。", true, 'reflect-status');
-                    return; // プロジェクトが選択されていない場合は処理を中断
+                    return; 
                 }
 
                 // Google Calendar APIからイベント詳細を再取得（確実な時間情報のため）
@@ -500,10 +508,8 @@
                     const start = event.start.dateTime ? new Date(event.start.dateTime) : new Date(event.start.date + 'T00:00:00');
                     const end = event.end.dateTime ? new Date(event.end.dateTime) : new Date(event.end.date + 'T23:59:59');
                     
-                    // 終日イベントの場合、期間を24時間として計算（またはビジネスロジックに応じて調整）
                     let durationHours;
-                    if (!event.start.dateTime) { // 終日イベント
-                        // 終日イベントの期間計算はビジネスロジックによる。ここでは単純に1日8時間とする例
+                    if (!event.start.dateTime) { 
                         durationHours = 8; 
                     } else {
                         durationHours = (end.getTime() - start.getTime()) / 3600000;
@@ -523,16 +529,13 @@
                 } catch (error) {
                     console.error(`イベント ${eventId} の詳細取得または反映に失敗しました:`, error);
                     showStatus(`一部の予定の反映に失敗しました: ${error.message}`, true, 'reflect-status');
-                    return; // エラーが発生したら中断
+                    return; 
                 }
             }
 
             try {
                 await Promise.all(reflectPromises);
                 showStatus("選択した予定を稼働実績に反映しました！", false, 'reflect-status');
-                // 反映後、チェックボックスをクリアし、アクションバーを隠す
-                // 既に反映済みのものはdisabledになっているため、チェックボックスの状態は維持される
-                // 新たに反映されたものもdisabledにするため、再度イベントを読み込むのが確実
                 loadCalendarEvents(); 
             } catch (error) {
                 console.error("Error reflecting events:", error);
