@@ -262,6 +262,14 @@
         document.getElementById('showCalendarBtn').addEventListener('click', () => showMainView('calendarView'));
         document.querySelectorAll('.btn-back').forEach(btn => btn.addEventListener('click', () => showMainView('clockInView')));
         
+        function showStatus(message, isError, elementId) {
+            const statusDiv = document.getElementById(elementId);
+            if (statusDiv) {
+                statusDiv.textContent = message;
+                statusDiv.className = `pt-4 text-center font-medium h-10 ${isError ? 'text-red-600' : 'text-green-600'}`;
+            }
+        }
+
         // --- Original App Logic ---
         function updateClock() { document.getElementById('realtime-clock').textContent = new Date().toLocaleTimeString('ja-JP'); }
         setInterval(updateClock, 1000);
@@ -313,14 +321,6 @@
                 showStatus(`エラー: ${error.message}`, true, 'status');
             } finally {
                 setButtonsDisabled(false);
-            }
-        }
-        
-        function showStatus(message, isError, elementId) {
-            const statusDiv = document.getElementById(elementId);
-            if (statusDiv) {
-                statusDiv.textContent = message;
-                statusDiv.className = `pt-4 text-center font-medium h-10 ${isError ? 'text-red-600' : 'text-green-600'}`;
             }
         }
 
