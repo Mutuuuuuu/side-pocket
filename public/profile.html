@@ -7,9 +7,18 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap');
+        :root {
+            --main-color: #698966;
+            --main-color-dark: #5a7d58;
+        }
         body { font-family: 'Noto Sans JP', sans-serif; }
         .btn { transition: all 0.2s ease-in-out; }
         .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .bg-main { background-color: var(--main-color); }
+        .hover\:bg-main-dark:hover { background-color: var(--main-color-dark); }
+        .text-main { color: var(--main-color); }
+        .ring-main:focus { ring-color: var(--main-color); }
+        .border-main { border-color: var(--main-color); }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
@@ -20,43 +29,42 @@
                 <h1 class="text-3xl font-bold text-gray-800">プロフィール管理</h1>
                 <a href="index.html" class="btn px-4 py-2 text-base font-semibold text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 no-underline">戻る</a>
             </header>
-            <div class="space-y-4">
-                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input type="text" id="profileLastName" placeholder="姓" class="w-full px-4 py-3 bg-gray-50 border rounded-lg">
-                    <input type="text" id="profileFirstName" placeholder="名" class="w-full px-4 py-3 bg-gray-50 border rounded-lg">
+            <form id="profile-form" class="space-y-4">
+                <div class="flex items-center space-x-4">
+                    <img id="user-icon-preview" src="https://placehold.co/96x96/EFEFEF/333333?text=?" class="w-24 h-24 rounded-full object-cover bg-gray-200">
+                    <label class="block">
+                        <span class="sr-only">Choose profile photo</span>
+                        <input type="file" id="icon-file" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-main hover:file:bg-violet-100"/>
+                    </label>
                 </div>
-                <input type="text" id="profileDisplayName" placeholder="ディスプレイ名" class="w-full px-4 py-3 bg-gray-50 border rounded-lg">
-                <input type="email" id="profileEmail" placeholder="メールアドレス" class="w-full px-4 py-3 bg-gray-200 border rounded-lg" readonly>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">アイコン画像 (任意)</label>
-                    <div class="mt-1 flex items-center space-x-4">
-                        <img id="profileIconPreview" src="https://placehold.co/96x96/EFEFEF/333333?text=Icon" class="w-24 h-24 rounded-full object-cover bg-gray-200">
-                        <input type="file" id="profileIconFile" accept="image/*" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100">
-                    </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="text" id="last-name" placeholder="姓" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 ring-main">
+                    <input type="text" id="first-name" placeholder="名" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 ring-main">
                 </div>
-                <button id="updateProfileBtn" class="btn w-full px-4 py-3 font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700">更新する</button>
-            </div>
-            <div id="profile-status" class="pt-2 text-center font-medium h-8"></div>
+                <input type="text" id="display-name" placeholder="ディスプレイ名" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 ring-main">
+                <input type="email" id="email" placeholder="メールアドレス" disabled class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-500">
+                <button type="submit" id="updateProfileBtn" class="w-full btn bg-main text-white font-bold py-3 rounded-lg hover:bg-main-dark">更新</button>
+            </form>
+            <div id="profile-status" class="text-center font-medium h-5"></div>
         </div>
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getAuth, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
-        // Firebase設定。storageBucketを統一します。
         const firebaseConfig = {
             apiKey: "AIzaSyBuRc0oRFQk-GvVAh_90S9NGAYu5sOkxyM",
             authDomain: "side-pocket-sl.firebaseapp.com",
             projectId: "side-pocket-sl",
-            storageBucket: "side-pocket-sl.appspot.com", // 統一されたstorageBucket
+            storageBucket: "side-pocket-sl.firebasestorage.app",
             messagingSenderId: "887116583823",
             appId: "1:887116583823:web:5783488bd573f5be4bf1fa",
             measurementId: "G-QSBDN1TX68"
         };
-        
+
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
@@ -64,78 +72,35 @@
 
         let currentUser = null;
 
-        // ログイン状態をチェック
-        onAuthStateChanged(auth, (user) => {
+        onAuthStateChanged(auth, async (user) => {
             if (user) {
                 currentUser = user;
-                loadUserProfile();
+                const userDocRef = doc(db, "users", user.uid);
+                const userDoc = await getDoc(userDocRef);
+
+                if (userDoc.exists()) {
+                    const data = userDoc.data();
+                    document.getElementById('last-name').value = data.lastName || '';
+                    document.getElementById('first-name').value = data.firstName || '';
+                    document.getElementById('display-name').value = data.displayName || '';
+                    document.getElementById('email').value = user.email;
+                    document.getElementById('user-icon-preview').src = data.photoURL || `https://placehold.co/96x96/EFEFEF/333333?text=${(data.displayName || '?').charAt(0)}`;
+                }
             } else {
-                // 未ログインの場合はログインページへリダイレクト
                 window.location.href = 'login.html';
             }
         });
-        
-        // プロフィール情報を読み込み、存在しなければ作成する
-        const loadUserProfile = async () => {
-            if (!currentUser) return;
-            
-            const userDocRef = doc(db, "users", currentUser.uid);
-            const userDoc = await getDoc(userDocRef);
-            const statusDiv = document.getElementById('profile-status');
 
-            if (userDoc.exists()) {
-                // ドキュメントが存在する場合、フォームに情報を表示
-                const userData = userDoc.data();
-                document.getElementById('profileLastName').value = userData.lastName || '';
-                document.getElementById('profileFirstName').value = userData.firstName || '';
-                document.getElementById('profileDisplayName').value = userData.displayName || '';
-                document.getElementById('profileEmail').value = currentUser.email;
-                document.getElementById('profileIconPreview').src = userData.photoURL || `https://placehold.co/96x96/EFEFEF/333333?text=${(userData.displayName || '?').charAt(0)}`;
-            } else {
-                // ドキュメントが存在しない場合、基本情報で新規作成する
-                try {
-                    console.log(`User document for ${currentUser.uid} not found. Creating...`);
-                    const newUserDoc = {
-                        uid: currentUser.uid,
-                        email: currentUser.email,
-                        displayName: currentUser.displayName || '',
-                        photoURL: currentUser.photoURL || null,
-                        lastName: '',
-                        firstName: '',
-                        createdAt: serverTimestamp()
-                    };
-                    await setDoc(userDocRef, newUserDoc);
-                    console.log("Document created successfully.");
-                    // 作成後、再度読み込んでフォームに表示する
-                    loadUserProfile();
-                } catch (error) {
-                    console.error("Error creating user document:", error);
-                    statusDiv.textContent = 'プロファイルの初期化に失敗しました。';
-                    statusDiv.style.color = 'red';
-                }
-            }
-        };
-
-        // アイコンプレビュー
-        document.getElementById('profileIconFile').addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (e) => { document.getElementById('profileIconPreview').src = e.target.result; }
-                reader.readAsDataURL(file);
-            }
-        });
-
-        // 更新処理
-        document.getElementById('updateProfileBtn').addEventListener('click', async () => {
+        document.getElementById('profile-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
             if (!currentUser) return;
 
-            const lastName = document.getElementById('profileLastName').value.trim();
-            const firstName = document.getElementById('profileFirstName').value.trim();
-            const displayName = document.getElementById('profileDisplayName').value.trim();
-            const iconFile = document.getElementById('profileIconFile').files[0];
+            const lastName = document.getElementById('last-name').value;
+            const firstName = document.getElementById('first-name').value;
+            const displayName = document.getElementById('display-name').value;
+            const iconFile = document.getElementById('icon-file').files[0];
             const statusDiv = document.getElementById('profile-status');
-            
+
             if (!lastName || !firstName || !displayName) {
                 statusDiv.textContent = '姓、名、ディスプレイ名は必須項目です。';
                 statusDiv.style.color = 'red';

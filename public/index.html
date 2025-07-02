@@ -17,18 +17,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap');
+        :root {
+            --main-color: #698966;
+            --main-color-dark: #5a7d58;
+            --main-color-light: #eef2ff; /* A light version for active tabs */
+        }
         body { font-family: 'Noto Sans JP', sans-serif; }
         .btn { transition: all 0.2s ease-in-out; }
         .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-        .tab-btn.active { border-color: #4f46e5; color: #4f46e5; }
+        .tab-btn.active { border-color: var(--main-color); color: var(--main-color); }
         .switch { position: relative; display: inline-block; width: 60px; height: 34px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
         .slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .slider { background-color: #4f46e5; }
+        input:checked + .slider { background-color: var(--main-color); }
         input:checked + .slider:before { transform: translateX(26px); }
-        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid var(--main-color); border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        /* Custom color classes */
+        .bg-main { background-color: var(--main-color); }
+        .hover\:bg-main-dark:hover { background-color: var(--main-color-dark); }
+        .text-main { color: var(--main-color); }
+        .border-main { border-color: var(--main-color); }
+        .ring-main:focus { ring-color: var(--main-color); }
+        .bg-main-light { background-color: var(--main-color-light); }
     </style>
 </head>
 
@@ -44,7 +56,7 @@
         <header class="w-full max-w-4xl mx-auto mb-4 flex justify-between items-center">
             <h1 class="text-xl font-bold text-gray-700">side pocket</h1>
             <div id="user-info" class="flex items-center gap-3">
-                <a href="profile.html" class="flex items-center gap-2 text-sm text-gray-600 hover:text-indigo-600 no-underline">
+                <a href="profile.html" class="flex items-center gap-2 text-sm text-gray-600 hover:text-main no-underline">
                     <img id="user-icon" src="https://placehold.co/32x32/EFEFEF/333333?text=?" class="w-8 h-8 rounded-full object-cover bg-gray-200">
                     <span id="user-display-name"></span>
                 </a>
@@ -61,17 +73,17 @@
                 </header>
                 <div class="space-y-2">
                     <label for="projectCode" class="text-sm font-medium text-gray-700">プロジェクト</label>
-                    <select id="projectCode" class="w-full px-4 py-3 text-base bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+                    <select id="projectCode" class="w-full px-4 py-3 text-base bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 ring-main outline-none">
                         <option value="">プロジェクトを選択してください</option>
                     </select>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
-                    <button id="clockInBtn" class="btn w-full px-6 py-3 text-lg font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700">出勤</button>
+                    <button id="clockInBtn" class="btn w-full px-6 py-3 text-lg font-semibold text-white bg-main rounded-lg hover:bg-main-dark">出勤</button>
                     <button id="clockOutBtn" class="btn w-full px-6 py-3 text-lg font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700">退勤</button>
                 </div>
                 <div id="status" class="pt-4 text-center font-medium h-10"></div>
                 <div class="pt-4 border-t space-y-2">
-                    <button id="showCalendarBtn" class="btn w-full px-6 py-2 text-base font-semibold text-white bg-teal-600 rounded-lg hover:bg-teal-700">カレンダー連携</button>
+                    <button id="showCalendarBtn" class="btn w-full px-6 py-2 text-base font-semibold text-white bg-main rounded-lg hover:bg-main-dark">カレンダー連携</button>
                     <button id="showSummaryBtn" class="btn w-full px-6 py-2 text-base font-semibold text-white bg-gray-600 rounded-lg hover:bg-gray-700">稼働時間の集計を見る</button>
                     <button id="showProjectManagementBtn" class="btn w-full px-6 py-2 text-base font-semibold text-white bg-slate-600 rounded-lg hover:bg-slate-700">プロジェクト管理</button>
                 </div>
@@ -108,7 +120,7 @@
                     <h3 class="text-lg font-bold">新規プロジェクト追加</h3>
                     <input type="text" id="newProjectCode" placeholder="プロジェクトコード (例: P-001)" class="w-full p-2 border rounded">
                     <input type="text" id="newProjectName" placeholder="プロジェクト名" class="w-full p-2 border rounded">
-                    <button id="addProjectBtn" class="btn w-full text-white bg-blue-600 hover:bg-blue-700 p-2 rounded-lg">追加</button>
+                    <button id="addProjectBtn" class="btn w-full text-white bg-main hover:bg-main-dark p-2 rounded-lg">追加</button>
                 </div>
                 <div class="space-y-3">
                     <h3 class="text-lg font-bold">プロジェクト一覧</h3>
@@ -126,10 +138,10 @@
                 <div id="gcal-status-container" class="bg-gray-50 p-4 rounded-lg">
                     <p id="gcal-auth-status" class="text-gray-600 mb-4">ステータス：初期化中...</p>
                     <div class="flex flex-wrap gap-2">
-                        <button id="gcal-authorize-button" class="btn bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded hidden">Googleと連携する</button>
+                        <button id="gcal-authorize-button" class="btn bg-main hover:bg-main-dark text-white font-bold py-2 px-4 rounded hidden">Googleと連携する</button>
                         <button id="gcal-signout-button" class="btn bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded hidden">連携を解除</button>
-                        <button id="gcal-load-events-button" class="btn bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded hidden">予定を読み込む</button>
-                        <button id="gcal-add-event-button" class="btn bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded hidden">予定を作成</button>
+                        <button id="gcal-load-events-button" class="btn bg-main hover:bg-main-dark text-white font-bold py-2 px-4 rounded hidden">予定を読み込む</button>
+                        <button id="gcal-add-event-button" class="btn bg-main hover:bg-main-dark text-white font-bold py-2 px-4 rounded hidden">予定を作成</button>
                     </div>
                 </div>
                 <div class="bg-gray-50 p-4 rounded-lg">
@@ -158,7 +170,7 @@
                 </div>
                 <div class="mt-6 flex justify-end gap-4">
                     <button type="button" id="cancel-add-event" class="px-4 py-2 bg-gray-200 rounded">キャンセル</button>
-                    <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded">作成</button>
+                    <button type="submit" class="px-4 py-2 bg-main text-white rounded">作成</button>
                 </div>
             </form>
         </div>
@@ -240,7 +252,6 @@
             timestampsUnsubscribe = null;
         }
 
-        // --- UI Navigation ---
         const mainViews = ['clockInView', 'summaryView', 'projectManagementView', 'calendarView'];
         
         function showMainView(viewId) {
@@ -270,7 +281,6 @@
             }
         }
 
-        // --- Original App Logic ---
         function updateClock() { document.getElementById('realtime-clock').textContent = new Date().toLocaleTimeString('ja-JP'); }
         setInterval(updateClock, 1000);
 
@@ -369,7 +379,7 @@
             const querySnapshot = await getDocs(q);
             querySnapshot.forEach((doc) => {
                 const project = doc.data();
-                projectsMap[project.code] = { name: project.name, color: project.color || null };
+                projectsMap[project.code] = { name: project.name, color: project.color || '#698966' };
             });
             return projectsMap;
         }
@@ -418,7 +428,7 @@
             const allProjects = [...new Set(Object.values(monthlyData).flatMap(month => Object.keys(month)))];
             const datasets = allProjects.map(projectCode => {
                 const projectInfo = projectsMap[projectCode] || {};
-                const color = projectInfo.color || `rgba(${Math.floor(Math.random()*255)}, ${Math.floor(Math.random()*255)}, ${Math.floor(Math.random()*255)}, 0.8)`;
+                const color = projectInfo.color || '#698966';
                 const dataPoints = allMonths.map(month => monthlyData[month][projectCode]?.total || 0);
                 return { label: `${projectInfo.name || projectCode}`, data: dataPoints, borderColor: color, backgroundColor: color, fill: false };
             });
@@ -454,7 +464,7 @@
                 contentContainer.innerHTML = '<p class="text-center text-gray-500 py-4">この月には記録がありません。</p>';
                 return;
             }
-            tabsContainer.innerHTML = `<nav class="-mb-px flex space-x-4 overflow-x-auto">${projects.map((p, i) => `<button data-project="${p}" class="tab-btn whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm ${i===0 ? 'active' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}">${dataForMonth[p].projectName}</button>`).join('')}</nav>`;
+            tabsContainer.innerHTML = `<nav class="-mb-px flex space-x-4 overflow-x-auto">${projects.map((p, i) => `<button data-project="${p}" class="tab-btn whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm ${i===0 ? 'active border-main' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}">${dataForMonth[p].projectName}</button>`).join('')}</nav>`;
             contentContainer.innerHTML = projects.map((p, i) => {
                 const projectData = dataForMonth[p];
                 const totalHours = projectData.total.toFixed(2);
@@ -462,16 +472,23 @@
                     ${projectData.details.sort((a, b) => new Date(a.clockIn) - new Date(b.clockIn)).map(d => `<tr><td class="px-4 py-2 text-sm">${d.clockIn}</td><td class="px-4 py-2 text-sm">${d.clockOut}</td><td class="px-4 py-2 text-sm text-right">${d.duration}</td></tr>`).join('')}
                 </tbody></table></div>`;
                 return `<div data-content="${p}" class="${i===0 ? '' : 'hidden'}">
-                    <div class="flex flex-col sm:flex-row justify-between items-center p-4 bg-indigo-50 rounded-lg gap-4">
-                        <h3 class="text-lg font-bold">合計時間: <span class="text-indigo-600">${totalHours}</span> 時間</h3>
-                        <button data-month="${month}" data-project="${p}" class="download-pdf-btn btn w-full sm:w-auto text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg">PDF出力</button>
+                    <div class="flex flex-col sm:flex-row justify-between items-center p-4 bg-main-light rounded-lg gap-4">
+                        <h3 class="text-lg font-bold">合計時間: <span class="text-main">${totalHours}</span> 時間</h3>
+                        <button data-month="${month}" data-project="${p}" class="download-pdf-btn btn w-full sm:w-auto text-white bg-main hover:bg-main-dark px-4 py-2 rounded-lg">PDF出力</button>
                     </div>
                     <div class="mt-4">${detailsHtml}</div>
                 </div>`;
             }).join('');
             tabsContainer.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => {
                 const targetProject = btn.dataset.project;
-                tabsContainer.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.project === targetProject));
+                tabsContainer.querySelectorAll('.tab-btn').forEach(b => {
+                    b.classList.remove('active', 'border-main');
+                    b.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+                    if (b.dataset.project === targetProject) {
+                        b.classList.add('active', 'border-main');
+                        b.classList.remove('border-transparent', 'text-gray-500');
+                    }
+                });
                 contentContainer.querySelectorAll('[data-content]').forEach(c => c.classList.toggle('hidden', c.dataset.content !== targetProject));
             }));
         }
@@ -504,7 +521,7 @@
                 const clockOutTimePart = (detail.clockOut || "").split(' ')[1] || "";
                 tableRows.push([datePart, clockInTimePart, clockOutTimePart, detail.duration]);
             });
-            doc.autoTable({ head: [tableColumn], body: tableRows, startY: 50, styles: { font: "ipaexg", fontStyle: 'normal' }, headStyles: { fillColor: [79, 70, 229] }, margin: { top: 10, right: 10, bottom: 10, left: 10 } });
+            doc.autoTable({ head: [tableColumn], body: tableRows, startY: 50, styles: { font: "ipaexg", fontStyle: 'normal' }, headStyles: { fillColor: [105, 137, 102] }, margin: { top: 10, right: 10, bottom: 10, left: 10 } });
             doc.save(`稼働報告書_${month}_${projectCode}.pdf`);
         }
 
@@ -522,7 +539,7 @@
 
         function renderProjectItem(p) {
             return `<div class="project-item flex justify-between items-center p-3 border-b gap-2 rounded-lg bg-white shadow-sm" data-project-id="${p.id}">
-                <input type="color" class="project-color-input p-1 h-10 w-10 block bg-white border border-gray-200 cursor-pointer rounded-lg" value="${p.color || '#808080'}">
+                <input type="color" class="project-color-input p-1 h-10 w-10 block bg-white border border-gray-200 cursor-pointer rounded-lg" value="${p.color || '#698966'}">
                 <div class="flex-grow">
                     <div data-field="name" class="font-bold text-gray-800">${p.name}</div>
                     <div class="text-sm text-gray-500">${p.code}</div>
@@ -649,7 +666,7 @@
                 const querySnapshot = await getDocs(q);
                 if (!querySnapshot.empty) throw new Error("同じプロジェクトコードが既に存在します。");
                 await addDoc(collection(db, "projects"), {
-                    code: code, name: name, status: "Active", color: "#808080", ownerId: currentUser.uid
+                    code: code, name: name, status: "Active", color: "#698966", ownerId: currentUser.uid
                 });
                 showStatus("プロジェクトを追加しました。", false, 'projectManagementStatus');
                 codeInput.value = ''; nameInput.value = '';
