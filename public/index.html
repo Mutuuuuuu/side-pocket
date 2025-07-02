@@ -60,7 +60,6 @@
                     <img id="user-icon" src="https://placehold.co/32x32/EFEFEF/333333?text=?" class="w-8 h-8 rounded-full object-cover bg-gray-200">
                     <span id="user-display-name"></span>
                 </a>
-                <!-- ★★★ ハンバーガーメニューコンテナ ★★★ -->
                 <div class="relative">
                     <button id="menu-button" class="p-2 rounded-full hover:bg-gray-200 focus:outline-none">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" /></svg>
@@ -142,45 +141,40 @@
                     <h2 class="text-2xl sm:text-3xl font-bold text-gray-800">Googleカレンダー連携</h2>
                     <button class="btn-back btn w-full sm:w-auto px-6 py-2 text-base font-semibold text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">戻る</button>
                 </header>
-                <div id="gcal-status-container" class="bg-gray-50 p-4 rounded-lg">
+                <div id="gcal-auth-container" class="bg-gray-50 p-4 rounded-lg">
                     <p id="gcal-auth-status" class="text-gray-600 mb-4">ステータス：初期化中...</p>
                     <div class="flex flex-wrap gap-2">
                         <button id="gcal-authorize-button" class="btn bg-main hover:bg-main-dark text-white font-bold py-2 px-4 rounded hidden">Googleと連携する</button>
                         <button id="gcal-signout-button" class="btn bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded hidden">連携を解除</button>
-                        <button id="gcal-load-events-button" class="btn bg-main hover:bg-main-dark text-white font-bold py-2 px-4 rounded hidden">予定を読み込む</button>
-                        <button id="gcal-add-event-button" class="btn bg-main hover:bg-main-dark text-white font-bold py-2 px-4 rounded hidden">予定を作成</button>
                     </div>
                 </div>
-                <div class="bg-gray-50 p-4 rounded-lg">
-                     <h3 class="text-lg font-bold mb-2">カレンダーの予定</h3>
-                     <div id="calendar-events-container" class="space-y-2 max-h-96 overflow-y-auto">
-                        <p class="text-gray-500">連携後に「予定を読み込む」ボタンを押してください。</p>
-                     </div>
+                <!-- ★★★ カレンダー連携UIの変更 ★★★ -->
+                <div id="gcal-controls" class="hidden space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                        <div>
+                            <label for="calendar-select" class="block text-sm font-medium text-gray-700">カレンダーを選択:</label>
+                            <select id="calendar-select" class="mt-1 block w-full p-2 border border-gray-300 rounded-md"></select>
+                        </div>
+                        <div>
+                            <label for="calendar-month" class="block text-sm font-medium text-gray-700">月を選択:</label>
+                            <input type="month" id="calendar-month" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                        </div>
+                        <button id="load-calendar-events-btn" class="btn bg-main hover:bg-main-dark text-white font-bold py-2 px-4 rounded">予定を読み込む</button>
+                    </div>
+                    <div id="calendar-events-container" class="space-y-2 max-h-96 overflow-y-auto p-2 border rounded-lg bg-gray-50">
+                        <p class="text-gray-500 text-center py-4">カレンダーと月を選択して「予定を読み込む」を押してください。</p>
+                    </div>
+                    <div id="calendar-action-bar" class="hidden flex flex-col md:flex-row items-center gap-4 p-4 border-t">
+                        <div class="flex-grow w-full md:w-auto">
+                            <label for="calendar-project-select" class="block text-sm font-medium text-gray-700">紐付けるプロジェクト:</label>
+                            <select id="calendar-project-select" class="mt-1 block w-full p-2 border border-gray-300 rounded-md"></select>
+                        </div>
+                        <button id="reflect-events-btn" class="btn bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded w-full md:w-auto">選択した予定を稼働実績に反映</button>
+                    </div>
+                    <div id="reflect-status" class="text-center h-5"></div>
                 </div>
             </div>
         </main>
-    </div>
-
-    <!-- Calendar Event Add Modal -->
-    <div id="add-event-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center">
-        <div class="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
-            <h2 class="text-2xl font-bold mb-6">新しい予定を作成</h2>
-            <form id="add-event-form">
-                <div class="space-y-4">
-                    <input type="text" id="event-summary" placeholder="予定のタイトル" required class="w-full px-4 py-2 border rounded">
-                    <input type="datetime-local" id="event-start-time" required class="w-full px-4 py-2 border rounded">
-                    <input type="datetime-local" id="event-end-time" required class="w-full px-4 py-2 border rounded">
-                    <select id="event-project-select" class="w-full px-4 py-2 border rounded">
-                        <option value="">プロジェクトを選択（任意）</option>
-                    </select>
-                    <textarea id="event-description" placeholder="詳細（任意）" class="w-full px-4 py-2 border rounded"></textarea>
-                </div>
-                <div class="mt-6 flex justify-end gap-4">
-                    <button type="button" id="cancel-add-event" class="px-4 py-2 bg-gray-200 rounded">キャンセル</button>
-                    <button type="submit" class="px-4 py-2 bg-main text-white rounded">作成</button>
-                </div>
-            </form>
-        </div>
     </div>
 
     <script type="module">
@@ -192,7 +186,7 @@
         const API_KEY = 'AIzaSyBuRc0oRFQk-GvVAh_90S9NGAYu5sOkxyM';
         const CLIENT_ID = '887116583823-32evpk9fa2m0ondbbco6tv4m1980i7bj.apps.googleusercontent.com';
         const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
-        const SCOPES = 'https://www.googleapis.com/auth/calendar';
+        const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly';
 
         let tokenClient;
         let gapiInited = false;
@@ -226,7 +220,6 @@
                 document.getElementById('user-display-name').textContent = user.displayName || user.email;
                 document.getElementById('user-icon').src = user.photoURL || `https://placehold.co/32x32/EFEFEF/333333?text=${(user.displayName || user.email || '?').charAt(0)}`;
                 
-                // ★★★ Start a single, persistent listener for all projects ★★★
                 listenToAllProjects();
                 showMainView('clockInView');
 
@@ -370,21 +363,27 @@
         function updateProjectDropdown(projects) {
             const select = document.getElementById('projectCode');
             const eventSelect = document.getElementById('event-project-select');
+            const calendarProjectSelect = document.getElementById('calendar-project-select');
+            
             const activeProjects = projects.filter(p => p.status === 'Active');
             
-            const currentValue = select.value;
-            select.innerHTML = '<option value="">プロジェクトを選択してください</option>';
-            eventSelect.innerHTML = '<option value="">プロジェクトを選択（任意）</option>';
-
-            activeProjects.forEach(p => {
-                const option = document.createElement('option');
-                option.value = p.code;
-                option.textContent = `${p.code}: ${p.name}`;
-                option.dataset.name = p.name;
-                select.appendChild(option.cloneNode(true));
-                eventSelect.appendChild(option);
+            [select, eventSelect, calendarProjectSelect].forEach(s => {
+                const currentValue = s.value;
+                s.innerHTML = '';
+                if (s.id === 'event-project-select') {
+                    s.innerHTML = '<option value="">プロジェクトを選択（任意）</option>';
+                } else {
+                    s.innerHTML = '<option value="">プロジェクトを選択</option>';
+                }
+                activeProjects.forEach(p => {
+                    const option = document.createElement('option');
+                    option.value = p.code;
+                    option.textContent = `${p.code}: ${p.name}`;
+                    option.dataset.name = p.name;
+                    s.appendChild(option);
+                });
+                s.value = currentValue;
             });
-            select.value = currentValue;
         }
 
         function getProjectsMapFromLocal() {
@@ -548,7 +547,7 @@
                     return project;
                 });
                 renderProjectList(projects);
-                updateProjectDropdown(projects.filter(p => p.status === 'Active'));
+                updateProjectDropdown(projects);
             }, (error) => {
                 showStatus("プロジェクトリストの取得に失敗しました。", true, 'projectManagementStatus');
             });
@@ -704,20 +703,19 @@
             const statusText = document.getElementById('gcal-auth-status');
             const authorizeButton = document.getElementById('gcal-authorize-button');
             const signoutButton = document.getElementById('gcal-signout-button');
-            const loadEventsButton = document.getElementById('gcal-load-events-button');
-            const addEventButton = document.getElementById('gcal-add-event-button');
+            const controls = document.getElementById('gcal-controls');
+
             if (gapi.client.getToken() === null) {
                 statusText.textContent = 'ステータス：未認証。Googleアカウントと連携してください。';
                 authorizeButton.classList.remove('hidden');
                 signoutButton.classList.add('hidden');
-                loadEventsButton.classList.add('hidden');
-                addEventButton.classList.add('hidden');
+                controls.classList.add('hidden');
             } else {
                 statusText.textContent = 'ステータス：連携済みです。';
                 authorizeButton.classList.add('hidden');
                 signoutButton.classList.remove('hidden');
-                loadEventsButton.classList.remove('hidden');
-                addEventButton.classList.remove('hidden');
+                controls.classList.remove('hidden');
+                loadCalendarList();
             }
         }
         document.getElementById('gcal-authorize-button').addEventListener('click', () => { if (tokenClient) tokenClient.requestAccessToken(); });
@@ -727,104 +725,127 @@
                 google.accounts.oauth2.revoke(token.access_token, () => {
                     gapi.client.setToken('');
                     updateGcalUi();
-                    document.getElementById('calendar-events-container').innerHTML = '<p class="text-gray-500">連携を解除しました。</p>';
                 });
             }
         });
-        document.getElementById('gcal-load-events-button').addEventListener('click', listUpcomingEvents);
-        async function listUpcomingEvents() {
+
+        async function loadCalendarList() {
+            try {
+                const response = await gapi.client.calendar.calendarList.list();
+                const calendars = response.result.items;
+                const select = document.getElementById('calendar-select');
+                select.innerHTML = '';
+                calendars.forEach(calendar => {
+                    const option = document.createElement('option');
+                    option.value = calendar.id;
+                    option.textContent = calendar.summary;
+                    select.appendChild(option);
+                });
+                document.getElementById('calendar-month').value = new Date().toISOString().slice(0, 7);
+            } catch (err) {
+                console.error("カレンダーリストの読み込みに失敗", err);
+            }
+        }
+
+        document.getElementById('load-calendar-events-btn').addEventListener('click', listCalendarEvents);
+
+        async function listCalendarEvents() {
+            const calendarId = document.getElementById('calendar-select').value;
+            const month = document.getElementById('calendar-month').value;
+            if (!month) {
+                alert("月を選択してください。");
+                return;
+            }
+            const [year, monthNum] = month.split('-');
+            const timeMin = new Date(year, monthNum - 1, 1).toISOString();
+            const timeMax = new Date(year, monthNum, 0, 23, 59, 59).toISOString();
+
             const container = document.getElementById('calendar-events-container');
             container.innerHTML = '<div class="loader mx-auto"></div>';
+            
             try {
                 const response = await gapi.client.calendar.events.list({
-                    'calendarId': 'primary', 'timeMin': (new Date()).toISOString(),
-                    'showDeleted': false, 'singleEvents': true, 'maxResults': 10, 'orderBy': 'startTime',
+                    'calendarId': calendarId, 'timeMin': timeMin, 'timeMax': timeMax,
+                    'showDeleted': false, 'singleEvents': true, 'orderBy': 'startTime',
                 });
                 const events = response.result.items;
-                if (!events || events.length == 0) { container.innerText = '直近の予定はありません。'; return; }
-                container.innerHTML = '';
-                events.forEach(event => {
-                    const start = event.start.dateTime || event.start.date;
-                    const projectCode = event.extendedProperties?.private?.projectCode;
-                    
-                    const project = Array.from(projectDataMap.values()).find(p => p.code === projectCode);
-                    const projectInfo = project ? `【${project.name}】` : '';
-
-                    const eventEl = document.createElement('div');
-                    eventEl.className = 'p-2 border rounded bg-gray-50';
-                    eventEl.innerHTML = `<p class="font-bold">${event.summary} ${projectInfo}</p><p class="text-sm text-gray-600">${new Date(start).toLocaleString()}</p>`;
-                    container.appendChild(eventEl);
-                });
-            } catch (err) { container.innerText = 'エラー: ' + err.message; }
-        }
-        document.getElementById('gcal-add-event-button').addEventListener('click', () => {
-            document.getElementById('add-event-modal').classList.remove('hidden');
-        });
-        document.getElementById('cancel-add-event').addEventListener('click', () => {
-            document.getElementById('add-event-modal').classList.add('hidden');
-        });
-        document.getElementById('add-event-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const event = {
-                'summary': document.getElementById('event-summary').value,
-                'description': document.getElementById('event-description').value,
-                'start': { 'dateTime': new Date(document.getElementById('event-start-time').value).toISOString() },
-                'end': { 'dateTime': new Date(document.getElementById('event-end-time').value).toISOString() },
-                'extendedProperties': { 'private': { 'projectCode': document.getElementById('event-project-select').value, 'autoPunch': 'pending' } }
-            };
-            try {
-                await gapi.client.calendar.events.insert({ 'calendarId': 'primary', 'resource': event });
-                alert('予定を作成しました！');
-                document.getElementById('add-event-modal').classList.add('hidden');
-                listUpcomingEvents();
-            } catch (error) { alert('予定の作成に失敗しました: ' + error.message); }
-        });
-        async function checkForAutoPunch() {
-            if (gapi.client.getToken() === null) return;
-            const now = new Date(); const threeDaysAgo = new Date(); threeDaysAgo.setDate(now.getDate() - 3);
-            try {
-                const response = await gapi.client.calendar.events.list({
-                    'calendarId': 'primary', 'timeMin': threeDaysAgo.toISOString(), 'timeMax': now.toISOString(),
-                    'privateExtendedProperty': 'autoPunch=pending', 'singleEvents': true,
-                });
-                for (const event of response.result.items) {
-                    await createPunchFromEvent(event);
-                    await markEventAsPunched(event.id);
+                document.getElementById('calendar-action-bar').classList.toggle('hidden', events.length === 0);
+                if (events.length === 0) {
+                    container.innerHTML = '<p class="text-gray-500 text-center py-4">この月の予定はありません。</p>';
+                    return;
                 }
-            } catch (error) { console.error("自動打刻チェック中にエラー:", error); }
+                container.innerHTML = events.map(event => {
+                    const start = event.start.dateTime ? new Date(event.start.dateTime) : new Date(event.start.date);
+                    const end = event.end.dateTime ? new Date(event.end.dateTime) : new Date(event.end.date);
+                    // 終日イベントの場合、終了日を調整
+                    if (event.start.date) {
+                        end.setDate(end.getDate() - 1);
+                    }
+                    const eventData = JSON.stringify({
+                        summary: event.summary,
+                        start: start.toISOString(),
+                        end: end.toISOString()
+                    });
+                    return `<div class="p-2 border-b flex items-center gap-3">
+                        <input type="checkbox" class="event-checkbox h-4 w-4 rounded" data-event='${eventData}'>
+                        <div class="flex-grow">
+                            <p class="font-bold">${event.summary}</p>
+                            <p class="text-sm text-gray-600">${start.toLocaleString()} - ${end.toLocaleString()}</p>
+                        </div>
+                    </div>`;
+                }).join('');
+            } catch (err) {
+                container.innerText = 'エラー: ' + err.message;
+            }
         }
-        async function createPunchFromEvent(event) {
-            const projectCode = event.extendedProperties?.private?.projectCode;
-            if (!projectCode) return;
+
+        document.getElementById('reflect-events-btn').addEventListener('click', async () => {
+            const selectedEvents = [];
+            document.querySelectorAll('.event-checkbox:checked').forEach(checkbox => {
+                selectedEvents.push(JSON.parse(checkbox.dataset.event));
+            });
+
+            const projectCode = document.getElementById('calendar-project-select').value;
+            if (!projectCode) {
+                showStatus("紐付けるプロジェクトを選択してください。", true, 'reflect-status');
+                return;
+            }
+            if (selectedEvents.length === 0) {
+                showStatus("反映する予定を選択してください。", true, 'reflect-status');
+                return;
+            }
             
+            showStatus("実績を登録しています...", false, 'reflect-status');
             const project = Array.from(projectDataMap.values()).find(p => p.code === projectCode);
             if (!project) {
-                console.error(`自動打刻エラー: プロジェクトコード "${projectCode}" が見つかりません。`);
+                showStatus("選択されたプロジェクトが見つかりません。", true, 'reflect-status');
                 return;
             }
 
-            const clockInTime = new Date(event.start.dateTime);
-            const clockOutTime = new Date(event.end.dateTime);
-            const durationHours = (clockOutTime - clockInTime) / 3600000;
+            const promises = selectedEvents.map(event => {
+                const clockInTime = new Date(event.start);
+                const clockOutTime = new Date(event.end);
+                const durationHours = (clockOutTime - clockInTime) / 3600000;
 
-            try {
-                await addDoc(collection(db, "timestamps"), {
-                    userId: currentUser.uid, userEmail: currentUser.email,
-                    projectCode: projectCode, projectName: project.name,
-                    clockInTime: clockInTime, clockOutTime: clockOutTime,
+                return addDoc(collection(db, "timestamps"), {
+                    userId: currentUser.uid,
+                    userEmail: currentUser.email,
+                    projectCode: project.code,
+                    projectName: project.name,
+                    clockInTime: clockInTime,
+                    clockOutTime: clockOutTime,
                     durationHours: parseFloat(durationHours.toFixed(2))
                 });
-                console.log(`自動打刻成功: ${event.summary}`);
-            } catch (error) { console.error("自動打刻のFirestoreへの保存に失敗:", error); }
-        }
-        async function markEventAsPunched(eventId) {
+            });
+
             try {
-                await gapi.client.calendar.events.patch({
-                    calendarId: 'primary', eventId: eventId,
-                    resource: { extendedProperties: { private: { autoPunch: 'done' } } }
-                });
-            } catch (error) { console.error("予定の更新に失敗:", error); }
-        }
+                await Promise.all(promises);
+                showStatus(`${selectedEvents.length}件の稼働実績を登録しました。`, false, 'reflect-status');
+                document.querySelectorAll('.event-checkbox:checked').forEach(checkbox => checkbox.checked = false);
+            } catch (error) {
+                showStatus(`登録に失敗しました: ${error.message}`, true, 'reflect-status');
+            }
+        });
     </script>
 </body>
 </html>
