@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <base target="_top">
     <title>Firebase版 打刻アプリ</title>
-    <link rel="icon" href="data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3e%3ccircle cx='50' cy='50' r='45' fill='white' stroke='black' stroke-width='5'/%3e%3cpath d='M50 20 V50 H75' fill='none' stroke='black' stroke-width='5' %3e%3c/svg%3e">
+    <!-- ★★★ ファビコンを更新 ★★★ -->
+    <link rel="icon" href="images/sidepocket_symbol.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -54,7 +55,8 @@
     <div id="app-container" class="w-full" style="display: none;">
         <!-- Header -->
         <header class="w-full max-w-4xl mx-auto mb-4 flex justify-between items-center">
-            <h1 class="text-xl font-bold text-gray-700">side pocket</h1>
+            <!-- ★★★ ロゴを更新 ★★★ -->
+            <img src="images/sidepocket_Logo.png" alt="side pocket ロゴ" class="h-8">
             <div class="flex items-center gap-3">
                 <a href="profile.html" class="flex items-center gap-2 text-sm text-gray-600 hover:text-main no-underline">
                     <img id="user-icon" src="https://placehold.co/32x32/EFEFEF/333333?text=?" class="w-8 h-8 rounded-full object-cover bg-gray-200">
@@ -172,7 +174,7 @@
         </main>
     </div>
 
-    <!-- ★★★ 稼働実績の修正用モーダル ★★★ -->
+    <!-- Edit Timestamp Modal -->
     <div id="edit-timestamp-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center p-4">
         <div class="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
             <h2 class="text-2xl font-bold mb-6">稼働実績の修正</h2>
@@ -874,20 +876,19 @@
                     clockInTime: Timestamp.fromDate(clockInTime),
                     clockOutTime: Timestamp.fromDate(clockOutTime),
                     durationHours: parseFloat(durationHours.toFixed(2)),
-                    gCalEventId: item.event.id // ★★★ カレンダーのイベントIDを保存 ★★★
+                    gCalEventId: item.event.id
                 });
             });
 
             try {
                 await Promise.all(promises);
                 showStatus(`${selectedItems.length}件の稼働実績を登録しました。`, false, 'reflect-status');
-                listCalendarEvents(); // リストを再読み込みしてリフレッシュ
+                listCalendarEvents();
             } catch (error) {
                 showStatus(`登録に失敗しました: ${error.message}`, true, 'reflect-status');
             }
         });
         
-        // ★★★ 稼働実績の修正モーダル関連のロジック ★★★
         const editModal = document.getElementById('edit-timestamp-modal');
         const editForm = document.getElementById('edit-timestamp-form');
         const cancelEditBtn = document.getElementById('cancel-edit-timestamp');
