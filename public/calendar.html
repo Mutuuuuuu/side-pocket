@@ -131,18 +131,30 @@
 
         /**
          * gapiとGISの初期化が両方完了し、かつFirebase認証が完了したら、カレンダー機能を有効にする
+         * ここでサイレント認証を試みる
          */
         function maybeEnableCalendarFeatures() {
             console.log("maybeEnableCalendarFeatures called. gapiInited:", gapiInited, "gisInited:", gisInited, "currentUser:", currentUser ? true : false);
             if (gapiInited && gisInited && currentUser) {
                 authStatusElement.textContent = 'ステータス：準備完了';
-                authorizeButton.classList.remove('hidden');
-                signoutButton.classList.remove('hidden');
-                gcalControls.classList.remove('hidden');
-                addEventButton.classList.remove('hidden'); // 必要に応じて表示
-
-                // 初回ロード時に認証状態を確認し、UIを更新
-                updateSignInStatus();
+                
+                // サイレント認証を試行
+                tokenClient.callback = async (resp) => {
+                    if (resp.error) {
+                        console.warn("Silent authentication failed, user needs to authorize interactively:", resp.error);
+                        // サイレント認証失敗時は、手動認証ボタンを表示
+                        authStatusElement.textContent = 'ステータス：Googleアカウントと未連携';
+                        authorizeButton.classList.remove('hidden');
+                        signoutButton.classList.add('hidden');
+                        gcalControls.classList.add('hidden');
+                        addEventButton.classList.add('hidden');
+                    } else {
+                        // サイレント認証成功
+                        updateSignInStatus(); // 認証状態を更新し、カレンダーリストをロード
+                    }
+                };
+                // 'prompt: none' を使用してサイレントにトークンをリクエスト
+                tokenClient.requestAccessToken({ prompt: 'none' }); 
 
                 // ローディング画面を非表示にし、アプリコンテナを表示
                 document.getElementById('loading').style.display = 'none';
@@ -229,19 +241,18 @@
                 if (resp.error) {
                     authStatusElement.textContent = `認証エラー: ${resp.error.message}`;
                     console.error('認証エラー:', resp.error);
+                    // 認証失敗時は、手動認証ボタンを表示
+                    authorizeButton.classList.remove('hidden');
+                    signoutButton.classList.add('hidden');
+                    gcalControls.classList.add('hidden');
+                    addEventButton.classList.add('hidden');
                     return;
                 }
-                updateSignInStatus();
-                // 認証成功後、カレンダーリストをロード
-                await listCalendars();
+                updateSignInStatus(); // 認証状態を更新し、カレンダーリストをロード
             };
-            // 既存のトークンがあれば再利用、なければ同意プロンプトを表示
-            if (gapi.client.getToken() === null) {
-                tokenClient.requestAccessToken({ prompt: 'consent' });
-            } else {
-                // 既にトークンがある場合はそのままカレンダーリストをロード
-                await listCalendars();
-            }
+            // 'prompt' パラメータを指定しないことで、既存のセッションがあればそれを利用し、
+            // なければアカウント選択画面などを表示するようにする
+            tokenClient.requestAccessToken(); 
         }
 
         /**
