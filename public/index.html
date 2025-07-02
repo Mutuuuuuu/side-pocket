@@ -20,7 +20,7 @@
         :root {
             --main-color: #698966;
             --main-color-dark: #5a7d58;
-            --main-color-light: #eef2ff; /* A light version for active tabs */
+            --main-color-light: #f0f3f0;
         }
         body { font-family: 'Noto Sans JP', sans-serif; }
         .btn { transition: all 0.2s ease-in-out; }
@@ -55,12 +55,24 @@
         <!-- Header -->
         <header class="w-full max-w-4xl mx-auto mb-4 flex justify-between items-center">
             <h1 class="text-xl font-bold text-gray-700">side pocket</h1>
-            <div id="user-info" class="flex items-center gap-3">
+            <div class="flex items-center gap-3">
                 <a href="profile.html" class="flex items-center gap-2 text-sm text-gray-600 hover:text-main no-underline">
                     <img id="user-icon" src="https://placehold.co/32x32/EFEFEF/333333?text=?" class="w-8 h-8 rounded-full object-cover bg-gray-200">
                     <span id="user-display-name"></span>
                 </a>
-                <button id="logoutBtn" class="btn px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700">ログアウト</button>
+                <!-- ★★★ ハンバーガーメニューコンテナ ★★★ -->
+                <div class="relative">
+                    <button id="menu-button" class="p-2 rounded-full hover:bg-gray-200 focus:outline-none">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" /></svg>
+                    </button>
+                    <div id="dropdown-menu" class="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-xl z-20 hidden">
+                        <button id="menu-calendar" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">カレンダー連携</button>
+                        <button id="menu-summary" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">稼働管理</button>
+                        <button id="menu-projects" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">プロジェクト管理</button>
+                        <div class="border-t border-gray-100"></div>
+                        <button id="logoutBtn" class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100">ログアウト</button>
+                    </div>
+                </div>
             </div>
         </header>
 
@@ -79,21 +91,16 @@
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <button id="clockInBtn" class="btn w-full px-6 py-3 text-lg font-semibold text-white bg-main rounded-lg hover:bg-main-dark">出勤</button>
-                    <button id="clockOutBtn" class="btn w-full px-6 py-3 text-lg font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700">退勤</button>
+                    <button id="clockOutBtn" class="btn w-full px-6 py-3 text-lg font-semibold text-white bg-slate-500 rounded-lg hover:bg-slate-600">退勤</button>
                 </div>
                 <div id="status" class="pt-4 text-center font-medium h-10"></div>
-                <div class="pt-4 border-t space-y-2">
-                    <button id="showCalendarBtn" class="btn w-full px-6 py-2 text-base font-semibold text-white bg-main rounded-lg hover:bg-main-dark">カレンダー連携</button>
-                    <button id="showSummaryBtn" class="btn w-full px-6 py-2 text-base font-semibold text-white bg-gray-600 rounded-lg hover:bg-gray-700">稼働時間の集計を見る</button>
-                    <button id="showProjectManagementBtn" class="btn w-full px-6 py-2 text-base font-semibold text-white bg-slate-600 rounded-lg hover:bg-slate-700">プロジェクト管理</button>
-                </div>
             </div>
         </main>
 
         <main id="summaryView" class="w-full max-w-4xl mx-auto" style="display: none;">
             <div class="p-6 sm:p-8 space-y-6 bg-white rounded-2xl shadow-lg">
                 <header class="flex flex-col sm:flex-row justify-between items-center gap-4">
-                    <h2 class="text-2xl sm:text-3xl font-bold text-gray-800">稼働時間ダッシュボード</h2>
+                    <h2 class="text-2xl sm:text-3xl font-bold text-gray-800">稼働管理</h2>
                     <button class="btn-back btn w-full sm:w-auto px-6 py-2 text-base font-semibold text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">戻る</button>
                 </header>
                 <div class="bg-gray-50 p-4 rounded-lg"><canvas id="monthlyChart"></canvas></div>
@@ -218,6 +225,9 @@
                 document.getElementById('app-container').style.display = 'block';
                 document.getElementById('user-display-name').textContent = user.displayName || user.email;
                 document.getElementById('user-icon').src = user.photoURL || `https://placehold.co/32x32/EFEFEF/333333?text=${(user.displayName || user.email || '?').charAt(0)}`;
+                
+                // ★★★ Start a single, persistent listener for all projects ★★★
+                listenToAllProjects();
                 showMainView('clockInView');
 
                 gapi.load('client', initializeGapiClient);
@@ -240,15 +250,8 @@
             }
         });
 
-        document.getElementById('logoutBtn').addEventListener('click', () => {
-            signOut(auth);
-            unsubscribeAllListeners();
-        });
-
         function unsubscribeAllListeners() {
-            if (projectsUnsubscribe) projectsUnsubscribe();
             if (timestampsUnsubscribe) timestampsUnsubscribe();
-            projectsUnsubscribe = null;
             timestampsUnsubscribe = null;
         }
 
@@ -259,18 +262,40 @@
                 document.getElementById(id).style.display = (id === viewId) ? 'block' : 'none';
             });
             unsubscribeAllListeners();
-            if (viewId === 'clockInView') {
-                listenToActiveProjects();
-            } else if (viewId === 'summaryView') {
+            if (viewId === 'summaryView') {
                 listenToTimestamps();
-            } else if (viewId === 'projectManagementView') {
-                listenToAllProjects();
             }
         }
 
-        document.getElementById('showSummaryBtn').addEventListener('click', () => showMainView('summaryView'));
-        document.getElementById('showProjectManagementBtn').addEventListener('click', () => showMainView('projectManagementView'));
-        document.getElementById('showCalendarBtn').addEventListener('click', () => showMainView('calendarView'));
+        const menuButton = document.getElementById('menu-button');
+        const dropdownMenu = document.getElementById('dropdown-menu');
+
+        menuButton.addEventListener('click', () => {
+            dropdownMenu.classList.toggle('hidden');
+        });
+
+        window.addEventListener('click', (e) => {
+            if (!menuButton.contains(e.target) && !dropdownMenu.contains(e.target)) {
+                dropdownMenu.classList.add('hidden');
+            }
+        });
+
+        document.getElementById('menu-calendar').addEventListener('click', () => {
+            showMainView('calendarView');
+            dropdownMenu.classList.add('hidden');
+        });
+        document.getElementById('menu-summary').addEventListener('click', () => {
+            showMainView('summaryView');
+            dropdownMenu.classList.add('hidden');
+        });
+        document.getElementById('menu-projects').addEventListener('click', () => {
+            showMainView('projectManagementView');
+            dropdownMenu.classList.add('hidden');
+        });
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            if (projectsUnsubscribe) projectsUnsubscribe();
+            signOut(auth);
+        });
         document.querySelectorAll('.btn-back').forEach(btn => btn.addEventListener('click', () => showMainView('clockInView')));
         
         function showStatus(message, isError, elementId) {
@@ -342,26 +367,16 @@
             });
         }
 
-        function listenToActiveProjects() {
-            if (!currentUser) return;
-            if (projectsUnsubscribe) projectsUnsubscribe();
-            const q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid), where("status", "==", "Active"), orderBy("code"));
-            projectsUnsubscribe = onSnapshot(q, (querySnapshot) => {
-                const projects = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                updateProjectDropdown(projects);
-            }, (error) => {
-                showStatus("プロジェクトの読み込みに失敗しました。", true, 'status');
-            });
-        }
-
         function updateProjectDropdown(projects) {
             const select = document.getElementById('projectCode');
             const eventSelect = document.getElementById('event-project-select');
+            const activeProjects = projects.filter(p => p.status === 'Active');
+            
             const currentValue = select.value;
             select.innerHTML = '<option value="">プロジェクトを選択してください</option>';
             eventSelect.innerHTML = '<option value="">プロジェクトを選択（任意）</option>';
 
-            projects.forEach(p => {
+            activeProjects.forEach(p => {
                 const option = document.createElement('option');
                 option.value = p.code;
                 option.textContent = `${p.code}: ${p.name}`;
@@ -372,13 +387,9 @@
             select.value = currentValue;
         }
 
-        async function getProjectsMap() {
-            if (!currentUser) return {};
+        function getProjectsMapFromLocal() {
             const projectsMap = {};
-            const q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid));
-            const querySnapshot = await getDocs(q);
-            querySnapshot.forEach((doc) => {
-                const project = doc.data();
+            projectDataMap.forEach(project => {
                 projectsMap[project.code] = { name: project.name, color: project.color || '#698966' };
             });
             return projectsMap;
@@ -389,9 +400,9 @@
             showStatus('データを読み込んでいます...', false, 'summaryStatus');
             if (timestampsUnsubscribe) timestampsUnsubscribe();
             const q = query(collection(db, "timestamps"), where("userId", "==", currentUser.uid), orderBy("clockInTime", "desc"));
-            timestampsUnsubscribe = onSnapshot(q, async (snapshot) => {
+            timestampsUnsubscribe = onSnapshot(q, (snapshot) => {
                 const records = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                const projectsMap = await getProjectsMap();
+                const projectsMap = getProjectsMapFromLocal();
                 processDashboardData(records, projectsMap);
                 showStatus('', false, 'summaryStatus');
             }, (error) => {
@@ -530,8 +541,14 @@
             if (projectsUnsubscribe) projectsUnsubscribe();
             const q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid), orderBy("code"));
             projectsUnsubscribe = onSnapshot(q, (snapshot) => {
-                const projects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                projectDataMap.clear();
+                const projects = snapshot.docs.map(doc => {
+                    const project = { id: doc.id, ...doc.data() };
+                    projectDataMap.set(project.id, project);
+                    return project;
+                });
                 renderProjectList(projects);
+                updateProjectDropdown(projects.filter(p => p.status === 'Active'));
             }, (error) => {
                 showStatus("プロジェクトリストの取得に失敗しました。", true, 'projectManagementStatus');
             });
@@ -553,15 +570,12 @@
 
         function renderProjectList(projects) {
             const container = document.getElementById('projectListContainer');
-            projectDataMap.clear();
+            if (!container) return;
             if (!projects || projects.length === 0) {
                 container.innerHTML = '<p class="text-center text-gray-500">プロジェクトがありません。</p>';
                 return;
             }
-            container.innerHTML = projects.map(p => {
-                projectDataMap.set(p.id, p);
-                return renderProjectItem(p);
-            }).join('');
+            container.innerHTML = projects.map(p => renderProjectItem(p)).join('');
         }
 
         document.getElementById('projectListContainer').addEventListener('change', (e) => {
@@ -784,7 +798,10 @@
             if (!projectCode) return;
             
             const project = Array.from(projectDataMap.values()).find(p => p.code === projectCode);
-            if (!project) return;
+            if (!project) {
+                console.error(`自動打刻エラー: プロジェクトコード "${projectCode}" が見つかりません。`);
+                return;
+            }
 
             const clockInTime = new Date(event.start.dateTime);
             const clockOutTime = new Date(event.end.dateTime);
@@ -797,6 +814,7 @@
                     clockInTime: clockInTime, clockOutTime: clockOutTime,
                     durationHours: parseFloat(durationHours.toFixed(2))
                 });
+                console.log(`自動打刻成功: ${event.summary}`);
             } catch (error) { console.error("自動打刻のFirestoreへの保存に失敗:", error); }
         }
         async function markEventAsPunched(eventId) {
