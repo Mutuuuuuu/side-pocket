@@ -148,7 +148,6 @@
                         <button id="gcal-signout-button" class="btn bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded hidden">連携を解除</button>
                     </div>
                 </div>
-                <!-- ★★★ カレンダー連携UIの変更 ★★★ -->
                 <div id="gcal-controls" class="hidden space-y-4">
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                         <div>
@@ -164,11 +163,7 @@
                     <div id="calendar-events-container" class="space-y-2 max-h-96 overflow-y-auto p-2 border rounded-lg bg-gray-50">
                         <p class="text-gray-500 text-center py-4">カレンダーと月を選択して「予定を読み込む」を押してください。</p>
                     </div>
-                    <div id="calendar-action-bar" class="hidden flex flex-col md:flex-row items-center gap-4 p-4 border-t">
-                        <div class="flex-grow w-full md:w-auto">
-                            <label for="calendar-project-select" class="block text-sm font-medium text-gray-700">紐付けるプロジェクト:</label>
-                            <select id="calendar-project-select" class="mt-1 block w-full p-2 border border-gray-300 rounded-md"></select>
-                        </div>
+                    <div id="calendar-action-bar" class="hidden flex justify-end p-4 border-t">
                         <button id="reflect-events-btn" class="btn bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded w-full md:w-auto">選択した予定を稼働実績に反映</button>
                     </div>
                     <div id="reflect-status" class="text-center h-5"></div>
@@ -361,28 +356,24 @@
         }
 
         function updateProjectDropdown(projects) {
-            const select = document.getElementById('projectCode');
-            const eventSelect = document.getElementById('event-project-select');
-            const calendarProjectSelect = document.getElementById('calendar-project-select');
-            
             const activeProjects = projects.filter(p => p.status === 'Active');
             
-            [select, eventSelect, calendarProjectSelect].forEach(s => {
-                const currentValue = s.value;
-                s.innerHTML = '';
-                if (s.id === 'event-project-select') {
-                    s.innerHTML = '<option value="">プロジェクトを選択（任意）</option>';
+            [document.getElementById('projectCode'), document.getElementById('event-project-select')].forEach(select => {
+                const currentValue = select.value;
+                select.innerHTML = '';
+                if (select.id === 'event-project-select') {
+                    select.innerHTML = '<option value="">プロジェクトを選択（任意）</option>';
                 } else {
-                    s.innerHTML = '<option value="">プロジェクトを選択</option>';
+                    select.innerHTML = '<option value="">プロジェクトを選択してください</option>';
                 }
                 activeProjects.forEach(p => {
                     const option = document.createElement('option');
                     option.value = p.code;
                     option.textContent = `${p.code}: ${p.name}`;
                     option.dataset.name = p.name;
-                    s.appendChild(option);
+                    select.appendChild(option);
                 });
-                s.value = currentValue;
+                select.value = currentValue;
             });
         }
 
@@ -774,10 +765,13 @@
                     container.innerHTML = '<p class="text-gray-500 text-center py-4">この月の予定はありません。</p>';
                     return;
                 }
+                const projectOptions = Array.from(projectDataMap.values())
+                    .filter(p => p.status === 'Active')
+                    .map(p => `<option value="${p.code}">${p.code}: ${p.name}</option>`).join('');
+
                 container.innerHTML = events.map(event => {
                     const start = event.start.dateTime ? new Date(event.start.dateTime) : new Date(event.start.date);
                     const end = event.end.dateTime ? new Date(event.end.dateTime) : new Date(event.end.date);
-                    // 終日イベントの場合、終了日を調整
                     if (event.start.date) {
                         end.setDate(end.getDate() - 1);
                     }
@@ -786,12 +780,16 @@
                         start: start.toISOString(),
                         end: end.toISOString()
                     });
-                    return `<div class="p-2 border-b flex items-center gap-3">
+                    return `<div class="p-2 border-b flex flex-wrap items-center gap-3">
                         <input type="checkbox" class="event-checkbox h-4 w-4 rounded" data-event='${eventData}'>
                         <div class="flex-grow">
                             <p class="font-bold">${event.summary}</p>
                             <p class="text-sm text-gray-600">${start.toLocaleString()} - ${end.toLocaleString()}</p>
                         </div>
+                        <select class="event-project-select mt-1 md:mt-0 p-1 border border-gray-300 rounded-md text-sm">
+                            <option value="">プロジェクト未選択</option>
+                            ${projectOptions}
+                        </select>
                     </div>`;
                 }).join('');
             } catch (err) {
@@ -800,31 +798,31 @@
         }
 
         document.getElementById('reflect-events-btn').addEventListener('click', async () => {
-            const selectedEvents = [];
+            const selectedItems = [];
             document.querySelectorAll('.event-checkbox:checked').forEach(checkbox => {
-                selectedEvents.push(JSON.parse(checkbox.dataset.event));
+                const eventRow = checkbox.closest('.p-2');
+                const projectSelect = eventRow.querySelector('.event-project-select');
+                if (projectSelect.value) {
+                    selectedItems.push({
+                        event: JSON.parse(checkbox.dataset.event),
+                        projectCode: projectSelect.value
+                    });
+                }
             });
 
-            const projectCode = document.getElementById('calendar-project-select').value;
-            if (!projectCode) {
-                showStatus("紐付けるプロジェクトを選択してください。", true, 'reflect-status');
-                return;
-            }
-            if (selectedEvents.length === 0) {
-                showStatus("反映する予定を選択してください。", true, 'reflect-status');
+            if (selectedItems.length === 0) {
+                showStatus("プロジェクトが選択された予定にチェックを入れてください。", true, 'reflect-status');
                 return;
             }
             
             showStatus("実績を登録しています...", false, 'reflect-status');
-            const project = Array.from(projectDataMap.values()).find(p => p.code === projectCode);
-            if (!project) {
-                showStatus("選択されたプロジェクトが見つかりません。", true, 'reflect-status');
-                return;
-            }
 
-            const promises = selectedEvents.map(event => {
-                const clockInTime = new Date(event.start);
-                const clockOutTime = new Date(event.end);
+            const promises = selectedItems.map(item => {
+                const project = Array.from(projectDataMap.values()).find(p => p.code === item.projectCode);
+                if (!project) return Promise.reject(new Error(`プロジェクト ${item.projectCode} が見つかりません`));
+
+                const clockInTime = new Date(item.event.start);
+                const clockOutTime = new Date(item.event.end);
                 const durationHours = (clockOutTime - clockInTime) / 3600000;
 
                 return addDoc(collection(db, "timestamps"), {
@@ -840,8 +838,8 @@
 
             try {
                 await Promise.all(promises);
-                showStatus(`${selectedEvents.length}件の稼働実績を登録しました。`, false, 'reflect-status');
-                document.querySelectorAll('.event-checkbox:checked').forEach(checkbox => checkbox.checked = false);
+                showStatus(`${selectedItems.length}件の稼働実績を登録しました。`, false, 'reflect-status');
+                listCalendarEvents(); // リストを再読み込みしてリフレッシュ
             } catch (error) {
                 showStatus(`登録に失敗しました: ${error.message}`, true, 'reflect-status');
             }
