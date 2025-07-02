@@ -22,7 +22,9 @@
 
         <main class="w-full max-w-4xl mx-auto">
             <div class="p-6 sm:p-8 space-y-6 bg-white rounded-2xl shadow-lg">
-                <header><h2 class="text-2xl sm:text-3xl font-bold text-gray-800">稼働管理</h2></header>
+                <header class="flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <h2 class="text-2xl sm:text-3xl font-bold text-gray-800">稼働管理</h2>
+                </header>
                 <div class="bg-gray-50 p-4 rounded-lg"><canvas id="monthlyChart"></canvas></div>
                 <div class="flex flex-wrap justify-between items-center gap-4">
                     <div>
@@ -41,7 +43,7 @@
     </div>
     
     <script type="module">
-        import { collection, query, where, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { initializePage, auth, db, showStatus } from './shared.js';
         import { IPAEXG_FONT_B64 } from './fonts.js';
 
@@ -49,30 +51,26 @@
         let fullDashboardData = {};
         let monthlyChartInstance = null;
         let timestampsUnsubscribe = null;
-        let allProjects = [];
+        let projectsUnsubscribe = null;
+        const projectDataMap = new Map();
 
         initializePage(user => {
             currentUser = user;
-            listenToAllProjects();
-            listenToTimestamps();
+            listenToAllProjects(); // First, get all project data
         });
 
         function listenToAllProjects() {
+            if (!currentUser) return;
+            if (projectsUnsubscribe) projectsUnsubscribe();
             const q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid));
-            onSnapshot(q, (snapshot) => {
-                allProjects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                if (Object.keys(fullDashboardData).length > 0) {
-                    processDashboardData(fullDashboardData.rawRecords, getProjectsMap());
-                }
+            projectsUnsubscribe = onSnapshot(q, (snapshot) => {
+                projectDataMap.clear();
+                snapshot.forEach(doc => {
+                    projectDataMap.set(doc.data().code, { id: doc.id, ...doc.data() });
+                });
+                // Once projects are loaded, listen for timestamps
+                listenToTimestamps();
             });
-        }
-
-        function getProjectsMap() {
-            const projectsMap = {};
-            allProjects.forEach(project => {
-                projectsMap[project.code] = { name: project.name, color: project.color || '#698966' };
-            });
-            return projectsMap;
         }
 
         function listenToTimestamps() {
@@ -82,16 +80,14 @@
             const q = query(collection(db, "timestamps"), where("userId", "==", currentUser.uid), orderBy("clockInTime", "desc"));
             timestampsUnsubscribe = onSnapshot(q, (snapshot) => {
                 const records = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                const projectsMap = getProjectsMap();
-                processDashboardData(records, projectsMap);
+                processDashboardData(records);
                 showStatus('', false, 'summaryStatus');
             }, (error) => {
                 showStatus(`エラー: ${error.message}`, true, 'summaryStatus');
             });
         }
         
-        function processDashboardData(records, projectsMap) {
-            fullDashboardData.rawRecords = records; // Store raw records for re-processing
+        function processDashboardData(records) {
             const monthlyData = {};
             records.forEach(record => {
                 if (!record.clockInTime) return;
@@ -101,13 +97,13 @@
                 const duration = record.durationHours || 0;
                 if (!monthlyData[yearMonth]) monthlyData[yearMonth] = {};
                 if (!monthlyData[yearMonth][projectCode]) {
-                    const projectName = projectsMap[projectCode]?.name || record.projectName || projectCode;
-                    monthlyData[yearMonth][projectCode] = { projectName: projectName, total: 0, details: [] };
+                    const projectInfo = projectDataMap.get(projectCode) || { name: record.projectName, color: '#698966' };
+                    monthlyData[yearMonth][projectCode] = { projectName: projectInfo.name, total: 0, details: [] };
                 }
                 monthlyData[yearMonth][projectCode].total += duration;
                 if (record.durationHours !== null) {
                     monthlyData[yearMonth][projectCode].details.push({
-                        recordId: record.id, date: clockInTime.toLocaleDateString('ja-JP'),
+                        recordId: record.id,
                         clockIn: clockInTime,
                         clockOut: record.clockOutTime ? record.clockOutTime.toDate() : null,
                         duration: duration.toFixed(2),
@@ -116,18 +112,18 @@
                 }
             });
 
-            fullDashboardData.monthly = monthlyData;
+            fullDashboardData = monthlyData;
             const allMonths = Object.keys(monthlyData).sort();
             const allProjectCodes = [...new Set(Object.values(monthlyData).flatMap(month => Object.keys(month)))];
             const datasets = allProjectCodes.map(projectCode => {
-                const projectInfo = projectsMap[projectCode] || {};
+                const projectInfo = projectDataMap.get(projectCode) || {};
                 const color = projectInfo.color || '#698966';
                 const dataPoints = allMonths.map(month => monthlyData[month][projectCode]?.total || 0);
                 return { label: `${projectInfo.name || projectCode}`, data: dataPoints, borderColor: color, backgroundColor: color, fill: false };
             });
             renderMonthlyChart({ labels: allMonths, datasets });
 
-            const availableMonths = Object.keys(fullDashboardData.monthly).sort().reverse();
+            const availableMonths = Object.keys(fullDashboardData).sort().reverse();
             const monthSelector = document.getElementById('monthSelector');
             const currentMonth = monthSelector.value;
             monthSelector.innerHTML = availableMonths.map(month => `<option value="${month}">${month}</option>`).join('');
@@ -160,7 +156,7 @@
         document.getElementById('monthSelector').addEventListener('change', (e) => renderMonthData(e.target.value));
 
         function renderMonthData(month) {
-            const dataForMonth = fullDashboardData.monthly[month] || {};
+            const dataForMonth = fullDashboardData[month] || {};
             const projects = Object.keys(dataForMonth);
             const tabsContainer = document.getElementById('projectTabs');
             const contentContainer = document.getElementById('projectTabContent');
@@ -183,8 +179,8 @@
                     <th class="px-4 py-2 text-right text-xs font-medium text-gray-500">時間(h)</th>
                     </tr></thead><tbody>
                     ${projectData.details.sort((a, b) => new Date(a.clockIn) - new Date(b.clockIn)).map(d => `<tr>
-                        <td class="px-4 py-2 text-sm">${d.clockIn.toLocaleString('ja-JP')}</td>
-                        <td class="px-4 py-2 text-sm">${d.clockOut ? d.clockOut.toLocaleString('ja-JP') : '勤務中'}</td>
+                        <td class="px-4 py-2 text-sm">${d.clockIn.toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
+                        <td class="px-4 py-2 text-sm">${d.clockOut ? d.clockOut.toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '勤務中'}</td>
                         <td class="px-4 py-2 text-sm text-right">${d.duration}</td>
                     </tr>`).join('')}
                 </tbody></table></div>`;
@@ -234,7 +230,7 @@
             const tableColumn = ["日付", "出勤", "退勤", "時間(h)"];
             const tableRows = [];
             projectData.details.sort((a, b) => new Date(a.clockIn) - new Date(b.clockIn)).forEach(detail => {
-                const datePart = detail.date.split(' ')[0];
+                const datePart = detail.clockIn.toLocaleDateString('ja-JP');
                 const clockInTimePart = (detail.clockIn || "").toLocaleString('ja-JP', { hour: '2-digit', minute: '2-digit' });
                 const clockOutTimePart = (detail.clockOut || "").toLocaleString('ja-JP', { hour: '2-digit', minute: '2-digit' });
                 tableRows.push([datePart, clockInTimePart, clockOutTimePart, detail.duration]);

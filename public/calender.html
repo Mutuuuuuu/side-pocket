@@ -60,51 +60,7 @@
         import { collection, addDoc, query, where, onSnapshot, getDocs, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { initializePage, auth, db, showStatus } from './shared.js';
 
-        let currentUser = null;
-        let tokenClient;
-        let gapiInited = false;
-        let gisInited = false;
-        const projectDataMap = new Map();
-
-        const API_KEY = 'AIzaSyBuRc0oRFQk-GvVAh_90S9NGAYu5sOkxyM';
-        const CLIENT_ID = '887116583823-32evpk9fa2m0ondbbco6tv4m1980i7bj.apps.googleusercontent.com';
-        const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
-        const SCOPES = 'https://www.googleapis.com/auth/calendar';
-
-        initializePage(user => {
-            currentUser = user;
-            
-            gapi.load('client', initializeGapiClient);
-            setTimeout(() => {
-                try {
-                    tokenClient = google.accounts.oauth2.initTokenClient({
-                        client_id: CLIENT_ID, scope: SCOPES,
-                        callback: (tokenResponse) => {
-                            if (tokenResponse.error) { return; }
-                            gapi.client.setToken(tokenResponse);
-                            updateGcalUi();
-                        },
-                    });
-                    gisInited = true;
-                    updateGcalUi();
-                } catch (e) { console.error("Error initializing Google Identity Services.", e); }
-            }, 500);
-            
-            listenToActiveProjects();
-        });
-        
-        function listenToActiveProjects() {
-            if (!currentUser) return;
-            const q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid), where("status", "==", "Active"));
-            onSnapshot(q, (snapshot) => {
-                projectDataMap.clear();
-                snapshot.forEach(doc => {
-                    projectDataMap.set(doc.data().code, { id: doc.id, ...doc.data() });
-                });
-            });
-        }
-
-        // ... (ここにカレンダー連携の全ロジックをコピー) ...
+        // ... (The rest of the calendar logic script)
     </script>
 </body>
 </html>
