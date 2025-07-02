@@ -2,145 +2,170 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>プロジェクト管理 - 打刻アプリ</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>プロジェクト管理 - side pocket</title>
     <link rel="icon" href="images/sidepocket_symbol.png">
     <script src="https://cdn.tailwindcss.com"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="style.css">
 </head>
 <body class="bg-gray-100 min-h-screen p-4">
-
-    <!-- この div に共通ヘッダーが挿入されます -->
-    <div id="header-placeholder"></div>
 
     <div id="loading" class="flex justify-center items-center h-screen">
         <div class="loader"></div><p class="ml-4 text-lg">読み込んでいます...</p>
     </div>
 
     <div id="app-container" class="w-full" style="display: none;">
-        <!-- ★★★ 修正点：ここにあった <header>...</header> ブロックを削除しました ★★★ -->
+        <div id="header-placeholder"></div>
 
-        <main class="w-full max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-md">
-            <h1 class="text-2xl font-bold mb-6">プロジェクト管理</h1>
-            <div id="projectManagementStatus" class="mb-4 text-sm"></div>
-
-            <!-- Add Project Form -->
-            <div class="bg-gray-50 p-6 rounded-lg mb-6">
-                <h2 class="text-xl font-semibold mb-4">新規プロジェクト追加</h2>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                    <div>
-                        <label for="newProjectCode" class="block text-sm font-medium text-gray-700">プロジェクトコード</label>
-                        <input type="text" id="newProjectCode" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-main focus:border-main" placeholder="P001">
-                    </div>
-                    <div>
-                        <label for="newProjectName" class="block text-sm font-medium text-gray-700">プロジェクト名</label>
-                        <input type="text" id="newProjectName" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-main focus:border-main" placeholder="〇〇開発案件">
-                    </div>
-                    <button id="addProjectBtn" class="bg-main text-white py-2 px-4 rounded-lg font-bold hover:bg-main-dark btn h-10">追加</button>
+        <main class="w-full max-w-2xl mx-auto">
+            <div class="p-6 sm:p-8 space-y-6 bg-white rounded-2xl shadow-lg">
+                <header><h2 class="text-2xl sm:text-3xl font-bold text-gray-800">プロジェクト管理</h2></header>
+                <div id="projectManagementStatus" class="text-center font-medium h-8"></div>
+                <div class="p-4 border rounded-lg space-y-3">
+                    <h3 class="text-lg font-bold">新規プロジェクト追加</h3>
+                    <input type="text" id="newProjectCode" placeholder="プロジェクトコード (例: P-001)" class="w-full p-2 border rounded">
+                    <input type="text" id="newProjectName" placeholder="プロジェクト名" class="w-full p-2 border rounded">
+                    <button id="addProjectBtn" class="btn w-full text-white bg-main hover:bg-main-dark p-2 rounded-lg">追加</button>
                 </div>
-            </div>
-
-            <!-- Project List -->
-            <div>
-                <h2 class="text-xl font-semibold mb-4">プロジェクト一覧</h2>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full bg-white border">
-                        <thead class="bg-gray-100">
-                            <tr>
-                                <th class="py-2 px-4 border-b text-left">コード</th>
-                                <th class="py-2 px-4 border-b text-left">名前</th>
-                                <th class="py-2 px-4 border-b text-left">ステータス</th>
-                                <th class="py-2 px-4 border-b text-left">アクション</th>
-                            </tr>
-                        </thead>
-                        <tbody id="projectList">
-                            <!-- Project items will be inserted here -->
-                        </tbody>
-                    </table>
+                <div class="space-y-3">
+                    <h3 class="text-lg font-bold">プロジェクト一覧</h3>
+                    <div id="projectListContainer" class="space-y-2"></div>
                 </div>
             </div>
         </main>
     </div>
 
     <script type="module">
-        import { initializePage, db, showStatus } from './shared.js';
-        import { collection, query, where, onSnapshot, addDoc, getDocs, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { collection, addDoc, query, where, orderBy, doc, updateDoc, onSnapshot, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { initializePage, auth, db, showStatus } from './shared.js';
 
-        let currentUser;
+        let currentUser = null;
+        const projectDataMap = new Map();
 
-        initializePage((user) => {
+        initializePage(user => {
             currentUser = user;
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('app-container').style.display = 'block';
-            listenToProjects();
+            listenToAllProjects();
         });
 
-        function listenToProjects() {
+        function listenToAllProjects() {
             if (!currentUser) return;
-            const q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid));
+            const q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid), orderBy("code"));
             onSnapshot(q, (snapshot) => {
-                const projectList = document.getElementById('projectList');
-                projectList.innerHTML = '';
-                if (snapshot.empty) {
-                    projectList.innerHTML = '<tr><td colspan="4" class="text-center py-4">プロジェクトがありません。</td></tr>';
-                    return;
-                }
                 const projects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                projects.sort((a,b) => a.code.localeCompare(b.code)).forEach(p => {
-                    const row = document.createElement('tr');
-                    row.className = 'border-b';
-                    row.innerHTML = `
-                        <td class="py-2 px-4">${p.code}</td>
-                        <td class="py-2 px-4">${p.name}</td>
-                        <td class="py-2 px-4">
-                            <select data-id="${p.id}" class="project-status-select p-1 border rounded-md">
-                                <option value="Active" ${p.status === 'Active' ? 'selected' : ''}>有効</option>
-                                <option value="Inactive" ${p.status === 'Inactive' ? 'selected' : ''}>無効</option>
-                                <option value="Archived" ${p.status === 'Archived' ? 'selected' : ''}>アーカイブ</option>
-                            </select>
-                        </td>
-                        <td class="py-2 px-4">
-                            <button data-id="${p.id}" class="delete-project-btn text-red-500 hover:text-red-700 text-sm">削除</button>
-                        </td>
-                    `;
-                    projectList.appendChild(row);
-                });
+                renderProjectList(projects);
+            }, (error) => {
+                showStatus("プロジェクトリストの取得に失敗しました。", true, 'projectManagementStatus');
             });
         }
-
-        document.getElementById('projectList').addEventListener('change', async (e) => {
-            if (e.target.classList.contains('project-status-select')) {
-                const docId = e.target.dataset.id;
-                const newStatus = e.target.value;
-                await updateProjectStatus(docId, newStatus);
-            }
-        });
-
-        document.getElementById('projectList').addEventListener('click', async (e) => {
-            if (e.target.classList.contains('delete-project-btn')) {
-                if (confirm('本当にこのプロジェクトを削除しますか？関連する打刻記録は削除されません。')) {
-                    const docId = e.target.dataset.id;
-                    await deleteProject(docId);
-                }
-            }
-        });
         
-        async function deleteProject(docId) {
-            showStatus("削除しています...", false, 'projectManagementStatus');
-            try {
-                await deleteDoc(doc(db, "projects", docId));
-                showStatus("プロジェクトを削除しました。", false, 'projectManagementStatus');
-            } catch (error) {
-                showStatus(`削除エラー: ${error.message}`, true, 'projectManagementStatus');
+        function renderProjectItem(p) {
+            return `<div class="project-item flex justify-between items-center p-3 border-b gap-2 rounded-lg bg-white shadow-sm" data-project-id="${p.id}">
+                <input type="color" class="project-color-input p-1 h-10 w-10 block bg-white border border-gray-200 cursor-pointer rounded-lg" value="${p.color || '#698966'}">
+                <div class="flex-grow">
+                    <div data-field="name" class="font-bold text-gray-800">${p.name}</div>
+                    <div class="text-sm text-gray-500">${p.code}</div>
+                </div>
+                <div class="flex items-center gap-2" data-role="action-buttons">
+                    <button class="edit-project-btn btn text-sm bg-gray-200 text-gray-700 px-3 py-1 rounded-lg hover:bg-gray-300">修正</button>
+                    <label class="switch"><input type="checkbox" class="project-status-toggle" ${p.status === 'Active' ? 'checked' : ''}><span class="slider"></span></label>
+                </div>
+            </div>`;
+        }
+        
+        function renderProjectList(projects) {
+            const container = document.getElementById('projectListContainer');
+            projectDataMap.clear();
+            if (!projects || projects.length === 0) {
+                container.innerHTML = '<p class="text-center text-gray-500">プロジェクトがありません。</p>';
+                return;
+            }
+            container.innerHTML = projects.map(p => {
+                projectDataMap.set(p.id, p);
+                return renderProjectItem(p);
+            }).join('');
+        }
+
+        document.getElementById('projectListContainer').addEventListener('change', (e) => {
+            if (e.target.classList.contains('project-color-input') || e.target.classList.contains('project-status-toggle')) {
+                handleProjectUpdate(e.target);
+            }
+        });
+
+        document.getElementById('projectListContainer').addEventListener('click', (e) => {
+            const target = e.target;
+            if (target.classList.contains('edit-project-btn')) {
+                toggleProjectEdit(target);
+            } else if (target.classList.contains('save-project-btn')) {
+                saveProjectName(target);
+            } else if (target.classList.contains('cancel-project-btn')) {
+                cancelProjectEdit(target);
+            }
+        });
+
+        function toggleProjectEdit(button) {
+            const projectItem = button.closest('.project-item');
+            const nameDiv = projectItem.querySelector('[data-field="name"]');
+            const actionButtonsDiv = projectItem.querySelector('[data-role="action-buttons"]');
+            const currentName = nameDiv.textContent;
+            nameDiv.innerHTML = `<input type="text" class="project-name-input w-full p-1 border rounded" value="${currentName}">`;
+            actionButtonsDiv.innerHTML = `<button class="save-project-btn btn text-sm bg-green-500 text-white px-3 py-1 rounded-lg hover:bg-green-600">保存</button>
+                <button class="cancel-project-btn btn text-sm bg-gray-400 text-white px-3 py-1 rounded-lg hover:bg-gray-500">取消</button>`;
+            projectItem.querySelector('.project-name-input').focus();
+        }
+
+        function cancelProjectEdit(button) {
+            const projectItem = button.closest('.project-item');
+            const projectId = projectItem.dataset.projectId;
+            const originalProject = projectDataMap.get(projectId);
+            if (originalProject) {
+                const nameDiv = projectItem.querySelector('[data-field="name"]');
+                const actionButtonsDiv = projectItem.querySelector('[data-role="action-buttons"]');
+                nameDiv.textContent = originalProject.name;
+                actionButtonsDiv.innerHTML = `<button class="edit-project-btn btn text-sm bg-gray-200 text-gray-700 px-3 py-1 rounded-lg hover:bg-gray-300">修正</button>
+                    <label class="switch"><input type="checkbox" class="project-status-toggle" ${originalProject.status === 'Active' ? 'checked' : ''}><span class="slider"></span></label>`;
             }
         }
 
-        async function updateProjectStatus(docId, status) {
-            showStatus("更新しています...", false, 'projectManagementStatus');
+        async function saveProjectName(button) {
+            const projectItem = button.closest('.project-item');
+            const projectId = projectItem.dataset.projectId;
+            const nameInput = projectItem.querySelector('.project-name-input');
+            const newName = nameInput.value.trim();
+            if (!newName) {
+                showStatus('プロジェクト名は必須です。', true, 'projectManagementStatus');
+                return;
+            }
+            showStatus('プロジェクト名を更新しています...', false, 'projectManagementStatus');
+            const docRef = doc(db, "projects", projectId);
             try {
-                const projectRef = doc(db, "projects", docId);
-                await updateDoc(projectRef, { status: status });
-                showStatus("ステータスを更新しました。", false, 'projectManagementStatus');
+                await updateDoc(docRef, { name: newName });
+                showStatus('更新しました。', false, 'projectManagementStatus');
+                const updatedProject = { ...projectDataMap.get(projectId), name: newName };
+                projectDataMap.set(projectId, updatedProject);
+                cancelProjectEdit(button);
+            } catch (error) {
+                showStatus(`更新エラー: ${error.message}`, true, 'projectManagementStatus');
+            }
+        }
+
+        async function handleProjectUpdate(target) {
+            const projectItem = target.closest('.project-item');
+            const projectId = projectItem.dataset.projectId;
+            if (!projectId) return;
+            const docRef = doc(db, "projects", projectId);
+            try {
+                const updateData = {};
+                if (target.type === 'checkbox') {
+                    updateData.status = target.checked ? 'Active' : 'Inactive';
+                    showStatus("ステータスを更新しています...", false, 'projectManagementStatus');
+                } else if (target.type === 'color') {
+                    updateData.color = target.value;
+                    showStatus("色を更新しています...", false, 'projectManagementStatus');
+                }
+                await updateDoc(docRef, updateData);
+                showStatus("更新しました。", false, 'projectManagementStatus');
+                const currentProject = projectDataMap.get(projectId);
+                projectDataMap.set(projectId, { ...currentProject, ...updateData });
             } catch (error) {
                 showStatus(`更新エラー: ${error.message}`, true, 'projectManagementStatus');
             }

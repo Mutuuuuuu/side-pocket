@@ -2,162 +2,69 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>稼働サマリー - 打刻アプリ</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>稼働管理 - side pocket</title>
     <link rel="icon" href="images/sidepocket_symbol.png">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
 </head>
 <body class="bg-gray-100 min-h-screen p-4">
-    <!-- ★★★ 修正点：HTML構造を修正し、ヘッダープレースホルダーをbody内に配置しました ★★★ -->
-    <!-- この div に共通ヘッダーが挿入されます -->
-    <div id="header-placeholder"></div>
 
     <div id="loading" class="flex justify-center items-center h-screen">
         <div class="loader"></div><p class="ml-4 text-lg">読み込んでいます...</p>
     </div>
 
     <div id="app-container" class="w-full" style="display: none;">
-        <!-- ★★★ 修正点：ここにあった <header>...</header> ブロックを削除しました ★★★ -->
+        <div id="header-placeholder"></div>
 
-        <main class="w-full max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-md">
-            <div class="flex justify-between items-center mb-6">
-                <h1 class="text-2xl font-bold">稼働サマリー</h1>
-                <button id="exportPdfBtn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded btn">PDF出力</button>
-            </div>
-            <div id="summaryStatus" class="mb-4 text-sm"></div>
-            
-            <div class="mb-6 flex gap-4 items-end">
-                <div>
-                    <label for="month-select" class="block text-sm font-medium text-gray-700">対象月</label>
-                    <input type="month" id="month-select" class="mt-1 p-2 border rounded-md">
+        <main class="w-full max-w-4xl mx-auto">
+            <div class="p-6 sm:p-8 space-y-6 bg-white rounded-2xl shadow-lg">
+                <header><h2 class="text-2xl sm:text-3xl font-bold text-gray-800">稼働管理</h2></header>
+                <div class="bg-gray-50 p-4 rounded-lg"><canvas id="monthlyChart"></canvas></div>
+                <div class="flex flex-wrap justify-between items-center gap-4">
+                    <div>
+                        <label for="monthSelector" class="text-sm font-medium text-gray-700">表示月を選択:</label>
+                        <select id="monthSelector" class="mt-1 block w-full sm:w-auto p-2 border border-gray-300 rounded-md"></select>
+                    </div>
+                    <div id="monthTotalHours" class="text-lg font-bold text-right text-gray-800"></div>
                 </div>
-                <button id="filterBtn" class="bg-main text-white py-2 px-4 rounded-lg font-bold hover:bg-main-dark btn">表示</button>
-            </div>
-
-            <div id="pdf-export-area">
-                <h2 id="report-title" class="text-xl font-semibold mb-4 text-center"></h2>
-                <!-- Summary Cards -->
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                    <div class="bg-blue-100 p-4 rounded-lg text-center">
-                        <h3 class="text-sm font-medium text-blue-800">総稼働時間</h3>
-                        <p id="total-hours" class="text-2xl font-bold text-blue-900">-</p>
-                    </div>
-                    <div class="bg-green-100 p-4 rounded-lg text-center">
-                        <h3 class="text-sm font-medium text-green-800">稼働日数</h3>
-                        <p id="work-days" class="text-2xl font-bold text-green-900">-</p>
-                    </div>
-                    <div class="bg-yellow-100 p-4 rounded-lg text-center">
-                        <h3 class="text-sm font-medium text-yellow-800">平均稼働時間/日</h3>
-                        <p id="avg-hours-day" class="text-2xl font-bold text-yellow-900">-</p>
-                    </div>
-                    <div class="bg-purple-100 p-4 rounded-lg text-center">
-                        <h3 class="text-sm font-medium text-purple-800">プロジェクト数</h3>
-                        <p id="project-count" class="text-2xl font-bold text-purple-900">-</p>
-                    </div>
+                <div id="detailsContainer">
+                    <div id="projectTabs" class="border-b border-gray-200"></div>
+                    <div id="projectTabContent" class="mt-4"></div>
                 </div>
-
-                <!-- Chart -->
-                <div class="mb-6">
-                    <canvas id="project-chart"></canvas>
-                </div>
-
-                <!-- Detailed Table -->
-                <div>
-                    <h3 class="text-lg font-semibold mb-2">日別稼働時間</h3>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full bg-white border">
-                            <thead class="bg-gray-100">
-                                <tr>
-                                    <th class="py-2 px-4 border-b text-left">日付</th>
-                                    <th class="py-2 px-4 border-b text-left">プロジェクト</th>
-                                    <th class="py-2 px-4 border-b text-left">開始</th>
-                                    <th class="py-2 px-4 border-b text-left">終了</th>
-                                    <th class="py-2 px-4 border-b text-left">稼働時間</th>
-                                </tr>
-                            </thead>
-                            <tbody id="summary-table">
-                                <!-- Data will be inserted here -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                <div id="summaryStatus" class="pt-2 text-center text-gray-600 font-medium h-8"></div>
             </div>
         </main>
     </div>
-
-    <!-- (スクリプト部分は長いため、変更点のみコメントします。実際には全体をコピーしてください) -->
+    
     <script type="module">
-        import { initializePage, db, showStatus } from './shared.js';
-        import { collection, query, where, onSnapshot, getDocs, orderBy, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { collection, query, where, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { initializePage, auth, db, showStatus } from './shared.js';
         import { IPAEXG_FONT_B64 } from './fonts.js';
 
-        let currentUser;
-        let projectChart = null;
-        let allProjects = [];
+        let currentUser = null;
+        let fullDashboardData = {};
+        let monthlyChartInstance = null;
         let timestampsUnsubscribe = null;
-        let fullDashboardData = {}; // To store all data for re-filtering
+        let allProjects = [];
 
-        initializePage((user) => {
+        initializePage(user => {
             currentUser = user;
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('app-container').style.display = 'block';
-            
-            const now = new Date();
-            document.getElementById('month-select').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-            
             listenToAllProjects();
-            
-            document.getElementById('filterBtn').addEventListener('click', filterDataByMonth);
-            document.getElementById('exportPdfBtn').addEventListener('click', exportToPDF);
+            listenToTimestamps();
         });
 
         function listenToAllProjects() {
-            if (!currentUser) return;
             const q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid));
             onSnapshot(q, (snapshot) => {
                 allProjects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                // After projects are loaded, load the timestamps for the initial month
-                if (!timestampsUnsubscribe) {
-                     filterDataByMonth();
+                if (Object.keys(fullDashboardData).length > 0) {
+                    processDashboardData(fullDashboardData.rawRecords, getProjectsMap());
                 }
             });
-        }
-        
-        async function filterDataByMonth() {
-            if (!currentUser) return;
-            showStatus('データを読み込んでいます...', false, 'summaryStatus');
-            
-            const monthValue = document.getElementById('month-select').value;
-            if (!monthValue) {
-                showStatus('有効な月を選択してください。', true, 'summaryStatus');
-                return;
-            }
-            const [year, month] = monthValue.split('-').map(Number);
-            const startDate = new Date(year, month - 1, 1);
-            const endDate = new Date(year, month, 1);
-
-            const q = query(
-                collection(db, "timestamps"),
-                where("userId", "==", currentUser.uid),
-                where("clockInTime", ">=", Timestamp.fromDate(startDate)),
-                where("clockInTime", "<", Timestamp.fromDate(endDate)),
-                orderBy("clockInTime", "desc")
-            );
-
-            try {
-                const snapshot = await getDocs(q);
-                const records = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                const projectsMap = getProjectsMap();
-                processDashboardData(records, projectsMap);
-                showStatus('', false, 'summaryStatus');
-            } catch (error) {
-                 showStatus(`エラー: ${error.message}`, true, 'summaryStatus');
-                 console.error(error);
-            }
         }
 
         function getProjectsMap() {
@@ -168,120 +75,172 @@
             return projectsMap;
         }
 
+        function listenToTimestamps() {
+            if (!currentUser) return;
+            showStatus('データを読み込んでいます...', false, 'summaryStatus');
+            if (timestampsUnsubscribe) timestampsUnsubscribe();
+            const q = query(collection(db, "timestamps"), where("userId", "==", currentUser.uid), orderBy("clockInTime", "desc"));
+            timestampsUnsubscribe = onSnapshot(q, (snapshot) => {
+                const records = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                const projectsMap = getProjectsMap();
+                processDashboardData(records, projectsMap);
+                showStatus('', false, 'summaryStatus');
+            }, (error) => {
+                showStatus(`エラー: ${error.message}`, true, 'summaryStatus');
+            });
+        }
+        
         function processDashboardData(records, projectsMap) {
-            const monthValue = document.getElementById('month-select').value;
-            document.getElementById('report-title').textContent = `${monthValue}月度 稼働レポート`;
+            fullDashboardData.rawRecords = records; // Store raw records for re-processing
+            const monthlyData = {};
+            records.forEach(record => {
+                if (!record.clockInTime) return;
+                const clockInTime = record.clockInTime.toDate();
+                const yearMonth = `${clockInTime.getFullYear()}-${(clockInTime.getMonth() + 1).toString().padStart(2, '0')}`;
+                const projectCode = record.projectCode || '未指定';
+                const duration = record.durationHours || 0;
+                if (!monthlyData[yearMonth]) monthlyData[yearMonth] = {};
+                if (!monthlyData[yearMonth][projectCode]) {
+                    const projectName = projectsMap[projectCode]?.name || record.projectName || projectCode;
+                    monthlyData[yearMonth][projectCode] = { projectName: projectName, total: 0, details: [] };
+                }
+                monthlyData[yearMonth][projectCode].total += duration;
+                if (record.durationHours !== null) {
+                    monthlyData[yearMonth][projectCode].details.push({
+                        recordId: record.id, date: clockInTime.toLocaleDateString('ja-JP'),
+                        clockIn: clockInTime,
+                        clockOut: record.clockOutTime ? record.clockOutTime.toDate() : null,
+                        duration: duration.toFixed(2),
+                        projectCode: projectCode
+                    });
+                }
+            });
 
-            const dailyHours = {};
-            const projectHours = {};
-            let totalMinutes = 0;
+            fullDashboardData.monthly = monthlyData;
+            const allMonths = Object.keys(monthlyData).sort();
+            const allProjectCodes = [...new Set(Object.values(monthlyData).flatMap(month => Object.keys(month)))];
+            const datasets = allProjectCodes.map(projectCode => {
+                const projectInfo = projectsMap[projectCode] || {};
+                const color = projectInfo.color || '#698966';
+                const dataPoints = allMonths.map(month => monthlyData[month][projectCode]?.total || 0);
+                return { label: `${projectInfo.name || projectCode}`, data: dataPoints, borderColor: color, backgroundColor: color, fill: false };
+            });
+            renderMonthlyChart({ labels: allMonths, datasets });
+
+            const availableMonths = Object.keys(fullDashboardData.monthly).sort().reverse();
+            const monthSelector = document.getElementById('monthSelector');
+            const currentMonth = monthSelector.value;
+            monthSelector.innerHTML = availableMonths.map(month => `<option value="${month}">${month}</option>`).join('');
             
-            const tableBody = document.getElementById('summary-table');
-            tableBody.innerHTML = '';
-
-            records.forEach(rec => {
-                if (!rec.clockInTime || !rec.clockOutTime) return;
-
-                const clockIn = rec.clockInTime.toDate();
-                const clockOut = rec.clockOutTime.toDate();
-                const durationMinutes = (clockOut - clockIn) / 60000;
-                totalMinutes += durationMinutes;
-
-                const dateStr = clockIn.toLocaleDateString();
-                if (!dailyHours[dateStr]) dailyHours[dateStr] = 0;
-                dailyHours[dateStr] += durationMinutes;
-
-                const project = projectsMap[rec.projectCode] || { name: rec.projectCode, color: '#cccccc' };
-                if (!projectHours[rec.projectCode]) {
-                    projectHours[rec.projectCode] = { minutes: 0, name: project.name, color: project.color };
-                }
-                projectHours[rec.projectCode].minutes += durationMinutes;
-
-                const row = tableBody.insertRow();
-                row.innerHTML = `
-                    <td class="py-2 px-4 border-b">${dateStr}</td>
-                    <td class="py-2 px-4 border-b">${project.name}</td>
-                    <td class="py-2 px-4 border-b">${clockIn.toLocaleTimeString()}</td>
-                    <td class="py-2 px-4 border-b">${clockOut.toLocaleTimeString()}</td>
-                    <td class="py-2 px-4 border-b">${(durationMinutes / 60).toFixed(2)} h</td>
-                `;
-            });
-
-            if (records.length === 0) {
-                 tableBody.innerHTML = '<tr><td colspan="5" class="text-center py-4">この月の記録はありません。</td></tr>';
+            if (availableMonths.includes(currentMonth)) {
+                monthSelector.value = currentMonth;
             }
 
-            const totalHours = (totalMinutes / 60).toFixed(2);
-            const workDays = Object.keys(dailyHours).length;
-            const avgHoursDay = workDays > 0 ? (totalHours / workDays).toFixed(2) : '0.00';
-            const projectCount = Object.keys(projectHours).length;
-
-            document.getElementById('total-hours').textContent = `${totalHours} h`;
-            document.getElementById('work-days').textContent = `${workDays} 日`;
-            document.getElementById('avg-hours-day').textContent = `${avgHoursDay} h`;
-            document.getElementById('project-count').textContent = `${projectCount}`;
-
-            updateChart(projectHours);
+            if (availableMonths.length > 0) {
+                renderMonthData(monthSelector.value || availableMonths[0]);
+            } else {
+                document.getElementById('detailsContainer').innerHTML = '<p class="text-center text-gray-500 py-4">表示できるデータがありません。</p>';
+                document.getElementById('monthTotalHours').textContent = '';
+            }
         }
 
-        function updateChart(projectHours) {
-            const ctx = document.getElementById('project-chart').getContext('2d');
-            const labels = Object.values(projectHours).map(p => p.name);
-            const data = Object.values(projectHours).map(p => (p.minutes / 60).toFixed(2));
-            const backgroundColors = Object.values(projectHours).map(p => p.color);
-
-            if (projectChart) {
-                projectChart.destroy();
+        function renderMonthlyChart(graphData) {
+            const ctx = document.getElementById('monthlyChart').getContext('2d');
+            if (monthlyChartInstance) {
+                monthlyChartInstance.data = graphData;
+                monthlyChartInstance.update();
+            } else {
+                monthlyChartInstance = new Chart(ctx, {
+                    type: 'line', data: graphData,
+                    options: { responsive: true, scales: { y: { beginAtZero: true, ticks: { callback: value => value + 'h' } } } }
+                });
             }
-            projectChart = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'プロジェクト別稼働時間 (h)',
-                        data: data,
-                        backgroundColor: backgroundColors,
-                        hoverOffset: 4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: { position: 'top' },
-                        title: { display: true, text: 'プロジェクト別稼働時間' }
+        }
+
+        document.getElementById('monthSelector').addEventListener('change', (e) => renderMonthData(e.target.value));
+
+        function renderMonthData(month) {
+            const dataForMonth = fullDashboardData.monthly[month] || {};
+            const projects = Object.keys(dataForMonth);
+            const tabsContainer = document.getElementById('projectTabs');
+            const contentContainer = document.getElementById('projectTabContent');
+            let monthGrandTotal = 0;
+
+            if (projects.length === 0) {
+                tabsContainer.innerHTML = '';
+                contentContainer.innerHTML = '<p class="text-center text-gray-500 py-4">この月には記録がありません。</p>';
+                document.getElementById('monthTotalHours').textContent = '';
+                return;
+            }
+            tabsContainer.innerHTML = `<nav class="-mb-px flex space-x-4 overflow-x-auto">${projects.map((p, i) => `<button data-project="${p}" class="tab-btn whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm ${i===0 ? 'active border-main' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}">${dataForMonth[p].projectName}</button>`).join('')}</nav>`;
+            contentContainer.innerHTML = projects.map((p, i) => {
+                const projectData = dataForMonth[p];
+                const totalHours = projectData.total.toFixed(2);
+                monthGrandTotal += projectData.total;
+                let detailsHtml = `<div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-200"><thead><tr>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">出勤</th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">退勤</th>
+                    <th class="px-4 py-2 text-right text-xs font-medium text-gray-500">時間(h)</th>
+                    </tr></thead><tbody>
+                    ${projectData.details.sort((a, b) => new Date(a.clockIn) - new Date(b.clockIn)).map(d => `<tr>
+                        <td class="px-4 py-2 text-sm">${d.clockIn.toLocaleString('ja-JP')}</td>
+                        <td class="px-4 py-2 text-sm">${d.clockOut ? d.clockOut.toLocaleString('ja-JP') : '勤務中'}</td>
+                        <td class="px-4 py-2 text-sm text-right">${d.duration}</td>
+                    </tr>`).join('')}
+                </tbody></table></div>`;
+                return `<div data-content="${p}" class="${i===0 ? '' : 'hidden'}">
+                    <div class="flex flex-col sm:flex-row justify-between items-center p-4 bg-main-light rounded-lg gap-4">
+                        <h3 class="text-lg font-bold">プロジェクト合計: <span class="text-main">${totalHours}</span> 時間</h3>
+                        <button data-month="${month}" data-project="${p}" class="download-pdf-btn btn w-full sm:w-auto text-white bg-main hover:bg-main-dark px-4 py-2 rounded-lg">PDF出力</button>
+                    </div>
+                    <div class="mt-4">${detailsHtml}</div>
+                </div>`;
+            }).join('');
+            document.getElementById('monthTotalHours').textContent = `月間合計: ${monthGrandTotal.toFixed(2)} 時間`;
+            tabsContainer.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => {
+                const targetProject = btn.dataset.project;
+                tabsContainer.querySelectorAll('.tab-btn').forEach(b => {
+                    b.classList.remove('active', 'border-main');
+                    b.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+                    if (b.dataset.project === targetProject) {
+                        b.classList.add('active', 'border-main');
+                        b.classList.remove('border-transparent', 'text-gray-500');
                     }
-                }
-            });
+                });
+                contentContainer.querySelectorAll('[data-content]').forEach(c => c.classList.toggle('hidden', c.dataset.content !== targetProject));
+            }));
         }
 
-        async function exportToPDF() {
-            showStatus("PDFを生成中...", false, 'summaryStatus');
-            const { jsPDF } = window.jspdf;
-            const pdf = new jsPDF({
-                orientation: 'p',
-                unit: 'mm',
-                format: 'a4'
-            });
-
-            pdf.addFileToVFS('ipaexg.ttf', IPAEXG_FONT_B64);
-            pdf.addFont('ipaexg.ttf', 'ipaexg', 'normal');
-            pdf.setFont('ipaexg');
-
-            const exportArea = document.getElementById('pdf-export-area');
-            try {
-                const canvas = await html2canvas(exportArea, { scale: 2 });
-                const imgData = canvas.toDataURL('image/png');
-                const imgProps = pdf.getImageProperties(imgData);
-                const pdfWidth = pdf.internal.pageSize.getWidth();
-                const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-                
-                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-                pdf.save(`${document.getElementById('month-select').value}-summary.pdf`);
-                showStatus("PDFがダウンロードされました。", false, 'summaryStatus');
-            } catch (error) {
-                console.error("PDF export failed:", error);
-                showStatus("PDFの生成に失敗しました。", true, 'summaryStatus');
+        document.getElementById('detailsContainer').addEventListener('click', (e) => {
+            if (e.target && e.target.classList.contains('download-pdf-btn')) {
+                downloadPdf(e.target.dataset.month, e.target.dataset.project);
             }
+        });
+
+        function downloadPdf(month, projectCode) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const projectData = fullDashboardData.monthly[month]?.[projectCode];
+            if (!projectData) return;
+            doc.addFileToVFS("ipaexg.ttf", IPAEXG_FONT_B64);
+            doc.addFont("ipaexg.ttf", "ipaexg", "normal");
+            doc.setFont("ipaexg");
+            doc.setFontSize(18);
+            doc.text(`${month} 稼働時間報告書`, 14, 22);
+            doc.setFontSize(14);
+            doc.text(`${projectData.projectName} (${projectCode})`, 14, 32);
+            doc.setFontSize(12);
+            doc.text(`合計時間: ${projectData.total.toFixed(2)} 時間`, 14, 42);
+            const tableColumn = ["日付", "出勤", "退勤", "時間(h)"];
+            const tableRows = [];
+            projectData.details.sort((a, b) => new Date(a.clockIn) - new Date(b.clockIn)).forEach(detail => {
+                const datePart = detail.date.split(' ')[0];
+                const clockInTimePart = (detail.clockIn || "").toLocaleString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+                const clockOutTimePart = (detail.clockOut || "").toLocaleString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+                tableRows.push([datePart, clockInTimePart, clockOutTimePart, detail.duration]);
+            });
+            doc.autoTable({ head: [tableColumn], body: tableRows, startY: 50, styles: { font: "ipaexg", fontStyle: 'normal' }, headStyles: { fillColor: [105, 137, 102] }, margin: { top: 10, right: 10, bottom: 10, left: 10 } });
+            doc.save(`稼働報告書_${month}_${projectCode}.pdf`);
         }
     </script>
 </body>
