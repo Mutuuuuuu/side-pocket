@@ -70,7 +70,8 @@
         const GOOGLE_CLIENT_ID = "887116583823-32evpk9fa2m0ondbbco6tv4m1980i7bj.apps.googleusercontent.com"; 
         const GOOGLE_API_KEY = "AIzaSyBuRc0oRFQk-GvVAh_90S9NGAYu5sOkxyM"; 
         const GOOGLE_DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"];
-        const GOOGLE_SCOPES = "https://www.googleapis.com/auth/calendar.events.readonly"; // 読み取り専用スコープ
+        // スコープを読み書き可能に変更
+        const GOOGLE_SCOPES = "https://www.googleapis.com/auth/calendar.events"; 
 
         let gapiInited = false; // gapiクライアントが初期化されたか
         let gisInited = false;  // Google Identity Servicesが初期化されたか
@@ -330,6 +331,7 @@
 
         /**
          * 選択されたカレンダーと月のイベントを読み込む
+         * および、既に稼働実績に反映されたイベントのIDを取得する
          */
         async function loadCalendarEvents() {
             const calendarId = calendarSelect.value;
@@ -348,6 +350,7 @@
                 const startOfMonth = new Date(selectedMonth + '-01T00:00:00');
                 const endOfMonth = new Date(startOfMonth.getFullYear(), startOfMonth.getMonth() + 1, 0, 23, 59, 59);
 
+                // Google Calendar Eventsの取得
                 const response = await gapi.client.calendar.events.list({
                     'calendarId': calendarId,
                     'timeMin': startOfMonth.toISOString(),
@@ -357,9 +360,12 @@
                     'maxResults': 100,
                     'orderBy': 'startTime'
                 });
-
                 const events = response.result.items;
-                renderCalendarEvents(events);
+
+                // Firestoreから既に反映済みのイベントIDを取得
+                const reflectedEventIds = await getReflectedEventIds(startOfMonth, endOfMonth);
+                
+                renderCalendarEvents(events, reflectedEventIds); // reflectedEventIdsを渡す
                 showStatus("イベントを読み込みました。", false, 'reflect-status');
                 if (events.length > 0) {
                     calendarActionBar.classList.remove('hidden');
@@ -371,7 +377,6 @@
                 console.error("Error loading calendar events:", error);
                 showStatus(`イベントの読み込みに失敗しました: ${error.message}`, true, 'reflect-status');
                 calendarEventsContainer.innerHTML = '<p class="text-red-500 text-center py-4">イベントの読み込み中にエラーが発生しました。</p>';
-                // 認証エラーの場合は再度認証を促す
                 if (error.result && error.result.error && error.result.error.code === 401) {
                     authStatusElement.textContent = 'ステータス：認証が無効です。再連携してください。';
                     authorizeButton.classList.remove('hidden');
@@ -382,10 +387,46 @@
         }
 
         /**
+         * Firestoreから指定期間内に既に稼働実績として反映されたGoogleカレンダーイベントのIDを取得する
+         * @param {Date} startDate - 期間の開始日
+         * @param {Date} endDate - 期間の終了日
+         * @returns {Set<string>} 既に反映済みのイベントIDのセット
+         */
+        async function getReflectedEventIds(startDate, endDate) {
+            if (!currentUser) return new Set();
+
+            const q = query(
+                collection(db, "timestamps"),
+                where("userId", "==", currentUser.uid),
+                where("source", "==", "Google Calendar"), // Google Calendarからのものに限定
+                where("clockInTime", ">=", Timestamp.fromDate(startDate)),
+                where("clockInTime", "<=", Timestamp.fromDate(endDate))
+            );
+
+            try {
+                const querySnapshot = await getDocs(q);
+                const reflectedIds = new Set();
+                querySnapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.calendarEventId) {
+                        reflectedIds.add(data.calendarEventId);
+                    }
+                });
+                return reflectedIds;
+            } catch (error) {
+                console.error("Error fetching reflected event IDs:", error);
+                showStatus("反映済みイベントの確認に失敗しました。", true, 'reflect-status');
+                return new Set();
+            }
+        }
+
+
+        /**
          * 読み込んだカレンダーイベントをHTMLにレンダリングする
          * @param {Array} events - Googleカレンダーイベントの配列
+         * @param {Set<string>} reflectedEventIds - 既に反映済みのイベントIDのセット
          */
-        function renderCalendarEvents(events) {
+        function renderCalendarEvents(events, reflectedEventIds) {
             calendarEventsContainer.innerHTML = '';
             if (events.length === 0) {
                 calendarEventsContainer.innerHTML = '<p class="text-gray-500 text-center py-4">この月には予定がありません。</p>';
@@ -396,20 +437,24 @@
                 const start = event.start.dateTime ? new Date(event.start.dateTime) : new Date(event.start.date + 'T00:00:00');
                 const end = event.end.dateTime ? new Date(event.end.dateTime) : new Date(event.end.date + 'T23:59:59');
                 const isAllDay = !event.start.dateTime;
+                const isReflected = reflectedEventIds.has(event.id); // 反映済みかチェック
 
+                // UIの調整：よりコンパクトな表示
                 const eventHtml = `
-                    <div class="flex items-start p-3 border-b last:border-b-0 bg-white rounded-lg shadow-sm">
-                        <input type="checkbox" class="event-checkbox mt-1 mr-3 h-5 w-5 text-main rounded" data-event-id="${event.id}">
-                        <div class="flex-grow">
-                            <h4 class="font-semibold text-gray-800">${event.summary || 'タイトルなし'}</h4>
-                            <p class="text-sm text-gray-600">
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center p-2 border-b last:border-b-0 bg-white rounded-lg shadow-sm ${isReflected ? 'opacity-60 bg-green-50' : ''}">
+                        <div class="flex items-center w-full sm:w-auto mb-2 sm:mb-0 sm:mr-3">
+                            <input type="checkbox" class="event-checkbox mt-1 mr-2 h-4 w-4 text-main rounded" data-event-id="${event.id}" ${isReflected ? 'disabled checked' : ''}>
+                            ${isReflected ? '<span class="text-green-600 text-xs font-semibold mr-2">反映済</span>' : ''}
+                            <h4 class="font-semibold text-gray-800 flex-grow">${event.summary || 'タイトルなし'}</h4>
+                        </div>
+                        <div class="flex-grow grid grid-cols-1 sm:grid-cols-2 gap-1 sm:gap-2 w-full">
+                            <p class="text-xs text-gray-600">
                                 ${start.toLocaleDateString('ja-JP')} ${isAllDay ? '終日' : start.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })} 
                                 ${!isAllDay ? ` - ${end.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}` : ''}
                             </p>
-                            <p class="text-xs text-gray-500">${event.location || ''}</p>
-                            <div class="mt-2">
-                                <label for="project-select-${event.id}" class="block text-xs font-medium text-gray-700">プロジェクト:</label>
-                                <select id="project-select-${event.id}" class="mt-1 block w-full text-sm p-1 border border-gray-300 rounded-md project-select">
+                            <div class="flex items-center">
+                                <label for="project-select-${event.id}" class="block text-xs font-medium text-gray-700 mr-1 whitespace-nowrap">PJ:</label>
+                                <select id="project-select-${event.id}" class="block w-full text-xs p-1 border border-gray-300 rounded-md project-select" ${isReflected ? 'disabled' : ''}>
                                     <option value="">プロジェクトを選択</option>
                                     ${Array.from(userProjects.values()).map(p => `<option value="${p.code}" data-project-name="${p.name}">${p.code}: ${p.name}</option>`).join('')}
                                 </select>
@@ -435,6 +480,11 @@
             const reflectPromises = [];
 
             for (const checkbox of selectedCheckboxes) {
+                // 既に無効化されている（＝反映済みの）チェックボックスはスキップ
+                if (checkbox.disabled) {
+                    continue;
+                }
+
                 const eventId = checkbox.dataset.eventId;
                 const eventElement = checkbox.closest('.flex');
                 const projectSelect = eventElement.querySelector(`.project-select`);
@@ -489,8 +539,9 @@
                 await Promise.all(reflectPromises);
                 showStatus("選択した予定を稼働実績に反映しました！", false, 'reflect-status');
                 // 反映後、チェックボックスをクリアし、アクションバーを隠す
-                selectedCheckboxes.forEach(cb => cb.checked = false);
-                calendarActionBar.classList.add('hidden');
+                // 既に反映済みのものはdisabledになっているため、チェックボックスの状態は維持される
+                // 新たに反映されたものもdisabledにするため、再度イベントを読み込むのが確実
+                loadCalendarEvents(); 
             } catch (error) {
                 console.error("Error reflecting events:", error);
                 showStatus(`稼働実績の反映中にエラーが発生しました: ${error.message}`, true, 'reflect-status');
