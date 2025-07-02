@@ -202,6 +202,13 @@
          * Google認証ボタンがクリックされたときのハンドラー
          */
         async function handleAuthClick() {
+            // tokenClientが初期化されているか確認
+            if (!tokenClient) {
+                console.error("tokenClientがまだ初期化されていません。");
+                showStatus("Google認証ライブラリの準備ができていません。しばらくお待ちください。", true, 'gcal-auth-status');
+                return; // tokenClientが未定義の場合は処理を中断
+            }
+            
             tokenClient.callback = async (resp) => {
                 if (resp.error) {
                     authStatusElement.textContent = `認証エラー: ${resp.error.message}`;
