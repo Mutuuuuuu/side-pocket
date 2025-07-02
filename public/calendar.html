@@ -94,7 +94,9 @@
          * Google APIクライアントライブラリ (gapi) がロードされた後に呼び出される
          * gapi.client.init を実行し、APIキーとディスカバリドキュメントを設定する
          */
+        // windowにアタッチしてグローバルスコープからアクセス可能にする
         window.gapiLoaded = () => {
+            console.log("gapiLoaded() called."); // 追加
             gapi.load('client', async () => {
                 try {
                     await gapi.client.init({
@@ -102,6 +104,7 @@
                         discoveryDocs: GOOGLE_DISCOVERY_DOCS,
                     });
                     gapiInited = true;
+                    console.log("gapi client initialized. gapiInited:", gapiInited); // 追加
                     maybeEnableCalendarFeatures();
                 } catch (error) {
                     console.error("Error initializing gapi client:", error);
@@ -114,20 +117,29 @@
          * Google Identity Services (GIS) ライブラリがロードされた後に呼び出される
          * google.accounts.oauth2.initTokenClient を実行し、OAuth2トークンクライアントを初期化する
          */
+        // windowにアタッチしてグローバルスコープからアクセス可能にする
         window.gisLoaded = () => {
-            tokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: GOOGLE_CLIENT_ID,
-                scope: GOOGLE_SCOPES,
-                callback: '', // トークンが返されたときにGISが呼び出すコールバックは後で設定
-            });
-            gisInited = true;
-            maybeEnableCalendarFeatures();
+            console.log("gisLoaded() called."); // 追加
+            try {
+                tokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: GOOGLE_CLIENT_ID,
+                    scope: GOOGLE_SCOPES,
+                    callback: '', // トークンが返されたときにGISが呼び出すコールバックは後で設定
+                });
+                gisInited = true;
+                console.log("GIS token client initialized. gisInited:", gisInited, "tokenClient:", tokenClient); // 追加
+                maybeEnableCalendarFeatures();
+            } catch (error) {
+                console.error("Error initializing GIS token client:", error);
+                showStatus("Google Identity Servicesの初期化に失敗しました。", true, 'gcal-auth-status');
+            }
         };
 
         /**
          * gapiとGISの初期化が両方完了し、かつFirebase認証が完了したら、カレンダー機能を有効にする
          */
         function maybeEnableCalendarFeatures() {
+            console.log("maybeEnableCalendarFeatures called. gapiInited:", gapiInited, "gisInited:", gisInited, "currentUser:", currentUser ? true : false); // 追加
             if (gapiInited && gisInited && currentUser) {
                 authStatusElement.textContent = 'ステータス：準備完了';
                 authorizeButton.classList.remove('hidden');
