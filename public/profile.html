@@ -46,11 +46,12 @@
         import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
+        // Firebase設定。storageBucketを統一します。
         const firebaseConfig = {
             apiKey: "AIzaSyBuRc0oRFQk-GvVAh_90S9NGAYu5sOkxyM",
             authDomain: "side-pocket-sl.firebaseapp.com",
             projectId: "side-pocket-sl",
-            storageBucket: "side-pocket-sl.firebasestorage.app", // CORRECTED
+            storageBucket: "side-pocket-sl.appspot.com", // 統一されたstorageBucket
             messagingSenderId: "887116583823",
             appId: "1:887116583823:web:5783488bd573f5be4bf1fa",
             measurementId: "G-QSBDN1TX68"
@@ -80,6 +81,7 @@
             
             const userDocRef = doc(db, "users", currentUser.uid);
             const userDoc = await getDoc(userDocRef);
+            const statusDiv = document.getElementById('profile-status');
 
             if (userDoc.exists()) {
                 // ドキュメントが存在する場合、フォームに情報を表示
@@ -108,7 +110,8 @@
                     loadUserProfile();
                 } catch (error) {
                     console.error("Error creating user document:", error);
-                    document.getElementById('profile-status').textContent = 'プロファイルの初期化に失敗しました。';
+                    statusDiv.textContent = 'プロファイルの初期化に失敗しました。';
+                    statusDiv.style.color = 'red';
                 }
             }
         };
