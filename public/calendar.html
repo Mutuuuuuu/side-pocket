@@ -481,6 +481,7 @@
 
             for (const checkbox of selectedCheckboxes) {
                 // 既に無効化されている（＝反映済みの）チェックボックスはスキップ
+                // ここでdisabledのチェックも行い、nullアクセスを防ぐ
                 if (checkbox.disabled) {
                     continue;
                 }
@@ -488,8 +489,16 @@
                 const eventId = checkbox.dataset.eventId;
                 const eventElement = checkbox.closest('.flex');
                 const projectSelect = eventElement.querySelector(`.project-select`);
+                
+                // projectSelectがnullでないことを確認
+                if (!projectSelect) {
+                    console.error(`プロジェクト選択ドロップダウンが見つかりません。Event ID: ${eventId}`);
+                    showStatus("プロジェクト選択ドロップダウンが見つからない予定があります。", true, 'reflect-status');
+                    continue; // このイベントはスキップして次のイベントへ
+                }
+
                 const projectCode = projectSelect.value;
-                const projectName = projectSelect.options[projectSelect.selectedIndex].dataset.projectName;
+                const projectName = projectSelect.options[projectSelect.selectedIndex]?.dataset.projectName; // ?. で安全にアクセス
 
                 if (!projectCode) {
                     showStatus("選択されたすべての予定にプロジェクトを選択してください。", true, 'reflect-status');
