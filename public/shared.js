@@ -20,8 +20,7 @@ export const db = getFirestore(app);
 
 /**
  * 3. Shared Function: Initialize Page
- * ページの初期化、認証状態のチェック、ヘッダーのセットアップを行います。
- * @param {Function} onUserAuthenticated - ユーザーが認証された後に実行されるコールバック関数
+ * @param {Function} onUserAuthenticated - Callback function to run after user is authenticated
  */
 export function initializePage(onUserAuthenticated) {
     onAuthStateChanged(auth, (user) => {
@@ -39,8 +38,8 @@ export function initializePage(onUserAuthenticated) {
 }
 
 /**
- * ヘッダーにユーザー情報を表示し、メニューのイベントリスナーを設定します。
- * @param {object} user - Firebaseのユーザーオブジェクト
+ * Setup header with user info and menu listeners.
+ * @param {object} user - Firebase user object
  */
 function setupHeader(user) {
     document.getElementById('user-display-name').textContent = user.displayName || user.email;
@@ -60,22 +59,17 @@ function setupHeader(user) {
         }
     });
     
-    // ナビゲーションリンクの設定
-    document.getElementById('menu-home').addEventListener('click', () => window.location.href = 'index.html');
-    document.getElementById('menu-calendar').addEventListener('click', () => window.location.href = 'calendar.html');
-    document.getElementById('menu-summary').addEventListener('click', () => window.location.href = 'summary.html');
-    document.getElementById('menu-projects').addEventListener('click', () => window.location.href = 'projects.html');
-    
+    // Logout listener
     document.getElementById('logoutBtn').addEventListener('click', () => {
         signOut(auth);
     });
 }
 
 /**
- * ステータスメッセージを表示するための共通関数
- * @param {string} message - 表示するメッセージ
- * @param {boolean} isError - エラーかどうか
- * @param {string} elementId - メッセージを表示する要素のID
+ * Display a status message.
+ * @param {string} message - The message to display
+ * @param {boolean} isError - True if it's an error message
+ * @param {string} elementId - The ID of the element to display the message in
  */
 export function showStatus(message, isError, elementId) {
     const statusDiv = document.getElementById(elementId);
