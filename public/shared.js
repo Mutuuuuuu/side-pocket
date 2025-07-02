@@ -22,10 +22,13 @@ export const db = getFirestore(app);
  * 3. Shared Function: Initialize Page
  * @param {Function} onUserAuthenticated - Callback function to run after user is authenticated
  */
-export function initializePage(onUserAuthenticated) {
+export async function initializePage(onUserAuthenticated) {
+    // ★★★ ヘッダーの読み込みを待ってから認証チェックを行う ★★★
+    await loadHeader();
+
     onAuthStateChanged(auth, (user) => {
         if (user) {
-            setupHeader(user);
+            setupHeaderMenu(user);
             document.getElementById('loading').style.display = 'none';
             document.getElementById('app-container').style.display = 'block';
             if (onUserAuthenticated) {
@@ -38,31 +41,49 @@ export function initializePage(onUserAuthenticated) {
 }
 
 /**
+ * 4. Fetch and load the header component
+ */
+async function loadHeader() {
+    const headerPlaceholder = document.getElementById('header-placeholder');
+    if (headerPlaceholder) {
+        try {
+            const response = await fetch('_header.html');
+            const headerHTML = await response.text();
+            headerPlaceholder.innerHTML = headerHTML;
+        } catch (error) {
+            console.error('ヘッダーの読み込みに失敗しました:', error);
+            headerPlaceholder.innerHTML = '<p class="text-red-500">ヘッダーの読み込みに失敗しました。</p>';
+        }
+    }
+}
+
+/**
  * Setup header with user info and menu listeners.
  * @param {object} user - Firebase user object
  */
-function setupHeader(user) {
+function setupHeaderMenu(user) {
     document.getElementById('user-display-name').textContent = user.displayName || user.email;
     document.getElementById('user-icon').src = user.photoURL || 'images/sidepocket_symbol.png';
 
     const menuButton = document.getElementById('menu-button');
     const dropdownMenu = document.getElementById('dropdown-menu');
 
-    menuButton.addEventListener('click', (e) => {
-        e.stopPropagation();
-        dropdownMenu.classList.toggle('hidden');
-    });
+    if (menuButton && dropdownMenu) {
+        menuButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            dropdownMenu.classList.toggle('hidden');
+        });
 
-    window.addEventListener('click', (e) => {
-        if (!menuButton.contains(e.target) && !dropdownMenu.contains(e.target)) {
-            dropdownMenu.classList.add('hidden');
-        }
-    });
-    
-    // Logout listener
-    document.getElementById('logoutBtn').addEventListener('click', () => {
-        signOut(auth);
-    });
+        window.addEventListener('click', (e) => {
+            if (!menuButton.contains(e.target) && !dropdownMenu.contains(e.target)) {
+                dropdownMenu.classList.add('hidden');
+            }
+        });
+        
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            signOut(auth);
+        });
+    }
 }
 
 /**
