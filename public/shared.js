@@ -1,10 +1,8 @@
-// shared.js
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// === Firebase Configuration ===
-// この設定はあなたのプロジェクトのものです。変更の必要はありません。
+// 1. Firebase Configuration
 const firebaseConfig = {
     apiKey: "AIzaSyBuRc0oRFQk-GvVAh_90S9NGAYu5sOkxyM",
     authDomain: "side-pocket-sl.firebaseapp.com",
@@ -15,17 +13,13 @@ const firebaseConfig = {
     measurementId: "G-QSBDN1TX68"
 };
 
-// === Firebase Initialization ===
+// 2. Firebase Initialization
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app); // Firestoreもエクスポート
-
-import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-
-// === Shared Functions ===
+export const db = getFirestore(app);
 
 /**
+ * 3. Shared Function: Initialize Page
  * ページの初期化、認証状態のチェック、ヘッダーのセットアップを行います。
  * @param {Function} onUserAuthenticated - ユーザーが認証された後に実行されるコールバック関数
  */
@@ -50,7 +44,7 @@ export function initializePage(onUserAuthenticated) {
  */
 function setupHeader(user) {
     document.getElementById('user-display-name').textContent = user.displayName || user.email;
-    document.getElementById('user-icon').src = user.photoURL || `https://placehold.co/32x32/EFEFEF/333333?text=${(user.displayName || user.email || '?').charAt(0)}`;
+    document.getElementById('user-icon').src = user.photoURL || 'images/sidepocket_symbol.png';
 
     const menuButton = document.getElementById('menu-button');
     const dropdownMenu = document.getElementById('dropdown-menu');
