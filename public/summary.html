@@ -213,7 +213,7 @@
         function downloadPdf(month, projectCode) {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
-            const projectData = fullDashboardData.monthly[month]?.[projectCode];
+            const projectData = fullDashboardData[month]?.[projectCode];
             if (!projectData) return;
             doc.addFileToVFS("ipaexg.ttf", IPAEXG_FONT_B64);
             doc.addFont("ipaexg.ttf", "ipaexg", "normal");

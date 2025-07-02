@@ -39,7 +39,7 @@
     </div>
 
     <script type="module">
-        import { collection, addDoc, getDocs, query, where, orderBy, limit, doc, updateDoc, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { collection, addDoc, getDocs, query, where, orderBy, limit, doc, updateDoc, serverTimestamp, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { initializePage, auth, db, showStatus } from './shared.js';
 
         let currentUser = null;
@@ -62,11 +62,10 @@
 
         async function handleTimestamp(action) {
             const projectCode = document.getElementById('projectCode').value;
-            if (!projectCode) {
+            if (!projectCode && action === '出勤') {
                 showStatus("エラー: プロジェクトを選択してください。", true, 'status');
                 return;
             }
-            setButtonsDisabled(true);
             showStatus("記録しています...", false, 'status');
 
             try {
