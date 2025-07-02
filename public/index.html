@@ -708,6 +708,10 @@
                 return;
             }
             
+            // onSnapshotからの更新の場合、編集中の状態を考慮せず、常にinnerHTMLを再構築します。
+            // 個別のアイテムの編集状態は、DOM操作によってのみ変更され、
+            // onSnapshotによる再描画でリセットされることを許容します。
+            // これにより、outerHTMLエラーを回避し、Firebaseのリアルタイム同期をシンプルに保ちます。
             container.innerHTML = projects.map(p => {
                 projectDataMap.set(p.id, p); // マップにプロジェクトデータを保存
                 return renderProjectItem(p);
@@ -729,56 +733,71 @@
             } else if (target.classList.contains('save-project-btn')) {
                 saveProjectName(target);
             } else if (target.classList.contains('cancel-project-btn')) {
-                toggleProjectEdit(target, true); // キャンセル時はtrueを渡す
+                cancelProjectEdit(target); // 新しい関数を呼び出す
             }
         });
 
         /**
          * プロジェクト名の編集モードを切り替えます。
+         * outerHTMLではなく、要素のDOMを直接操作します。
          * @param {HTMLElement} button - クリックされたボタン要素
-         * @param {boolean} cancel - キャンセル操作の場合はtrue
          */
-        function toggleProjectEdit(button, cancel = false) {
+        function toggleProjectEdit(button) {
             const projectItem = button.closest('.project-item');
-            const projectId = projectItem.dataset.projectId;
+            const nameDiv = projectItem.querySelector('[data-field="name"]');
+            const actionButtonsDiv = projectItem.querySelector('[data-role="action-buttons"]');
             
-            // キャンセル操作の場合、元の状態に戻す
-            if (cancel) {
-                const originalProject = projectDataMap.get(projectId);
-                if (originalProject) {
-                    projectItem.outerHTML = renderProjectItem(originalProject);
-                }
-                return;
-            }
+            const currentName = nameDiv.textContent;
             
-            const isEditing = projectItem.classList.contains('is-editing');
-            if (!isEditing) {
-                projectItem.classList.add('is-editing');
-                const nameDiv = projectItem.querySelector('[data-field="name"]');
-                const currentName = nameDiv.textContent;
-                
-                // プロジェクト名を編集可能なinputフィールドに置き換え
-                nameDiv.innerHTML = `<input type="text" class="project-name-input w-full p-1 border rounded" value="${currentName}">`;
-                
-                // アクションボタンを「保存」と「取消」に置き換え
-                projectItem.querySelector('[data-role="action-buttons"]').innerHTML = `
-                    <button class="save-project-btn btn text-sm bg-green-500 text-white px-3 py-1 rounded-lg hover:bg-green-600">保存</button>
-                    <button class="cancel-project-btn btn text-sm bg-gray-400 text-white px-3 py-1 rounded-lg hover:bg-gray-500">取消</button>`;
-                
-                // inputフィールドにフォーカス
-                projectItem.querySelector('.project-name-input').focus();
-            }
+            // プロジェクト名を編集可能なinputフィールドに置き換え
+            nameDiv.innerHTML = `<input type="text" class="project-name-input w-full p-1 border rounded" value="${currentName}">`;
+            
+            // アクションボタンを「保存」と「取消」に置き換え
+            actionButtonsDiv.innerHTML = `
+                <button class="save-project-btn btn text-sm bg-green-500 text-white px-3 py-1 rounded-lg hover:bg-green-600">保存</button>
+                <button class="cancel-project-btn btn text-sm bg-gray-400 text-white px-3 py-1 rounded-lg hover:bg-gray-500">取消</button>`;
+            
+            // inputフィールドにフォーカス
+            projectItem.querySelector('.project-name-input').focus();
         }
 
         /**
+         * プロジェクト名の編集をキャンセルし、元の表示に戻します。
+         * @param {HTMLElement} button - クリックされたキャンセルボタン要素
+         */
+        function cancelProjectEdit(button) {
+            const projectItem = button.closest('.project-item');
+            const projectId = projectItem.dataset.projectId;
+            const originalProject = projectDataMap.get(projectId); // マップから元のデータを取得
+
+            if (originalProject) {
+                const nameDiv = projectItem.querySelector('[data-field="name"]');
+                const actionButtonsDiv = projectItem.querySelector('[data-role="action-buttons"]');
+
+                // 名前の表示を元に戻す
+                nameDiv.textContent = originalProject.name;
+                
+                // アクションボタンを元に戻す
+                actionButtonsDiv.innerHTML = `
+                    <button class="edit-project-btn btn text-sm bg-gray-200 text-gray-700 px-3 py-1 rounded-lg hover:bg-gray-300">修正</button>
+                    <label class="switch"><input type="checkbox" class="project-status-toggle" ${originalProject.status === 'Active' ? 'checked' : ''}><span class="slider"></span></label>`;
+            }
+        }
+
+
+        /**
          * プロジェクト名を保存します。
+         * outerHTMLではなく、要素のDOMを直接操作します。
          * @param {HTMLElement} button - クリックされた保存ボタン要素
          */
         async function saveProjectName(button) {
             const projectItem = button.closest('.project-item');
             const projectId = projectItem.dataset.projectId;
-            const newName = projectItem.querySelector('.project-name-input').value.trim();
+            const nameInput = projectItem.querySelector('.project-name-input');
+            const newName = nameInput.value.trim();
             const statusElem = document.getElementById('projectManagementStatus');
+            const nameDiv = projectItem.querySelector('[data-field="name"]'); // 再取得
+            const actionButtonsDiv = projectItem.querySelector('[data-role="action-buttons"]'); // 再取得
 
             if (!newName) {
                 showStatus('プロジェクト名は必須です。', true, 'projectManagementStatus');
@@ -790,10 +809,17 @@
             try {
                 await updateDoc(docRef, { name: newName });
                 showStatus('更新しました。', false, 'projectManagementStatus');
-                // 編集モードを終了し、表示を更新
+                
+                // DOMを直接更新して表示を元に戻す
+                nameDiv.textContent = newName; // 更新された名前を表示
+                actionButtonsDiv.innerHTML = `
+                    <button class="edit-project-btn btn text-sm bg-gray-200 text-gray-700 px-3 py-1 rounded-lg hover:bg-gray-300">修正</button>
+                    <label class="switch"><input type="checkbox" class="project-status-toggle" ${projectDataMap.get(projectId).status === 'Active' ? 'checked' : ''}><span class="slider"></span></label>`;
+                
+                // projectDataMapも更新
                 const updatedProject = { ...projectDataMap.get(projectId), name: newName };
                 projectDataMap.set(projectId, updatedProject);
-                projectItem.outerHTML = renderProjectItem(updatedProject);
+
             } catch (error) {
                 showStatus(`更新エラー: ${error.message}`, true, 'projectManagementStatus');
             }
@@ -812,15 +838,22 @@
             const docRef = doc(db, "projects", projectId);
 
             try {
+                const updateData = {};
                 if (target.type === 'checkbox') {
+                    updateData.status = target.checked ? 'Active' : 'Inactive';
                     showStatus("ステータスを更新しています...", false, 'projectManagementStatus');
-                    await updateDoc(docRef, { status: target.checked ? 'Active' : 'Inactive' });
-                    showStatus("ステータスを更新しました。", false, 'projectManagementStatus');
                 } else if (target.type === 'color') {
+                    updateData.color = target.value;
                     showStatus("色を更新しています...", false, 'projectManagementStatus');
-                    await updateDoc(docRef, { color: target.value });
-                    showStatus("色を更新しました。", false, 'projectManagementStatus');
                 }
+
+                await updateDoc(docRef, updateData);
+                showStatus("更新しました。", false, 'projectManagementStatus');
+                
+                // projectDataMapも更新
+                const currentProject = projectDataMap.get(projectId);
+                projectDataMap.set(projectId, { ...currentProject, ...updateData });
+
             } catch (error) { 
                 showStatus(`更新エラー: ${error.message}`, true, 'projectManagementStatus');
             }
