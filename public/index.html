@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <base target="_top">
     <title>Firebase版 打刻アプリ</title>
-    <!-- ★★★ ファビコンを更新 ★★★ -->
     <link rel="icon" href="images/sidepocket_symbol.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -55,8 +54,8 @@
     <div id="app-container" class="w-full" style="display: none;">
         <!-- Header -->
         <header class="w-full max-w-4xl mx-auto mb-4 flex justify-between items-center">
-            <!-- ★★★ ロゴを更新 ★★★ -->
-            <img src="images/sidepocket_Logo.png" alt="side pocket ロゴ" class="h-8">
+            <!-- ★★★ ロゴサイズを修正 ★★★ -->
+            <img src="images/sidepocket_Logo.png" alt="side pocket ロゴ" class="h-12">
             <div class="flex items-center gap-3">
                 <a href="profile.html" class="flex items-center gap-2 text-sm text-gray-600 hover:text-main no-underline">
                     <img id="user-icon" src="https://placehold.co/32x32/EFEFEF/333333?text=?" class="w-8 h-8 rounded-full object-cover bg-gray-200">
@@ -781,7 +780,7 @@
             }
             const [year, monthNum] = month.split('-');
             const timeMin = new Date(year, monthNum - 1, 1).toISOString();
-            const timeMax = new Date(year, monthNum, 1).toISOString(); // 最終日ではなく翌月1日を指定
+            const timeMax = new Date(year, monthNum, 1).toISOString();
 
             const container = document.getElementById('calendar-events-container');
             container.innerHTML = '<div class="loader mx-auto"></div>';
