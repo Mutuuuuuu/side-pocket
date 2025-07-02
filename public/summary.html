@@ -22,9 +22,7 @@
 
         <main class="w-full max-w-4xl mx-auto">
             <div class="p-6 sm:p-8 space-y-6 bg-white rounded-2xl shadow-lg">
-                <header class="flex flex-col sm:flex-row justify-between items-center gap-4">
-                    <h2 class="text-2xl sm:text-3xl font-bold text-gray-800">稼働管理</h2>
-                </header>
+                <header><h2 class="text-2xl sm:text-3xl font-bold text-gray-800">稼働管理</h2></header>
                 <div class="bg-gray-50 p-4 rounded-lg"><canvas id="monthlyChart"></canvas></div>
                 <div class="flex flex-wrap justify-between items-center gap-4">
                     <div>
@@ -56,7 +54,7 @@
 
         initializePage(user => {
             currentUser = user;
-            listenToAllProjects(); // First, get all project data
+            listenToAllProjects();
         });
 
         function listenToAllProjects() {
@@ -68,7 +66,6 @@
                 snapshot.forEach(doc => {
                     projectDataMap.set(doc.data().code, { id: doc.id, ...doc.data() });
                 });
-                // Once projects are loaded, listen for timestamps
                 listenToTimestamps();
             });
         }

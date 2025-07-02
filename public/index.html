@@ -6,7 +6,7 @@
     <link rel="icon" href="images/sidepocket_symbol.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="style.css"> 
+    <link rel="stylesheet" href="style.css">
 </head>
 <body class="bg-gray-100 min-h-screen p-4">
 
@@ -17,7 +17,7 @@
     <div id="app-container" class="w-full" style="display: none;">
         <div id="header-placeholder"></div>
 
-        <main class="w-full max-w-md mx-auto">
+        <main id="clockInView" class="w-full max-w-md mx-auto">
             <div class="p-6 sm:p-8 space-y-6 bg-white rounded-2xl shadow-lg">
                 <header>
                     <h2 class="text-2xl sm:text-3xl font-bold text-center text-gray-800">打刻システム</h2>
@@ -43,10 +43,12 @@
         import { initializePage, auth, db, showStatus } from './shared.js';
 
         let currentUser = null;
+        let currentPunchId = null;
 
         initializePage(user => {
             currentUser = user;
             listenToActiveProjects();
+            checkForOngoingPunch();
             updateClock();
             setInterval(updateClock, 1000);
         });
@@ -69,48 +71,67 @@
 
             try {
                 if (action === "出勤") {
-                    const q = query(collection(db, "timestamps"), where("userId", "==", currentUser.uid), where("projectCode", "==", projectCode), where("clockOutTime", "==", null));
+                    const q = query(collection(db, "timestamps"), where("userId", "==", currentUser.uid), where("clockOutTime", "==", null));
                     const querySnapshot = await getDocs(q);
-                    if (!querySnapshot.empty) throw new Error("このプロジェクトでは既に出勤済みです。");
+                    if (!querySnapshot.empty) throw new Error("既に別のプロジェクトで出勤済みです。");
 
                     const projectOption = document.querySelector(`#projectCode option[value="${projectCode}"]`);
                     const projectName = projectOption ? projectOption.dataset.name : projectCode;
 
-                    await addDoc(collection(db, "timestamps"), {
+                    const punchRef = await addDoc(collection(db, "timestamps"), {
                         userId: currentUser.uid, userEmail: currentUser.email,
                         projectCode: projectCode, projectName: projectName,
                         clockInTime: serverTimestamp(), clockOutTime: null, durationHours: null
                     });
+                    currentPunchId = punchRef.id;
                     showStatus(`成功:「出勤」を記録しました。`, false, 'status');
                 } else {
-                    const q = query(collection(db, "timestamps"), where("userId", "==", currentUser.uid), where("projectCode", "==", projectCode), where("clockOutTime", "==", null), orderBy("clockInTime", "desc"), limit(1));
-                    const querySnapshot = await getDocs(q);
-                    if (querySnapshot.empty) throw new Error("対応する出勤記録が見つかりません。");
-
-                    const recordDoc = querySnapshot.docs[0];
+                    if (!currentPunchId) throw new Error("対応する出勤記録が見つかりません。");
+                    
+                    const recordDocRef = doc(db, "timestamps", currentPunchId);
+                    const recordDoc = await getDoc(recordDocRef);
                     const clockInTime = recordDoc.data().clockInTime.toDate();
                     const now = new Date();
                     const durationHours = (now.getTime() - clockInTime.getTime()) / 3600000;
 
-                    await updateDoc(doc(db, "timestamps", recordDoc.id), {
+                    await updateDoc(recordDocRef, {
                         clockOutTime: now,
                         durationHours: parseFloat(durationHours.toFixed(2))
                     });
+                    currentPunchId = null;
                     showStatus(`成功:「退勤」を ${now.toLocaleTimeString('ja-JP')} に記録しました。`, false, 'status');
                 }
             } catch (error) {
                 showStatus(`エラー: ${error.message}`, true, 'status');
             } finally {
-                setButtonsDisabled(false);
+                checkForOngoingPunch();
             }
         }
 
-        function setButtonsDisabled(disabled) {
-            [document.getElementById('clockInBtn'), document.getElementById('clockOutBtn')].forEach(btn => {
-                btn.disabled = disabled;
-                btn.classList.toggle('opacity-50', disabled);
-                btn.classList.toggle('cursor-not-allowed', disabled);
-            });
+        function setButtonsDisabled(isWorking) {
+            document.getElementById('clockInBtn').disabled = isWorking;
+            document.getElementById('clockInBtn').classList.toggle('opacity-50', isWorking);
+            document.getElementById('clockInBtn').classList.toggle('cursor-not-allowed', isWorking);
+            
+            document.getElementById('clockOutBtn').disabled = !isWorking;
+            document.getElementById('clockOutBtn').classList.toggle('opacity-50', !isWorking);
+            document.getElementById('clockOutBtn').classList.toggle('cursor-not-allowed', !isWorking);
+        }
+
+        async function checkForOngoingPunch() {
+            const q = query(collection(db, "timestamps"), where("userId", "==", currentUser.uid), where("clockOutTime", "==", null), limit(1));
+            const querySnapshot = await getDocs(q);
+            if (!querySnapshot.empty) {
+                const ongoingPunch = querySnapshot.docs[0];
+                currentPunchId = ongoingPunch.id;
+                document.getElementById('projectCode').value = ongoingPunch.data().projectCode;
+                document.getElementById('projectCode').disabled = true;
+                setButtonsDisabled(true);
+            } else {
+                currentPunchId = null;
+                document.getElementById('projectCode').disabled = false;
+                setButtonsDisabled(false);
+            }
         }
 
         function listenToActiveProjects() {
