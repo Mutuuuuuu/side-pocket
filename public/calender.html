@@ -19,7 +19,7 @@
     <div id="app-container" class="w-full" style="display: none;">
         <div id="header-placeholder"></div>
 
-        <main class="w-full max-w-4xl mx-auto">
+        <main id="calendarView" class="w-full max-w-4xl mx-auto">
              <div class="p-6 sm:p-8 space-y-6 bg-white rounded-2xl shadow-lg">
                 <header class="flex flex-col sm:flex-row justify-between items-center gap-4">
                     <h2 class="text-2xl sm:text-3xl font-bold text-gray-800">Googleカレンダー連携</h2>
@@ -60,7 +60,90 @@
         import { collection, addDoc, query, where, onSnapshot, getDocs, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { initializePage, auth, db, showStatus } from './shared.js';
 
-        // ... (The rest of the calendar logic script)
+        let currentUser = null;
+        let tokenClient;
+        let gapiInited = false;
+        let gisInited = false;
+        const projectDataMap = new Map();
+
+        const API_KEY = 'AIzaSyBuRc0oRFQk-GvVAh_90S9NGAYu5sOkxyM';
+        const CLIENT_ID = '887116583823-32evpk9fa2m0ondbbco6tv4m1980i7bj.apps.googleusercontent.com';
+        const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
+        const SCOPES = 'https://www.googleapis.com/auth/calendar';
+
+        initializePage(user => {
+            currentUser = user;
+            
+            gapi.load('client', initializeGapiClient);
+            setTimeout(() => {
+                try {
+                    tokenClient = google.accounts.oauth2.initTokenClient({
+                        client_id: CLIENT_ID, scope: SCOPES,
+                        callback: (tokenResponse) => {
+                            if (tokenResponse.error) { return; }
+                            gapi.client.setToken(tokenResponse);
+                            updateGcalUi();
+                        },
+                    });
+                    gisInited = true;
+                    updateGcalUi();
+                } catch (e) { console.error("Error initializing Google Identity Services.", e); }
+            }, 500);
+            
+            listenToActiveProjects();
+        });
+
+        function listenToActiveProjects() {
+            if (!currentUser) return;
+            const q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid), where("status", "==", "Active"));
+            onSnapshot(q, (snapshot) => {
+                projectDataMap.clear();
+                snapshot.forEach(doc => {
+                    projectDataMap.set(doc.data().code, { id: doc.id, ...doc.data() });
+                });
+            });
+        }
+        
+        async function initializeGapiClient() {
+            await gapi.client.init({ apiKey: API_KEY, discoveryDocs: [DISCOVERY_DOC] });
+            gapiInited = true;
+            updateGcalUi();
+        }
+
+        function updateGcalUi() {
+            if (!gapiInited || !gisInited) return;
+            const authorizeButton = document.getElementById('gcal-authorize-button');
+            const signoutButton = document.getElementById('gcal-signout-button');
+            const controls = document.getElementById('gcal-controls');
+            const addEventBtn = document.getElementById('gcal-add-event-button');
+
+            if (gapi.client.getToken() === null) {
+                authorizeButton.classList.remove('hidden');
+                signoutButton.classList.add('hidden');
+                controls.classList.add('hidden');
+                addEventBtn.classList.add('hidden');
+            } else {
+                authorizeButton.classList.add('hidden');
+                signoutButton.classList.remove('hidden');
+                controls.classList.remove('hidden');
+                addEventBtn.classList.remove('hidden');
+                loadCalendarList();
+            }
+        }
+
+        document.getElementById('gcal-authorize-button').addEventListener('click', () => { if (tokenClient) tokenClient.requestAccessToken(); });
+        document.getElementById('gcal-signout-button').addEventListener('click', () => {
+            const token = gapi.client.getToken();
+            if (token !== null) {
+                google.accounts.oauth2.revoke(token.access_token, () => {
+                    gapi.client.setToken('');
+                    updateGcalUi();
+                });
+            }
+        });
+        
+        // (ここにカレンダー関連の残りのJavaScriptを記述)
+        // ... listCalendarEvents, reflect-events-btn listener, etc.
     </script>
 </body>
 </html>
