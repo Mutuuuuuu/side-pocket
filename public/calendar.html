@@ -6,9 +6,9 @@
     <link rel="icon" href="images/sidepocket_symbol.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google APIクライアントライブラリとGoogle Identity Servicesライブラリを非同期で読み込む -->
-    <!-- onload属性で、スクリプトがロードされた後に実行される関数を指定 -->
-    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
-    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+    <!-- onload属性は削除し、JavaScript側でロード完了を待つ -->
+    <script async defer src="https://apis.google.com/js/api.js"></script>
+    <script async defer src="https://accounts.google.com/gsi/client"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -91,35 +91,29 @@
         const calendarActionBar = document.getElementById('calendar-action-bar');
 
         /**
-         * Google APIクライアントライブラリ (gapi) がロードされた後に呼び出される
-         * gapi.client.init を実行し、APIキーとディスカバリドキュメントを設定する
+         * Google APIクライアントライブラリ (gapi) の初期化
          */
-        // windowにアタッチしてグローバルスコープからアクセス可能にする
-        window.gapiLoaded = () => {
-            console.log("gapiLoaded() called."); // 追加
-            gapi.load('client', async () => {
-                try {
-                    await gapi.client.init({
-                        apiKey: GOOGLE_API_KEY,
-                        discoveryDocs: GOOGLE_DISCOVERY_DOCS,
-                    });
-                    gapiInited = true;
-                    console.log("gapi client initialized. gapiInited:", gapiInited); // 追加
-                    maybeEnableCalendarFeatures();
-                } catch (error) {
-                    console.error("Error initializing gapi client:", error);
-                    showStatus("Google APIクライアントの初期化に失敗しました。", true, 'gcal-auth-status');
-                }
-            });
+        const initGapiClient = async () => {
+            console.log("initGapiClient() called.");
+            try {
+                await gapi.client.init({
+                    apiKey: GOOGLE_API_KEY,
+                    discoveryDocs: GOOGLE_DISCOVERY_DOCS,
+                });
+                gapiInited = true;
+                console.log("gapi client initialized. gapiInited:", gapiInited);
+                maybeEnableCalendarFeatures();
+            } catch (error) {
+                console.error("Error initializing gapi client:", error);
+                showStatus("Google APIクライアントの初期化に失敗しました。", true, 'gcal-auth-status');
+            }
         };
 
         /**
-         * Google Identity Services (GIS) ライブラリがロードされた後に呼び出される
-         * google.accounts.oauth2.initTokenClient を実行し、OAuth2トークンクライアントを初期化する
+         * Google Identity Services (GIS) の初期化
          */
-        // windowにアタッチしてグローバルスコープからアクセス可能にする
-        window.gisLoaded = () => {
-            console.log("gisLoaded() called."); // 追加
+        const initGisClient = () => {
+            console.log("initGisClient() called.");
             try {
                 tokenClient = google.accounts.oauth2.initTokenClient({
                     client_id: GOOGLE_CLIENT_ID,
@@ -127,7 +121,7 @@
                     callback: '', // トークンが返されたときにGISが呼び出すコールバックは後で設定
                 });
                 gisInited = true;
-                console.log("GIS token client initialized. gisInited:", gisInited, "tokenClient:", tokenClient); // 追加
+                console.log("GIS token client initialized. gisInited:", gisInited, "tokenClient:", tokenClient);
                 maybeEnableCalendarFeatures();
             } catch (error) {
                 console.error("Error initializing GIS token client:", error);
@@ -139,7 +133,7 @@
          * gapiとGISの初期化が両方完了し、かつFirebase認証が完了したら、カレンダー機能を有効にする
          */
         function maybeEnableCalendarFeatures() {
-            console.log("maybeEnableCalendarFeatures called. gapiInited:", gapiInited, "gisInited:", gisInited, "currentUser:", currentUser ? true : false); // 追加
+            console.log("maybeEnableCalendarFeatures called. gapiInited:", gapiInited, "gisInited:", gisInited, "currentUser:", currentUser ? true : false);
             if (gapiInited && gisInited && currentUser) {
                 authStatusElement.textContent = 'ステータス：準備完了';
                 authorizeButton.classList.remove('hidden');
@@ -180,6 +174,16 @@
             
             // プロジェクトリストをFirestoreから読み込み、カレンダーイベント反映時のプロジェクト選択に利用
             listenToUserProjects();
+
+            // Google APIライブラリが利用可能になったら初期化を開始
+            // window.gapiとwindow.google.accountsが存在するかをポーリングで確認
+            const checkGoogleApiReady = setInterval(() => {
+                if (typeof window.gapi !== 'undefined' && typeof window.google !== 'undefined' && typeof window.google.accounts !== 'undefined') {
+                    clearInterval(checkGoogleApiReady); // ポーリング停止
+                    gapi.load('client', initGapiClient);
+                    initGisClient();
+                }
+            }, 100); // 100msごとにチェック
         }
 
         /**
