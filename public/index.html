@@ -790,14 +790,6 @@
                 });
             } catch (error) { console.error("予定の更新に失敗:", error); }
         }
-
-        function showStatus(message, isError, elementId) {
-            const statusDiv = document.getElementById(elementId);
-            if (statusDiv) {
-                statusDiv.textContent = message;
-                statusDiv.className = `pt-4 text-center font-medium h-10 ${isError ? 'text-red-600' : 'text-green-600'}`;
-            }
-        }
     </script>
 </body>
 </html>
