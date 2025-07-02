@@ -172,10 +172,38 @@
         </main>
     </div>
 
+    <!-- ★★★ 稼働実績の修正用モーダル ★★★ -->
+    <div id="edit-timestamp-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
+            <h2 class="text-2xl font-bold mb-6">稼働実績の修正</h2>
+            <form id="edit-timestamp-form">
+                <input type="hidden" id="edit-timestamp-id">
+                <div class="space-y-4">
+                    <div>
+                        <label for="edit-start-time" class="block text-sm font-medium text-gray-700">開始時間</label>
+                        <input type="datetime-local" id="edit-start-time" required class="mt-1 w-full px-4 py-2 border rounded-md">
+                    </div>
+                    <div>
+                        <label for="edit-end-time" class="block text-sm font-medium text-gray-700">終了時間</label>
+                        <input type="datetime-local" id="edit-end-time" required class="mt-1 w-full px-4 py-2 border rounded-md">
+                    </div>
+                    <div>
+                        <label for="edit-project-select" class="block text-sm font-medium text-gray-700">プロジェクト</label>
+                        <select id="edit-project-select" required class="mt-1 w-full px-4 py-2 border rounded-md"></select>
+                    </div>
+                </div>
+                <div class="mt-6 flex justify-end gap-4">
+                    <button type="button" id="cancel-edit-timestamp" class="px-4 py-2 bg-gray-200 rounded-md">キャンセル</button>
+                    <button type="submit" class="px-4 py-2 bg-main text-white rounded-md">更新</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, collection, addDoc, getDocs, query, where, orderBy, limit, doc, updateDoc, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDocs, query, where, orderBy, limit, doc, updateDoc, serverTimestamp, onSnapshot, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { IPAEXG_FONT_B64 } from './fonts.js';
 
         const API_KEY = 'AIzaSyBuRc0oRFQk-GvVAh_90S9NGAYu5sOkxyM';
@@ -357,24 +385,11 @@
 
         function updateProjectDropdown(projects) {
             const activeProjects = projects.filter(p => p.status === 'Active');
-            
-            [document.getElementById('projectCode'), document.getElementById('event-project-select')].forEach(select => {
-                const currentValue = select.value;
-                select.innerHTML = '';
-                if (select.id === 'event-project-select') {
-                    select.innerHTML = '<option value="">プロジェクトを選択（任意）</option>';
-                } else {
-                    select.innerHTML = '<option value="">プロジェクトを選択してください</option>';
-                }
-                activeProjects.forEach(p => {
-                    const option = document.createElement('option');
-                    option.value = p.code;
-                    option.textContent = `${p.code}: ${p.name}`;
-                    option.dataset.name = p.name;
-                    select.appendChild(option);
-                });
-                select.value = currentValue;
-            });
+            const optionsHtml = activeProjects.map(p => `<option value="${p.code}">${p.code}: ${p.name}</option>`).join('');
+
+            document.getElementById('projectCode').innerHTML = `<option value="">プロジェクトを選択してください</option>${optionsHtml}`;
+            document.getElementById('event-project-select').innerHTML = `<option value="">プロジェクトを選択（任意）</option>${optionsHtml}`;
+            document.getElementById('edit-project-select').innerHTML = `<option value="">プロジェクトを選択</option>${optionsHtml}`;
         }
 
         function getProjectsMapFromLocal() {
@@ -417,9 +432,10 @@
                 if (record.durationHours !== null) {
                     monthlyData[yearMonth][projectCode].details.push({
                         recordId: record.id, date: clockInTime.toLocaleDateString('ja-JP'),
-                        clockIn: clockInTime.toLocaleString('ja-JP'),
-                        clockOut: record.clockOutTime ? record.clockOutTime.toDate().toLocaleString('ja-JP') : 'N/A',
-                        duration: duration.toFixed(2)
+                        clockIn: clockInTime,
+                        clockOut: record.clockOutTime ? record.clockOutTime.toDate() : null,
+                        duration: duration.toFixed(2),
+                        projectCode: projectCode
                     });
                 }
             });
@@ -469,8 +485,20 @@
             contentContainer.innerHTML = projects.map((p, i) => {
                 const projectData = dataForMonth[p];
                 const totalHours = projectData.total.toFixed(2);
-                let detailsHtml = `<div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-200"><thead><tr><th class="px-4 py-2 text-left text-xs font-medium text-gray-500">出勤</th><th class="px-4 py-2 text-left text-xs font-medium text-gray-500">退勤</th><th class="px-4 py-2 text-right text-xs font-medium text-gray-500">時間(h)</th></tr></thead><tbody>
-                    ${projectData.details.sort((a, b) => new Date(a.clockIn) - new Date(b.clockIn)).map(d => `<tr><td class="px-4 py-2 text-sm">${d.clockIn}</td><td class="px-4 py-2 text-sm">${d.clockOut}</td><td class="px-4 py-2 text-sm text-right">${d.duration}</td></tr>`).join('')}
+                let detailsHtml = `<div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-200"><thead><tr>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">出勤</th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">退勤</th>
+                    <th class="px-4 py-2 text-right text-xs font-medium text-gray-500">時間(h)</th>
+                    <th class="px-4 py-2 text-center text-xs font-medium text-gray-500">操作</th>
+                    </tr></thead><tbody>
+                    ${projectData.details.sort((a, b) => new Date(a.clockIn) - new Date(b.clockIn)).map(d => `<tr>
+                        <td class="px-4 py-2 text-sm">${d.clockIn.toLocaleString('ja-JP')}</td>
+                        <td class="px-4 py-2 text-sm">${d.clockOut.toLocaleString('ja-JP')}</td>
+                        <td class="px-4 py-2 text-sm text-right">${d.duration}</td>
+                        <td class="px-4 py-2 text-sm text-center">
+                            <button class="edit-timestamp-btn btn text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded hover:bg-gray-300" data-record-id="${d.recordId}">修正</button>
+                        </td>
+                    </tr>`).join('')}
                 </tbody></table></div>`;
                 return `<div data-content="${p}" class="${i===0 ? '' : 'hidden'}">
                     <div class="flex flex-col sm:flex-row justify-between items-center p-4 bg-main-light rounded-lg gap-4">
@@ -495,8 +523,10 @@
         }
 
         document.getElementById('detailsContainer').addEventListener('click', (e) => {
-            if (e.target && e.target.classList.contains('download-pdf-btn')) {
+            if (e.target.classList.contains('download-pdf-btn')) {
                 downloadPdf(e.target.dataset.month, e.target.dataset.project);
+            } else if (e.target.classList.contains('edit-timestamp-btn')) {
+                openEditTimestampModal(e.target.dataset.recordId);
             }
         });
 
@@ -518,8 +548,8 @@
             const tableRows = [];
             projectData.details.sort((a, b) => new Date(a.clockIn) - new Date(b.clockIn)).forEach(detail => {
                 const datePart = detail.date.split(' ')[0];
-                const clockInTimePart = (detail.clockIn || "").split(' ')[1] || "";
-                const clockOutTimePart = (detail.clockOut || "").split(' ')[1] || "";
+                const clockInTimePart = (detail.clockIn || "").toLocaleString('ja-JP').split(' ')[1] || "";
+                const clockOutTimePart = (detail.clockOut || "").toLocaleString('ja-JP').split(' ')[1] || "";
                 tableRows.push([datePart, clockInTimePart, clockOutTimePart, detail.duration]);
             });
             doc.autoTable({ head: [tableColumn], body: tableRows, startY: 50, styles: { font: "ipaexg", fontStyle: 'normal' }, headStyles: { fillColor: [105, 137, 102] }, margin: { top: 10, right: 10, bottom: 10, left: 10 } });
@@ -749,17 +779,23 @@
             }
             const [year, monthNum] = month.split('-');
             const timeMin = new Date(year, monthNum - 1, 1).toISOString();
-            const timeMax = new Date(year, monthNum, 0, 23, 59, 59).toISOString();
+            const timeMax = new Date(year, monthNum, 1).toISOString(); // 最終日ではなく翌月1日を指定
 
             const container = document.getElementById('calendar-events-container');
             container.innerHTML = '<div class="loader mx-auto"></div>';
             
             try {
-                const response = await gapi.client.calendar.events.list({
-                    'calendarId': calendarId, 'timeMin': timeMin, 'timeMax': timeMax,
-                    'showDeleted': false, 'singleEvents': true, 'orderBy': 'startTime',
-                });
-                const events = response.result.items;
+                const [eventsResponse, timestampsSnapshot] = await Promise.all([
+                    gapi.client.calendar.events.list({
+                        'calendarId': calendarId, 'timeMin': timeMin, 'timeMax': timeMax,
+                        'showDeleted': false, 'singleEvents': true, 'orderBy': 'startTime',
+                    }),
+                    getDocs(query(collection(db, "timestamps"), where("userId", "==", currentUser.uid), where("gCalEventId", "!=", null)))
+                ]);
+
+                const registeredEventIds = new Set(timestampsSnapshot.docs.map(doc => doc.data().gCalEventId));
+                const events = eventsResponse.result.items;
+
                 document.getElementById('calendar-action-bar').classList.toggle('hidden', events.length === 0);
                 if (events.length === 0) {
                     container.innerHTML = '<p class="text-gray-500 text-center py-4">この月の予定はありません。</p>';
@@ -775,21 +811,26 @@
                     if (event.start.date) {
                         end.setDate(end.getDate() - 1);
                     }
+                    const isRegistered = registeredEventIds.has(event.id);
                     const eventData = JSON.stringify({
+                        id: event.id,
                         summary: event.summary,
                         start: start.toISOString(),
                         end: end.toISOString()
                     });
-                    return `<div class="p-2 border-b flex flex-wrap items-center gap-3">
-                        <input type="checkbox" class="event-checkbox h-4 w-4 rounded" data-event='${eventData}'>
+                    return `<div class="p-2 border-b flex flex-wrap items-center gap-3 ${isRegistered ? 'bg-gray-200' : ''}">
+                        <input type="checkbox" class="event-checkbox h-4 w-4 rounded" data-event='${eventData}' ${isRegistered ? 'disabled' : ''}>
                         <div class="flex-grow">
                             <p class="font-bold">${event.summary}</p>
                             <p class="text-sm text-gray-600">${start.toLocaleString()} - ${end.toLocaleString()}</p>
                         </div>
-                        <select class="event-project-select mt-1 md:mt-0 p-1 border border-gray-300 rounded-md text-sm">
-                            <option value="">プロジェクト未選択</option>
-                            ${projectOptions}
-                        </select>
+                        ${isRegistered 
+                            ? `<span class="text-sm font-bold text-green-600">登録済</span>`
+                            : `<select class="event-project-select mt-1 md:mt-0 p-1 border border-gray-300 rounded-md text-sm">
+                                <option value="">プロジェクト未選択</option>
+                                ${projectOptions}
+                               </select>`
+                        }
                     </div>`;
                 }).join('');
             } catch (err) {
@@ -802,7 +843,7 @@
             document.querySelectorAll('.event-checkbox:checked').forEach(checkbox => {
                 const eventRow = checkbox.closest('.p-2');
                 const projectSelect = eventRow.querySelector('.event-project-select');
-                if (projectSelect.value) {
+                if (projectSelect && projectSelect.value) {
                     selectedItems.push({
                         event: JSON.parse(checkbox.dataset.event),
                         projectCode: projectSelect.value
@@ -830,9 +871,10 @@
                     userEmail: currentUser.email,
                     projectCode: project.code,
                     projectName: project.name,
-                    clockInTime: clockInTime,
-                    clockOutTime: clockOutTime,
-                    durationHours: parseFloat(durationHours.toFixed(2))
+                    clockInTime: Timestamp.fromDate(clockInTime),
+                    clockOutTime: Timestamp.fromDate(clockOutTime),
+                    durationHours: parseFloat(durationHours.toFixed(2)),
+                    gCalEventId: item.event.id // ★★★ カレンダーのイベントIDを保存 ★★★
                 });
             });
 
@@ -844,6 +886,80 @@
                 showStatus(`登録に失敗しました: ${error.message}`, true, 'reflect-status');
             }
         });
+        
+        // ★★★ 稼働実績の修正モーダル関連のロジック ★★★
+        const editModal = document.getElementById('edit-timestamp-modal');
+        const editForm = document.getElementById('edit-timestamp-form');
+        const cancelEditBtn = document.getElementById('cancel-edit-timestamp');
+
+        function formatDateTimeForInput(date) {
+            if (!date) return '';
+            const d = new Date(date);
+            d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+            return d.toISOString().slice(0, 16);
+        }
+        
+        function openEditTimestampModal(recordId) {
+            let recordToEdit = null;
+            for (const month in fullDashboardData) {
+                for (const projectCode in fullDashboardData[month]) {
+                    const found = fullDashboardData[month][projectCode].details.find(d => d.recordId === recordId);
+                    if (found) {
+                        recordToEdit = found;
+                        break;
+                    }
+                }
+                if (recordToEdit) break;
+            }
+
+            if (!recordToEdit) {
+                alert("編集対象の記録が見つかりません。");
+                return;
+            }
+            
+            document.getElementById('edit-timestamp-id').value = recordId;
+            document.getElementById('edit-start-time').value = formatDateTimeForInput(recordToEdit.clockIn);
+            document.getElementById('edit-end-time').value = formatDateTimeForInput(recordToEdit.clockOut);
+            document.getElementById('edit-project-select').value = recordToEdit.projectCode;
+            
+            editModal.classList.remove('hidden');
+        }
+
+        cancelEditBtn.addEventListener('click', () => {
+            editModal.classList.add('hidden');
+        });
+
+        editForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const recordId = document.getElementById('edit-timestamp-id').value;
+            const newStartTime = new Date(document.getElementById('edit-start-time').value);
+            const newEndTime = new Date(document.getElementById('edit-end-time').value);
+            const newProjectCode = document.getElementById('edit-project-select').value;
+            
+            if (newEndTime <= newStartTime) {
+                alert("終了時間は開始時間より後に設定してください。");
+                return;
+            }
+
+            const newDuration = (newEndTime - newStartTime) / 3600000;
+            const project = Array.from(projectDataMap.values()).find(p => p.code === newProjectCode);
+
+            const docRef = doc(db, "timestamps", recordId);
+            try {
+                await updateDoc(docRef, {
+                    clockInTime: Timestamp.fromDate(newStartTime),
+                    clockOutTime: Timestamp.fromDate(newEndTime),
+                    durationHours: parseFloat(newDuration.toFixed(2)),
+                    projectCode: newProjectCode,
+                    projectName: project.name
+                });
+                editModal.classList.add('hidden');
+                showStatus("実績を更新しました。", false, 'summaryStatus');
+            } catch (error) {
+                alert("更新に失敗しました: " + error.message);
+            }
+        });
+
     </script>
 </body>
 </html>
