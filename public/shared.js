@@ -2,6 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
+// 1. Firebase Configuration
 const firebaseConfig = {
     apiKey: "AIzaSyBuRc0oRFQk-GvVAh_90S9NGAYu5sOkxyM",
     authDomain: "side-pocket-sl.firebaseapp.com",
@@ -12,10 +13,15 @@ const firebaseConfig = {
     measurementId: "G-QSBDN1TX68"
 };
 
+// 2. Firebase Initialization
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
+/**
+ * 3. Shared Function: Initialize Page
+ * @param {Function} onUserAuthenticated - Callback function to run after user is authenticated
+ */
 export async function initializePage(onUserAuthenticated) {
     await loadHeader();
     onAuthStateChanged(auth, (user) => {
@@ -32,6 +38,9 @@ export async function initializePage(onUserAuthenticated) {
     });
 }
 
+/**
+ * 4. Fetch and load the header component
+ */
 async function loadHeader() {
     const headerPlaceholder = document.getElementById('header-placeholder');
     if (headerPlaceholder) {
@@ -46,6 +55,10 @@ async function loadHeader() {
     }
 }
 
+/**
+ * Setup header with user info and menu listeners.
+ * @param {object} user - Firebase user object
+ */
 function setupHeaderMenu(user) {
     document.getElementById('user-display-name').textContent = user.displayName || user.email;
     document.getElementById('user-icon').src = user.photoURL || 'images/sidepocket_symbol.png';
@@ -69,6 +82,12 @@ function setupHeaderMenu(user) {
     }
 }
 
+/**
+ * Display a status message.
+ * @param {string} message - The message to display
+ * @param {boolean} isError - True if it's an error message
+ * @param {string} elementId - The ID of the element to display the message in
+ */
 export function showStatus(message, isError, elementId) {
     const statusDiv = document.getElementById(elementId);
     if (statusDiv) {
