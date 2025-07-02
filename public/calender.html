@@ -56,6 +56,28 @@
         </main>
     </div>
     
+    <!-- Add Event Modal -->
+    <div id="add-event-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
+            <h2 class="text-2xl font-bold mb-6">新しい予定を作成</h2>
+            <form id="add-event-form">
+                <div class="space-y-4">
+                    <input type="text" id="event-summary" placeholder="予定のタイトル" required class="w-full px-4 py-2 border rounded">
+                    <input type="datetime-local" id="event-start-time" required class="w-full px-4 py-2 border rounded">
+                    <input type="datetime-local" id="event-end-time" required class="w-full px-4 py-2 border rounded">
+                    <select id="event-project-select" class="w-full px-4 py-2 border rounded">
+                        <option value="">プロジェクトを選択（任意）</option>
+                    </select>
+                    <textarea id="event-description" placeholder="詳細（任意）" class="w-full px-4 py-2 border rounded"></textarea>
+                </div>
+                <div class="mt-6 flex justify-end gap-4">
+                    <button type="button" id="cancel-add-event" class="px-4 py-2 bg-gray-200 rounded-md">キャンセル</button>
+                    <button type="submit" class="px-4 py-2 bg-main text-white rounded-md">作成</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script type="module">
         import { collection, addDoc, query, where, onSnapshot, getDocs, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { initializePage, auth, db, showStatus } from './shared.js';
@@ -98,10 +120,15 @@
             const q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid), where("status", "==", "Active"));
             onSnapshot(q, (snapshot) => {
                 projectDataMap.clear();
-                snapshot.forEach(doc => {
-                    projectDataMap.set(doc.data().code, { id: doc.id, ...doc.data() });
-                });
+                const projects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                projects.forEach(p => projectDataMap.set(p.code, p));
+                updateProjectDropdowns(projects);
             });
+        }
+
+        function updateProjectDropdowns(projects) {
+             const projectOptions = projects.map(p => `<option value="${p.code}">${p.code}: ${p.name}</option>`).join('');
+             document.getElementById('event-project-select').innerHTML = `<option value="">プロジェクトを選択（任意）</option>${projectOptions}`;
         }
         
         async function initializeGapiClient() {
@@ -112,17 +139,20 @@
 
         function updateGcalUi() {
             if (!gapiInited || !gisInited) return;
+            const statusText = document.getElementById('gcal-auth-status');
             const authorizeButton = document.getElementById('gcal-authorize-button');
             const signoutButton = document.getElementById('gcal-signout-button');
             const controls = document.getElementById('gcal-controls');
             const addEventBtn = document.getElementById('gcal-add-event-button');
 
             if (gapi.client.getToken() === null) {
+                statusText.textContent = 'ステータス：未認証。Googleアカウントと連携してください。';
                 authorizeButton.classList.remove('hidden');
                 signoutButton.classList.add('hidden');
                 controls.classList.add('hidden');
                 addEventBtn.classList.add('hidden');
             } else {
+                statusText.textContent = 'ステータス：連携済みです。';
                 authorizeButton.classList.add('hidden');
                 signoutButton.classList.remove('hidden');
                 controls.classList.remove('hidden');
@@ -141,8 +171,167 @@
                 });
             }
         });
+
+        async function loadCalendarList() {
+            try {
+                const response = await gapi.client.calendar.calendarList.list();
+                const calendars = response.result.items;
+                const select = document.getElementById('calendar-select');
+                select.innerHTML = '';
+                calendars.forEach(calendar => {
+                    const option = document.createElement('option');
+                    option.value = calendar.id;
+                    option.textContent = calendar.summary;
+                    select.appendChild(option);
+                });
+                document.getElementById('calendar-month').value = new Date().toISOString().slice(0, 7);
+            } catch (err) {
+                console.error("カレンダーリストの読み込みに失敗", err);
+            }
+        }
+
+        document.getElementById('load-calendar-events-btn').addEventListener('click', listCalendarEvents);
+
+        async function listCalendarEvents() {
+            const calendarId = document.getElementById('calendar-select').value;
+            const month = document.getElementById('calendar-month').value;
+            if (!month) {
+                alert("月を選択してください。");
+                return;
+            }
+            const [year, monthNum] = month.split('-');
+            const timeMin = new Date(year, monthNum - 1, 1).toISOString();
+            const timeMax = new Date(year, monthNum, 1).toISOString();
+
+            const container = document.getElementById('calendar-events-container');
+            container.innerHTML = '<div class="loader mx-auto"></div>';
+            
+            try {
+                const [eventsResponse, timestampsSnapshot] = await Promise.all([
+                    gapi.client.calendar.events.list({
+                        'calendarId': calendarId, 'timeMin': timeMin, 'timeMax': timeMax,
+                        'showDeleted': false, 'singleEvents': true, 'orderBy': 'startTime',
+                    }),
+                    getDocs(query(collection(db, "timestamps"), where("userId", "==", currentUser.uid), where("gCalEventId", "!=", null)))
+                ]);
+
+                const registeredEventIds = new Set(timestampsSnapshot.docs.map(doc => doc.data().gCalEventId));
+                const events = eventsResponse.result.items;
+
+                document.getElementById('calendar-action-bar').classList.toggle('hidden', events.length === 0);
+                if (events.length === 0) {
+                    container.innerHTML = '<p class="text-gray-500 text-center py-4">この月の予定はありません。</p>';
+                    return;
+                }
+                const projectOptions = Array.from(projectDataMap.values())
+                    .map(p => `<option value="${p.code}">${p.code}: ${p.name}</option>`).join('');
+
+                container.innerHTML = events.map(event => {
+                    const start = event.start.dateTime ? new Date(event.start.dateTime) : new Date(event.start.date);
+                    const end = event.end.dateTime ? new Date(event.end.dateTime) : new Date(event.end.date);
+                    if (event.start.date) {
+                        end.setDate(end.getDate() - 1);
+                    }
+                    const isRegistered = registeredEventIds.has(event.id);
+                    const eventData = JSON.stringify({
+                        id: event.id,
+                        summary: event.summary,
+                        start: start.toISOString(),
+                        end: end.toISOString()
+                    });
+                    return `<div class="p-2 border-b flex flex-wrap items-center gap-3 ${isRegistered ? 'bg-gray-200' : ''}">
+                        <input type="checkbox" class="event-checkbox h-4 w-4 rounded" data-event='${eventData}' ${isRegistered ? 'disabled' : ''}>
+                        <div class="flex-grow">
+                            <p class="font-bold">${event.summary}</p>
+                            <p class="text-sm text-gray-600">${start.toLocaleString()} - ${end.toLocaleString()}</p>
+                        </div>
+                        ${isRegistered 
+                            ? `<span class="text-sm font-bold text-green-600">登録済</span>`
+                            : `<select class="event-project-select mt-1 md:mt-0 p-1 border border-gray-300 rounded-md text-sm">
+                                <option value="">プロジェクト未選択</option>
+                                ${projectOptions}
+                               </select>`
+                        }
+                    </div>`;
+                }).join('');
+            } catch (err) {
+                container.innerText = 'エラー: ' + err.message;
+            }
+        }
+
+        document.getElementById('reflect-events-btn').addEventListener('click', async () => {
+            const selectedItems = [];
+            document.querySelectorAll('.event-checkbox:checked').forEach(checkbox => {
+                const eventRow = checkbox.closest('.p-2');
+                const projectSelect = eventRow.querySelector('.event-project-select');
+                if (projectSelect && projectSelect.value) {
+                    selectedItems.push({
+                        event: JSON.parse(checkbox.dataset.event),
+                        projectCode: projectSelect.value
+                    });
+                }
+            });
+
+            if (selectedItems.length === 0) {
+                showStatus("プロジェクトが選択された予定にチェックを入れてください。", true, 'reflect-status');
+                return;
+            }
+            
+            showStatus("実績を登録しています...", false, 'reflect-status');
+
+            const promises = selectedItems.map(item => {
+                const project = projectDataMap.get(item.projectCode);
+                if (!project) return Promise.reject(new Error(`プロジェクト ${item.projectCode} が見つかりません`));
+
+                const clockInTime = new Date(item.event.start);
+                const clockOutTime = new Date(item.event.end);
+                const durationHours = (clockOutTime - clockInTime) / 3600000;
+
+                return addDoc(collection(db, "timestamps"), {
+                    userId: currentUser.uid,
+                    userEmail: currentUser.email,
+                    projectCode: project.code,
+                    projectName: project.name,
+                    clockInTime: Timestamp.fromDate(clockInTime),
+                    clockOutTime: Timestamp.fromDate(clockOutTime),
+                    durationHours: parseFloat(durationHours.toFixed(2)),
+                    gCalEventId: item.event.id
+                });
+            });
+
+            try {
+                await Promise.all(promises);
+                showStatus(`${selectedItems.length}件の稼働実績を登録しました。`, false, 'reflect-status');
+                listCalendarEvents();
+            } catch (error) {
+                showStatus(`登録に失敗しました: ${error.message}`, true, 'reflect-status');
+            }
+        });
         
-        // ... (この下にカレンダー関連の残りのJavaScriptが続きます) ...
+        document.getElementById('gcal-add-event-button').addEventListener('click', () => {
+            const modal = document.getElementById('add-event-modal');
+            if (modal) modal.classList.remove('hidden');
+        });
+        document.getElementById('cancel-add-event').addEventListener('click', () => {
+            const modal = document.getElementById('add-event-modal');
+            if (modal) modal.classList.add('hidden');
+        });
+        document.getElementById('add-event-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const event = {
+                'summary': document.getElementById('event-summary').value,
+                'description': document.getElementById('event-description').value,
+                'start': { 'dateTime': new Date(document.getElementById('event-start-time').value).toISOString() },
+                'end': { 'dateTime': new Date(document.getElementById('event-end-time').value).toISOString() },
+                'extendedProperties': { 'private': { 'projectCode': document.getElementById('event-project-select').value } }
+            };
+            try {
+                await gapi.client.calendar.events.insert({ 'calendarId': 'primary', 'resource': event });
+                alert('予定を作成しました！');
+                document.getElementById('add-event-modal').classList.add('hidden');
+                listCalendarEvents();
+            } catch (error) { alert('予定の作成に失敗しました: ' + error.message); }
+        });
     </script>
 </body>
 </html>
