@@ -7,9 +7,17 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap');
+        :root {
+            --main-color: #698966;
+            --main-color-dark: #5a7d58;
+        }
         body { font-family: 'Noto Sans JP', sans-serif; }
         .btn { transition: all 0.2s ease-in-out; }
         .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .bg-main { background-color: var(--main-color); }
+        .hover\:bg-main-dark:hover { background-color: var(--main-color-dark); }
+        .text-main { color: var(--main-color); }
+        .ring-main:focus { ring-color: var(--main-color); }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
@@ -19,100 +27,82 @@
             <header><h1 class="text-3xl font-bold text-center text-gray-800">新規ユーザー登録</h1></header>
             <div class="space-y-4">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input type="text" id="signupLastName" placeholder="姓" class="w-full px-4 py-3 bg-gray-50 border rounded-lg">
-                    <input type="text" id="signupFirstName" placeholder="名" class="w-full px-4 py-3 bg-gray-50 border rounded-lg">
+                    <input type="text" id="last-name" placeholder="姓" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 ring-main">
+                    <input type="text" id="first-name" placeholder="名" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 ring-main">
                 </div>
-                <input type="text" id="signupDisplayName" placeholder="ディスプレイ名" class="w-full px-4 py-3 bg-gray-50 border rounded-lg">
-                <input type="email" id="signupEmail" placeholder="メールアドレス" class="w-full px-4 py-3 bg-gray-50 border rounded-lg">
-                <input type="password" id="signupPassword" placeholder="パスワード (6文字以上)" class="w-full px-4 py-3 bg-gray-50 border rounded-lg">
+                <input type="text" id="display-name" placeholder="ディスプレイ名" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 ring-main">
+                <input type="email" id="email" placeholder="メールアドレス" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 ring-main">
+                <input type="password" id="password" placeholder="パスワード (6文字以上)" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 ring-main">
+                
                 <div>
-                    <label class="block text-sm font-medium text-gray-700">アイコン画像 (任意)</label>
-                    <div class="mt-1 flex items-center space-x-4">
-                        <img id="signupIconPreview" src="https://placehold.co/96x96/EFEFEF/333333?text=Icon" class="w-24 h-24 rounded-full object-cover bg-gray-200">
-                        <input type="file" id="signupIconFile" accept="image/*" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100">
-                    </div>
+                    <label class="block mb-2 text-sm font-medium text-gray-900" for="icon-file">プロフィールアイコン (任意)</label>
+                    <input class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none" id="icon-file" type="file">
                 </div>
-                <button id="signupBtn" class="btn w-full px-4 py-3 font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700">登録する</button>
-                <div class="text-center pt-2">
-                    <a href="login.html" class="text-sm text-indigo-600 hover:underline">ログイン画面に戻る</a>
-                </div>
+
+                <div id="error-div" class="text-red-500 text-sm text-center"></div>
+                
+                <button id="signup-button" class="w-full btn bg-main text-white font-bold py-3 rounded-lg hover:bg-main-dark">登録する</button>
+
+                <p class="text-center text-sm text-gray-600">
+                    すでにアカウントをお持ちですか？ <a href="login.html" class="font-semibold text-main hover:underline">ログイン</a>
+                </p>
             </div>
-            <div id="signup-error" class="pt-2 text-center text-red-600 font-medium h-8"></div>
         </div>
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getAuth, createUserWithEmailAndPassword, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, updateProfile } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
-        // Firebase設定。storageBucketを統一します。
         const firebaseConfig = {
             apiKey: "AIzaSyBuRc0oRFQk-GvVAh_90S9NGAYu5sOkxyM",
             authDomain: "side-pocket-sl.firebaseapp.com",
             projectId: "side-pocket-sl",
-            storageBucket: "side-pocket-sl.appspot.com", // 統一されたstorageBucket
+            storageBucket: "side-pocket-sl.firebasestorage.app",
             messagingSenderId: "887116583823",
             appId: "1:887116583823:web:5783488bd573f5be4bf1fa",
             measurementId: "G-QSBDN1TX68"
         };
-        
+
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
         const storage = getStorage(app);
 
-        // アイコンプレビュー
-        document.getElementById('signupIconFile').addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (e) => { document.getElementById('signupIconPreview').src = e.target.result; }
-                reader.readAsDataURL(file);
-            }
-        });
-
-        // 新規登録処理
-        document.getElementById('signupBtn').addEventListener('click', async () => {
-            const lastName = document.getElementById('signupLastName').value.trim();
-            const firstName = document.getElementById('signupFirstName').value.trim();
-            const displayName = document.getElementById('signupDisplayName').value.trim();
-            const email = document.getElementById('signupEmail').value.trim();
-            const password = document.getElementById('signupPassword').value;
-            const iconFile = document.getElementById('signupIconFile').files[0];
-            const errorDiv = document.getElementById('signup-error');
+        document.getElementById('signup-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const lastName = document.getElementById('last-name').value;
+            const firstName = document.getElementById('first-name').value;
+            const displayName = document.getElementById('display-name').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const iconFile = document.getElementById('icon-file').files[0];
+            const errorDiv = document.getElementById('error-div');
+            const signupButton = document.getElementById('signup-button');
             
-            const signupButton = document.getElementById('signupBtn');
+            errorDiv.textContent = '';
             signupButton.disabled = true;
-            errorDiv.textContent = '登録中...';
-
-            if (!lastName || !firstName || !displayName || !email || !password) {
-                errorDiv.textContent = 'すべての必須項目を入力してください。';
-                signupButton.disabled = false;
-                return;
-            }
 
             try {
-                // 1. Firebase Authenticationにユーザーを作成
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
                 const user = userCredential.user;
 
-                let photoURL = null;
-                // 2. アイコンが選択されていればStorageにアップロード
+                // ★★★ デフォルトの画像パスを設定 ★★★
+                let photoURL = 'images/sidepocket_symbol.png';
+                
                 if (iconFile) {
                     const storageRef = ref(storage, `user_icons/${user.uid}/${iconFile.name}`);
                     const snapshot = await uploadBytes(storageRef, iconFile);
                     photoURL = await getDownloadURL(snapshot.ref);
                 }
 
-                // 3. Authプロファイルを更新 (displayName, photoURL)
                 await updateProfile(user, {
                     displayName: displayName,
                     photoURL: photoURL
                 });
 
-                // 4. Firestoreにユーザードキュメントを作成
                 await setDoc(doc(db, "users", user.uid), {
                     uid: user.uid,
                     email: user.email,
@@ -123,7 +113,6 @@
                     createdAt: serverTimestamp()
                 });
 
-                // 5. 全ての処理が完了してから、メインページへ移動
                 errorDiv.textContent = '登録が完了しました。メインページに移動します...';
                 window.location.href = 'index.html';
 

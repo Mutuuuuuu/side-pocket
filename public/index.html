@@ -54,8 +54,7 @@
     <div id="app-container" class="w-full" style="display: none;">
         <!-- Header -->
         <header class="w-full max-w-4xl mx-auto mb-4 flex justify-between items-center">
-            <!-- ★★★ ロゴサイズを修正 ★★★ -->
-            <img src="images/sidepocket_Logo.png" alt="side pocket ロゴ" class="h-12">
+            <img src="images/sidepocket_Logo.png" alt="side pocket ロゴ" class="h-14">
             <div class="flex items-center gap-3">
                 <a href="profile.html" class="flex items-center gap-2 text-sm text-gray-600 hover:text-main no-underline">
                     <img id="user-icon" src="https://placehold.co/32x32/EFEFEF/333333?text=?" class="w-8 h-8 rounded-full object-cover bg-gray-200">
@@ -104,9 +103,13 @@
                     <button class="btn-back btn w-full sm:w-auto px-6 py-2 text-base font-semibold text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">戻る</button>
                 </header>
                 <div class="bg-gray-50 p-4 rounded-lg"><canvas id="monthlyChart"></canvas></div>
-                <div>
-                    <label for="monthSelector" class="text-sm font-medium text-gray-700">表示月を選択:</label>
-                    <select id="monthSelector" class="mt-1 block w-full sm:w-auto p-2 border border-gray-300 rounded-md"></select>
+                <div class="flex flex-wrap justify-between items-center gap-4">
+                    <div>
+                        <label for="monthSelector" class="text-sm font-medium text-gray-700">表示月を選択:</label>
+                        <select id="monthSelector" class="mt-1 block w-full sm:w-auto p-2 border border-gray-300 rounded-md"></select>
+                    </div>
+                    <!-- ★★★ 月間合計時間の表示エリア ★★★ -->
+                    <div id="monthTotalHours" class="text-lg font-bold text-right text-gray-800"></div>
                 </div>
                 <div id="detailsContainer">
                     <div id="projectTabs" class="border-b border-gray-200"></div>
@@ -389,7 +392,6 @@
             const optionsHtml = activeProjects.map(p => `<option value="${p.code}">${p.code}: ${p.name}</option>`).join('');
 
             document.getElementById('projectCode').innerHTML = `<option value="">プロジェクトを選択してください</option>${optionsHtml}`;
-            document.getElementById('event-project-select').innerHTML = `<option value="">プロジェクトを選択（任意）</option>${optionsHtml}`;
             document.getElementById('edit-project-select').innerHTML = `<option value="">プロジェクトを選択</option>${optionsHtml}`;
         }
 
@@ -458,6 +460,7 @@
                 renderMonthData(availableMonths[0]);
             } else {
                 document.getElementById('detailsContainer').innerHTML = '<p class="text-center text-gray-500 py-4">表示できるデータがありません。</p>';
+                document.getElementById('monthTotalHours').textContent = '';
             }
         }
 
@@ -477,15 +480,20 @@
             const projects = Object.keys(dataForMonth);
             const tabsContainer = document.getElementById('projectTabs');
             const contentContainer = document.getElementById('projectTabContent');
+            
+            let monthGrandTotal = 0;
+
             if (projects.length === 0) {
                 tabsContainer.innerHTML = '';
                 contentContainer.innerHTML = '<p class="text-center text-gray-500 py-4">この月には記録がありません。</p>';
+                document.getElementById('monthTotalHours').textContent = '';
                 return;
             }
             tabsContainer.innerHTML = `<nav class="-mb-px flex space-x-4 overflow-x-auto">${projects.map((p, i) => `<button data-project="${p}" class="tab-btn whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm ${i===0 ? 'active border-main' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}">${dataForMonth[p].projectName}</button>`).join('')}</nav>`;
             contentContainer.innerHTML = projects.map((p, i) => {
                 const projectData = dataForMonth[p];
                 const totalHours = projectData.total.toFixed(2);
+                monthGrandTotal += projectData.total;
                 let detailsHtml = `<div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-200"><thead><tr>
                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">出勤</th>
                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">退勤</th>
@@ -493,8 +501,8 @@
                     <th class="px-4 py-2 text-center text-xs font-medium text-gray-500">操作</th>
                     </tr></thead><tbody>
                     ${projectData.details.sort((a, b) => new Date(a.clockIn) - new Date(b.clockIn)).map(d => `<tr>
-                        <td class="px-4 py-2 text-sm">${d.clockIn.toLocaleString('ja-JP')}</td>
-                        <td class="px-4 py-2 text-sm">${d.clockOut.toLocaleString('ja-JP')}</td>
+                        <td class="px-4 py-2 text-sm">${d.clockIn.toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
+                        <td class="px-4 py-2 text-sm">${d.clockOut.toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
                         <td class="px-4 py-2 text-sm text-right">${d.duration}</td>
                         <td class="px-4 py-2 text-sm text-center">
                             <button class="edit-timestamp-btn btn text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded hover:bg-gray-300" data-record-id="${d.recordId}">修正</button>
@@ -503,12 +511,15 @@
                 </tbody></table></div>`;
                 return `<div data-content="${p}" class="${i===0 ? '' : 'hidden'}">
                     <div class="flex flex-col sm:flex-row justify-between items-center p-4 bg-main-light rounded-lg gap-4">
-                        <h3 class="text-lg font-bold">合計時間: <span class="text-main">${totalHours}</span> 時間</h3>
+                        <h3 class="text-lg font-bold">プロジェクト合計: <span class="text-main">${totalHours}</span> 時間</h3>
                         <button data-month="${month}" data-project="${p}" class="download-pdf-btn btn w-full sm:w-auto text-white bg-main hover:bg-main-dark px-4 py-2 rounded-lg">PDF出力</button>
                     </div>
                     <div class="mt-4">${detailsHtml}</div>
                 </div>`;
             }).join('');
+            
+            document.getElementById('monthTotalHours').textContent = `月間合計: ${monthGrandTotal.toFixed(2)} 時間`;
+
             tabsContainer.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => {
                 const targetProject = btn.dataset.project;
                 tabsContainer.querySelectorAll('.tab-btn').forEach(b => {
@@ -549,8 +560,8 @@
             const tableRows = [];
             projectData.details.sort((a, b) => new Date(a.clockIn) - new Date(b.clockIn)).forEach(detail => {
                 const datePart = detail.date.split(' ')[0];
-                const clockInTimePart = (detail.clockIn || "").toLocaleString('ja-JP').split(' ')[1] || "";
-                const clockOutTimePart = (detail.clockOut || "").toLocaleString('ja-JP').split(' ')[1] || "";
+                const clockInTimePart = (detail.clockIn || "").toLocaleString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+                const clockOutTimePart = (detail.clockOut || "").toLocaleString('ja-JP', { hour: '2-digit', minute: '2-digit' });
                 tableRows.push([datePart, clockInTimePart, clockOutTimePart, detail.duration]);
             });
             doc.autoTable({ head: [tableColumn], body: tableRows, startY: 50, styles: { font: "ipaexg", fontStyle: 'normal' }, headStyles: { fillColor: [105, 137, 102] }, margin: { top: 10, right: 10, bottom: 10, left: 10 } });
