@@ -10,7 +10,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
     
-    <!-- ★★★ 修正点 ★★★ Google API Client Libraries -->
+    <!-- Google API Client Libraries -->
     <script async defer src="https://apis.google.com/js/api.js"></script>
     <script async defer src="https://accounts.google.com/gsi/client"></script>
 
@@ -69,10 +69,24 @@
 
             <!-- Tab Content -->
             <div id="tab-punch" class="tab-content active">
-                <!-- 打刻セクション (既存のまま) -->
+                <div class="bg-white p-6 rounded-lg shadow space-y-4">
+                    <div id="punch-status" class="text-center text-lg font-semibold"></div>
+                    <div class="text-center text-5xl font-bold" id="timer">00:00:00</div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <button id="start-work-button" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded">出勤</button>
+                        <button id="end-work-button" class="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-4 rounded" disabled>退勤</button>
+                    </div>
+                    <div class="space-y-2">
+                        <label for="project-select-punch" class="block font-medium">プロジェクト</label>
+                        <select id="project-select-punch" class="w-full p-2 border rounded"></select>
+                    </div>
+                    <div class="space-y-2">
+                        <label for="memo-input" class="block font-medium">メモ</label>
+                        <textarea id="memo-input" rows="2" class="w-full p-2 border rounded" placeholder="作業内容などを記録できます"></textarea>
+                    </div>
+                </div>
             </div>
 
-            <!-- ★★★ 新しいセクション ★★★ -->
             <div id="tab-calendar" class="tab-content space-y-6">
                 <div class="bg-white p-6 rounded-lg shadow">
                     <h2 class="text-xl font-bold mb-4">Googleカレンダー連携</h2>
@@ -87,22 +101,42 @@
                 <div class="bg-white p-6 rounded-lg shadow">
                      <h3 class="text-lg font-bold mb-2">カレンダーの予定</h3>
                      <div id="calendar-events-container" class="space-y-2 max-h-96 overflow-y-auto">
-                        <!-- ここに予定が表示されます -->
                         <p class="text-gray-500">連携後に「予定を読み込む」ボタンを押してください。</p>
                      </div>
                 </div>
             </div>
 
             <div id="tab-report" class="tab-content">
-                <!-- 月次レポートセクション (既存のまま) -->
+                 <div class="bg-white p-6 rounded-lg shadow space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-xl font-bold">月次レポート</h2>
+                        <input type="month" id="report-month" class="p-2 border rounded">
+                    </div>
+                    <button id="generate-report-button" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">レポート生成</button>
+                    <div id="report-output" class="space-y-4"></div>
+                 </div>
             </div>
             <div id="tab-projects" class="tab-content">
-                <!-- プロジェクト管理セクション (既存のまま) -->
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="bg-white p-6 rounded-lg shadow space-y-4">
+                        <h2 class="text-xl font-bold">プロジェクト追加</h2>
+                        <form id="add-project-form" class="space-y-3">
+                            <input type="text" id="project-code" placeholder="プロジェクトコード" required class="w-full p-2 border rounded">
+                            <input type="text" id="project-name" placeholder="プロジェクト名" required class="w-full p-2 border rounded">
+                            <button type="submit" class="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded">追加</button>
+                        </form>
+                        <div id="project-management-status"></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow space-y-4">
+                        <h2 class="text-xl font-bold">プロジェクト一覧</h2>
+                        <div id="project-list" class="space-y-2 max-h-96 overflow-y-auto"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </main>
 
-    <!-- ★★★ 新しいモーダル ★★★ -->
+    <!-- Add Event Modal -->
     <div id="add-event-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center">
         <div class="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
             <h2 class="text-2xl font-bold mb-6">新しい予定を作成</h2>
@@ -113,7 +147,6 @@
                     <input type="datetime-local" id="event-end-time" required class="w-full px-4 py-2 border rounded">
                     <select id="event-project-select" class="w-full px-4 py-2 border rounded">
                         <option value="">プロジェクトを選択（任意）</option>
-                        <!-- プロジェクトが動的に追加されます -->
                     </select>
                     <textarea id="event-description" placeholder="詳細（任意）" class="w-full px-4 py-2 border rounded"></textarea>
                 </div>
@@ -129,7 +162,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, getDoc, setDoc, addDoc, getDocs, query, where, serverTimestamp, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, getDoc, setDoc, addDoc, getDocs, query, where, serverTimestamp, Timestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
         import { IPAEXG_FONT_B64 } from './fonts.js';
 
@@ -162,61 +195,26 @@
 
         let currentUser = null;
         let projects = [];
-
-        // 既存の打刻、レポート、プロジェクト管理のコードはここにペーストしてください
-        // (このサンプルでは省略しますが、あなたの元のコードをここに移動します)
-
-        // --- タブ切り替えロジック ---
-        const tabs = document.querySelectorAll('.tab-button');
-        const tabContents = document.querySelectorAll('.tab-content');
-        tabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                tabs.forEach(item => item.classList.remove('active'));
-                tab.classList.add('active');
-                const target = document.getElementById(tab.dataset.tab);
-                tabContents.forEach(content => content.classList.remove('active'));
-                target.classList.add('active');
-            });
-        });
-
-        // --- メニュー表示ロジック ---
-        const menuButton = document.getElementById('menu-button');
-        const dropdownMenu = document.getElementById('dropdown-menu');
-        menuButton.addEventListener('click', () => {
-            dropdownMenu.classList.toggle('hidden');
-        });
+        let currentPunchId = null;
+        let timerInterval = null;
 
         // --- 認証状態の監視 ---
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 currentUser = user;
-                // ユーザー情報を表示
-                const userDoc = await getDoc(doc(db, "users", user.uid));
-                if (userDoc.exists()) {
-                    const userData = userDoc.data();
-                    document.getElementById('user-name').textContent = userData.displayName || '名無しさん';
-                    document.getElementById('user-email').textContent = user.email;
-                    document.getElementById('user-icon').src = userData.photoURL || 'https://placehold.co/100x100/ccc/fff?text=User';
-                }
-                document.getElementById('user-info').classList.remove('hidden');
-                document.getElementById('user-icon').classList.remove('hidden');
+                await setupUIForUser(user);
                 
-                // ★★★ 修正点 ★★★
                 // Google APIクライアントの初期化
                 gapi.load('client', initializeGapiClient);
                 
                 // GISクライアントの初期化
-                // 'google'オブジェクトがロードされるのを待つ必要があるため、少し遅延させる
                 setTimeout(() => {
                     try {
                         tokenClient = google.accounts.oauth2.initTokenClient({
                             client_id: CLIENT_ID,
                             scope: SCOPES,
                             callback: (tokenResponse) => {
-                                if (tokenResponse.error) {
-                                    console.error('Authorization error:', tokenResponse.error);
-                                    return;
-                                }
+                                if (tokenResponse.error) { return; }
                                 gapi.client.setToken(tokenResponse);
                                 updateGcalUi();
                             },
@@ -224,35 +222,300 @@
                         gisInited = true;
                         updateGcalUi();
                     } catch (e) {
-                        console.error("Error initializing Google Identity Services. It might not be loaded yet.", e);
+                        console.error("Error initializing Google Identity Services.", e);
                     }
-                }, 1000); // 1秒待つ
-
-                // メインコンテンツを表示
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('main-content').classList.remove('hidden');
-
-                // プロジェクト読み込みなど、ログイン後の初期化処理
-                await loadProjects();
-                
-                // 30分ごとに自動打刻チェック
-                setInterval(checkForAutoPunch, 30 * 60 * 1000); 
+                }, 1000);
 
             } else {
                 window.location.href = 'login.html';
             }
         });
 
-        // --- ログアウト処理 ---
-        document.getElementById('logout-button').addEventListener('click', () => {
-            signOut(auth);
+        async function setupUIForUser(user) {
+            // ユーザー情報を表示
+            const userDoc = await getDoc(doc(db, "users", user.uid));
+            if (userDoc.exists()) {
+                const userData = userDoc.data();
+                document.getElementById('user-name').textContent = userData.displayName || '名無しさん';
+                document.getElementById('user-email').textContent = user.email;
+                document.getElementById('user-icon').src = userData.photoURL || 'https://placehold.co/100x100/ccc/fff?text=User';
+            }
+            document.getElementById('user-info').classList.remove('hidden');
+            document.getElementById('user-icon').classList.remove('hidden');
+            
+            // プロジェクトのリアルタイム監視
+            const projectsQuery = query(collection(db, "projects"), where("ownerId", "==", user.uid));
+            onSnapshot(projectsQuery, (snapshot) => {
+                projects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                updateProjectDropdowns();
+                displayProjectList();
+            });
+
+            // 未完了の打刻をチェック
+            await checkForOngoingPunch();
+
+            // レポートのデフォルト月を設定
+            document.getElementById('report-month').value = new Date().toISOString().slice(0, 7);
+
+            // メインコンテンツを表示
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('main-content').classList.remove('hidden');
+
+            // 30分ごとに自動打刻チェック
+            setInterval(checkForAutoPunch, 30 * 60 * 1000);
+        }
+
+        // --- UI関連のヘルパー関数 ---
+        function showStatus(message, isError, elementId) {
+            const elem = document.getElementById(elementId);
+            if (elem) {
+                elem.textContent = message;
+                elem.className = isError ? 'text-red-500' : 'text-green-500';
+            }
+        }
+
+        function updateProjectDropdowns() {
+            const punchSelect = document.getElementById('project-select-punch');
+            const eventSelect = document.getElementById('event-project-select');
+            
+            [punchSelect, eventSelect].forEach(select => {
+                const currentValue = select.value;
+                select.innerHTML = '';
+                if (select.id === 'event-project-select') {
+                    select.innerHTML = '<option value="">プロジェクトを選択（任意）</option>';
+                }
+                projects.forEach(p => {
+                    const option = document.createElement('option');
+                    option.value = p.id;
+                    option.textContent = `[${p.code}] ${p.name}`;
+                    select.appendChild(option);
+                });
+                select.value = currentValue;
+            });
+        }
+
+        // ==================================================
+        // ★★★ 機能復元：打刻機能 ★★★
+        // ==================================================
+        const startWorkBtn = document.getElementById('start-work-button');
+        const endWorkBtn = document.getElementById('end-work-button');
+        const punchStatusDiv = document.getElementById('punch-status');
+        const timerDiv = document.getElementById('timer');
+
+        async function checkForOngoingPunch() {
+            const q = query(collection(db, `users/${currentUser.uid}/punches`), where("endTime", "==", null));
+            const snapshot = await getDocs(q);
+            if (!snapshot.empty) {
+                const punchDoc = snapshot.docs[0];
+                currentPunchId = punchDoc.id;
+                const startTime = punchDoc.data().startTime.toDate();
+                startTimer(startTime);
+                punchStatusDiv.textContent = "勤務中";
+                startWorkBtn.disabled = true;
+                endWorkBtn.disabled = false;
+            } else {
+                punchStatusDiv.textContent = "待機中";
+                startWorkBtn.disabled = false;
+                endWorkBtn.disabled = true;
+            }
+        }
+
+        function startTimer(startTime) {
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                const diff = new Date() - startTime;
+                const hours = String(Math.floor(diff / 3600000)).padStart(2, '0');
+                const minutes = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0');
+                const seconds = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
+                timerDiv.textContent = `${hours}:${minutes}:${seconds}`;
+            }, 1000);
+        }
+
+        startWorkBtn.addEventListener('click', async () => {
+            const projectId = document.getElementById('project-select-punch').value;
+            if (!projectId) {
+                alert("プロジェクトを選択してください。");
+                return;
+            }
+            try {
+                const punchRef = await addDoc(collection(db, `users/${currentUser.uid}/punches`), {
+                    userId: currentUser.uid,
+                    type: 'work',
+                    projectId: projectId,
+                    startTime: serverTimestamp(),
+                    endTime: null,
+                    memo: document.getElementById('memo-input').value
+                });
+                currentPunchId = punchRef.id;
+                await checkForOngoingPunch();
+            } catch (error) {
+                console.error("出勤エラー:", error);
+            }
+        });
+
+        endWorkBtn.addEventListener('click', async () => {
+            if (!currentPunchId) return;
+            try {
+                const punchDocRef = doc(db, `users/${currentUser.uid}/punches`, currentPunchId);
+                await setDoc(punchDocRef, { endTime: serverTimestamp() }, { merge: true });
+                clearInterval(timerInterval);
+                timerDiv.textContent = "00:00:00";
+                currentPunchId = null;
+                await checkForOngoingPunch();
+            } catch (error) {
+                console.error("退勤エラー:", error);
+            }
         });
 
         // ==================================================
-        // ★★★ ここからGoogleカレンダー連携の新しいコード ★★★
+        // ★★★ 機能復元：プロジェクト管理 ★★★
+        // ==================================================
+        function displayProjectList() {
+            const listContainer = document.getElementById('project-list');
+            listContainer.innerHTML = '';
+            if (projects.length === 0) {
+                listContainer.innerHTML = '<p class="text-gray-500">プロジェクトがありません。</p>';
+                return;
+            }
+            projects.forEach(p => {
+                const div = document.createElement('div');
+                div.className = 'p-2 border rounded';
+                div.textContent = `[${p.code}] ${p.name}`;
+                listContainer.appendChild(div);
+            });
+        }
+
+        document.getElementById('add-project-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const codeInput = document.getElementById('project-code');
+            const nameInput = document.getElementById('project-name');
+            const code = codeInput.value.trim();
+            const name = nameInput.value.trim();
+            
+            if (!code || !name) {
+                showStatus("エラー: コードと名前は必須です。", true, 'project-management-status');
+                return;
+            }
+            
+            try {
+                await addDoc(collection(db, "projects"), {
+                    code: code, name: name, ownerId: currentUser.uid
+                });
+                showStatus("プロジェクトを追加しました。", false, 'project-management-status');
+                codeInput.value = ''; nameInput.value = '';
+            } catch (error) {
+                showStatus(`追加エラー: ${error.message}`, true, 'project-management-status');
+            }
+        });
+
+        // ==================================================
+        // ★★★ 機能復元：月次レポート ★★★
+        // ==================================================
+        document.getElementById('generate-report-button').addEventListener('click', generateReport);
+
+        async function generateReport() {
+            const reportMonth = document.getElementById('report-month').value;
+            if (!reportMonth) {
+                alert("月を選択してください。");
+                return;
+            }
+            const [year, month] = reportMonth.split('-').map(Number);
+            const startDate = new Date(year, month - 1, 1);
+            const endDate = new Date(year, month, 1);
+
+            const q = query(collection(db, `users/${currentUser.uid}/punches`),
+                where("startTime", ">=", startDate),
+                where("startTime", "<", endDate));
+            
+            const snapshot = await getDocs(q);
+            const punches = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}));
+            
+            const outputDiv = document.getElementById('report-output');
+            outputDiv.innerHTML = '';
+
+            if (punches.length === 0) {
+                outputDiv.innerHTML = '<p>この月の打刻データはありません。</p>';
+                return;
+            }
+            
+            // レポート表示
+            const table = document.createElement('table');
+            table.className = 'w-full text-left border-collapse';
+            table.innerHTML = `<thead><tr><th class="border p-2">日付</th><th class="border p-2">プロジェクト</th><th class="border p-2">勤務時間</th><th class="border p-2">メモ</th></tr></thead>`;
+            const tbody = document.createElement('tbody');
+            
+            let totalMillis = 0;
+            punches.forEach(p => {
+                if (!p.startTime || !p.endTime) return;
+                const start = p.startTime.toDate();
+                const end = p.endTime.toDate();
+                const duration = end - start;
+                totalMillis += duration;
+                
+                const tr = document.createElement('tr');
+                const projectName = projects.find(proj => proj.id === p.projectId)?.name || 'N/A';
+                tr.innerHTML = `
+                    <td class="border p-2">${start.toLocaleDateString()}</td>
+                    <td class="border p-2">${projectName}</td>
+                    <td class="border p-2">${new Date(duration).toISOString().substr(11, 8)}</td>
+                    <td class="border p-2">${p.memo || ''}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+            table.appendChild(tbody);
+            outputDiv.appendChild(table);
+
+            const totalHours = String(Math.floor(totalMillis / 3600000)).padStart(2, '0');
+            const totalMinutes = String(Math.floor((totalMillis % 3600000) / 60000)).padStart(2, '0');
+            outputDiv.insertAdjacentHTML('beforeend', `<p class="font-bold mt-4">合計勤務時間: ${totalHours}時間 ${totalMinutes}分</p>`);
+
+            const pdfButton = document.createElement('button');
+            pdfButton.textContent = 'PDFでエクスポート';
+            pdfButton.className = 'w-full mt-4 bg-gray-700 hover:bg-gray-800 text-white font-bold py-2 px-4 rounded';
+            pdfButton.onclick = () => exportPDF(punches, reportMonth, `${totalHours}:${totalMinutes}`);
+            outputDiv.appendChild(pdfButton);
+        }
+        
+        function exportPDF(punches, reportMonth, totalDuration) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            doc.addFileToVFS("ipaexg.ttf", IPAEXG_FONT_B64);
+            doc.addFont("ipaexg.ttf", "ipaexg", "normal");
+            doc.setFont("ipaexg");
+            
+            doc.text(`${reportMonth} 勤務レポート`, 14, 16);
+            doc.text(`合計時間: ${totalDuration}`, 14, 24);
+            
+            const head = [['日付', 'プロジェクト', '勤務時間', 'メモ']];
+            const body = punches.map(p => {
+                if (!p.startTime || !p.endTime) return [];
+                const start = p.startTime.toDate();
+                const end = p.endTime.toDate();
+                const duration = end - start;
+                const projectName = projects.find(proj => proj.id === p.projectId)?.name || 'N/A';
+                return [
+                    start.toLocaleDateString(),
+                    projectName,
+                    new Date(duration).toISOString().substr(11, 8),
+                    p.memo || ''
+                ];
+            });
+
+            doc.autoTable({
+                head: head,
+                body: body,
+                startY: 30,
+                styles: { font: 'ipaexg', fontStyle: 'normal' },
+            });
+            
+            doc.save(`report-${reportMonth}.pdf`);
+        }
+
+        // ==================================================
+        // ★★★ Googleカレンダー連携 ★★★
         // ==================================================
         
-        // --- Google APIクライアントの初期化 ---
         async function initializeGapiClient() {
             try {
                 await gapi.client.init({
@@ -263,16 +526,12 @@
                 updateGcalUi();
             } catch (error) {
                 console.error("Error initializing GAPI client:", error);
-                document.getElementById('gcal-auth-status').textContent = 'エラー: Google APIの初期化に失敗しました。APIキーが正しいか確認してください。';
+                document.getElementById('gcal-auth-status').textContent = 'エラー: Google APIの初期化に失敗しました。APIキーが正しいか、またはURLが許可されているか確認してください。';
             }
         }
 
-        // --- 連携ボタンなどのUI更新 ---
         function updateGcalUi() {
-            // gapiとgisの両方が初期化されるまで何もしない
-            if (!gapiInited || !gisInited) {
-                return;
-            }
+            if (!gapiInited || !gisInited) return;
 
             const authorizeButton = document.getElementById('gcal-authorize-button');
             const signoutButton = document.getElementById('gcal-signout-button');
@@ -281,14 +540,12 @@
             const statusText = document.getElementById('gcal-auth-status');
 
             if (gapi.client.getToken() === null) {
-                // 未認証
                 statusText.textContent = 'ステータス：未認証。Googleアカウントと連携してください。';
                 authorizeButton.classList.remove('hidden');
                 signoutButton.classList.add('hidden');
                 loadEventsButton.classList.add('hidden');
                 addEventButton.classList.add('hidden');
             } else {
-                // 認証済み
                 statusText.textContent = 'ステータス：連携済みです。';
                 authorizeButton.classList.add('hidden');
                 signoutButton.classList.remove('hidden');
@@ -297,17 +554,10 @@
             }
         }
 
-        // --- 連携/認証処理 ---
         document.getElementById('gcal-authorize-button').addEventListener('click', () => {
-            if (tokenClient) {
-                tokenClient.requestAccessToken();
-            } else {
-                console.error("Token client is not initialized.");
-                alert("認証の準備ができていません。少し待ってからもう一度お試しください。");
-            }
+            if (tokenClient) tokenClient.requestAccessToken();
         });
 
-        // --- 連携解除処理 ---
         document.getElementById('gcal-signout-button').addEventListener('click', () => {
             const token = gapi.client.getToken();
             if (token !== null) {
@@ -319,182 +569,142 @@
             }
         });
 
-        // --- 予定の読み込み処理 ---
         document.getElementById('gcal-load-events-button').addEventListener('click', listUpcomingEvents);
         
         async function listUpcomingEvents() {
             const container = document.getElementById('calendar-events-container');
             container.innerHTML = '<div class="loader mx-auto"></div>';
-            let response;
             try {
-                const request = {
+                const response = await gapi.client.calendar.events.list({
                     'calendarId': 'primary',
                     'timeMin': (new Date()).toISOString(),
                     'showDeleted': false,
                     'singleEvents': true,
                     'maxResults': 10,
                     'orderBy': 'startTime',
-                };
-                response = await gapi.client.calendar.events.list(request);
+                });
+                const events = response.result.items;
+                if (!events || events.length == 0) {
+                    container.innerText = '直近の予定はありません。';
+                    return;
+                }
+                container.innerHTML = '';
+                events.forEach(event => {
+                    const start = event.start.dateTime || event.start.date;
+                    const projectInfo = event.extendedProperties?.private?.projectId ? `【${projects.find(p => p.id === event.extendedProperties.private.projectId)?.name || '不明'}】` : '';
+                    const eventEl = document.createElement('div');
+                    eventEl.className = 'p-2 border rounded bg-gray-50';
+                    eventEl.innerHTML = `<p class="font-bold">${event.summary} ${projectInfo}</p><p class="text-sm text-gray-600">${new Date(start).toLocaleString()}</p>`;
+                    container.appendChild(eventEl);
+                });
             } catch (err) {
                 container.innerText = 'エラー: ' + err.message;
-                return;
             }
-
-            const events = response.result.items;
-            if (!events || events.length == 0) {
-                container.innerText = '直近の予定はありません。';
-                return;
-            }
-            
-            container.innerHTML = ''; // コンテナをクリア
-            events.forEach(event => {
-                const start = event.start.dateTime || event.start.date;
-                const projectInfo = event.extendedProperties?.private?.projectId ? `【${projects.find(p => p.id === event.extendedProperties.private.projectId)?.name || '不明なプロジェクト'}】` : '';
-                const eventEl = document.createElement('div');
-                eventEl.className = 'p-2 border rounded bg-gray-50';
-                eventEl.innerHTML = `<p class="font-bold">${event.summary} ${projectInfo}</p><p class="text-sm text-gray-600">${new Date(start).toLocaleString()}</p>`;
-                container.appendChild(eventEl);
-            });
         }
 
-        // --- 予定作成モーダルの表示/非表示 ---
-        const addEventModal = document.getElementById('add-event-modal');
         document.getElementById('gcal-add-event-button').addEventListener('click', () => {
-            addEventModal.classList.remove('hidden');
-            addEventModal.classList.add('flex');
+            document.getElementById('add-event-modal').classList.remove('hidden');
+            document.getElementById('add-event-modal').classList.add('flex');
         });
         document.getElementById('cancel-add-event').addEventListener('click', () => {
-            addEventModal.classList.add('hidden');
-            addEventModal.classList.remove('flex');
+            document.getElementById('add-event-modal').classList.add('hidden');
+            document.getElementById('add-event-modal').classList.remove('flex');
         });
         
-        // --- 予定作成処理 ---
         document.getElementById('add-event-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const summary = document.getElementById('event-summary').value;
-            const startTime = document.getElementById('event-start-time').value;
-            const endTime = document.getElementById('event-end-time').value;
-            const projectId = document.getElementById('event-project-select').value;
-            const description = document.getElementById('event-description').value;
-
             const event = {
-                'summary': summary,
-                'description': description,
-                'start': { 'dateTime': new Date(startTime).toISOString() },
-                'end': { 'dateTime': new Date(endTime).toISOString() },
+                'summary': document.getElementById('event-summary').value,
+                'description': document.getElementById('event-description').value,
+                'start': { 'dateTime': new Date(document.getElementById('event-start-time').value).toISOString() },
+                'end': { 'dateTime': new Date(document.getElementById('event-end-time').value).toISOString() },
                 'extendedProperties': {
                     'private': {
-                        'projectId': projectId,
-                        'autoPunch': 'pending' // 自動打刻の状態
+                        'projectId': document.getElementById('event-project-select').value,
+                        'autoPunch': 'pending'
                     }
                 }
             };
-            
             try {
-                const request = gapi.client.calendar.events.insert({
-                    'calendarId': 'primary',
-                    'resource': event,
-                });
-                await request;
+                await gapi.client.calendar.events.insert({ 'calendarId': 'primary', 'resource': event });
                 alert('予定を作成しました！');
-                addEventModal.classList.add('hidden');
-                listUpcomingEvents(); // 予定リストを更新
+                document.getElementById('add-event-modal').classList.add('hidden');
+                listUpcomingEvents();
             } catch (error) {
                 alert('予定の作成に失敗しました: ' + error.message);
             }
         });
         
-        // --- 自動打刻チェック機能 ---
         async function checkForAutoPunch() {
-            if (gapi.client.getToken() === null) return; // 未連携なら何もしない
-
-            console.log("自動打刻チェックを実行中...");
+            if (gapi.client.getToken() === null) return;
             const now = new Date();
             const threeDaysAgo = new Date();
             threeDaysAgo.setDate(now.getDate() - 3);
-
             try {
                 const response = await gapi.client.calendar.events.list({
                     'calendarId': 'primary',
                     'timeMin': threeDaysAgo.toISOString(),
                     'timeMax': now.toISOString(),
-                    'privateExtendedProperty': 'autoPunch=pending', // 'pending'状態の予定のみ取得
+                    'privateExtendedProperty': 'autoPunch=pending',
                     'singleEvents': true,
                 });
-
-                const events = response.result.items;
-                if (events.length > 0) {
-                    console.log(`${events.length}件の自動打刻対象の予定が見つかりました。`);
-                    for (const event of events) {
-                        await createPunchFromEvent(event);
-                        await markEventAsPunched(event.id);
-                    }
+                for (const event of response.result.items) {
+                    await createPunchFromEvent(event);
+                    await markEventAsPunched(event.id);
                 }
             } catch (error) {
                 console.error("自動打刻チェック中にエラー:", error);
             }
         }
 
-        // --- 予定から打刻データを作成して保存 ---
         async function createPunchFromEvent(event) {
             const projectId = event.extendedProperties.private.projectId;
-            if (!projectId) return; // プロジェクトがなければスキップ
-
-            const startTime = new Date(event.start.dateTime);
-            const endTime = new Date(event.end.dateTime);
-
+            if (!projectId) return;
             try {
                 await addDoc(collection(db, `users/${currentUser.uid}/punches`), {
-                    userId: currentUser.uid,
-                    type: 'work',
-                    projectId: projectId,
-                    startTime: Timestamp.fromDate(startTime),
-                    endTime: Timestamp.fromDate(endTime),
-                    memo: `[自動打刻] ${event.summary}`,
-                    createdAt: serverTimestamp()
+                    userId: currentUser.uid, type: 'work', projectId: projectId,
+                    startTime: Timestamp.fromDate(new Date(event.start.dateTime)),
+                    endTime: Timestamp.fromDate(new Date(event.end.dateTime)),
+                    memo: `[自動打刻] ${event.summary}`, createdAt: serverTimestamp()
                 });
-                console.log(`打刻を記録しました: ${event.summary}`);
             } catch (error) {
                 console.error("自動打刻のFirestoreへの保存に失敗:", error);
             }
         }
         
-        // --- 予定を処理済みに更新 ---
         async function markEventAsPunched(eventId) {
             try {
                 await gapi.client.calendar.events.patch({
-                    calendarId: 'primary',
-                    eventId: eventId,
-                    resource: {
-                        extendedProperties: {
-                            private: {
-                                autoPunch: 'done'
-                            }
-                        }
-                    }
+                    calendarId: 'primary', eventId: eventId,
+                    resource: { extendedProperties: { private: { autoPunch: 'done' } } }
                 });
-                console.log(`予定ID: ${eventId} を処理済みに更新しました。`);
             } catch (error) {
                 console.error("予定の更新に失敗:", error);
             }
         }
         
-        // --- プロジェクト読み込み（モーダル用） ---
-        async function loadProjects() {
-            const q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid));
-            const querySnapshot = await getDocs(q);
-            projects = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            
-            const select = document.getElementById('event-project-select');
-            select.innerHTML = '<option value="">プロジェクトを選択（任意）</option>'; // 初期化
-            projects.forEach(p => {
-                const option = document.createElement('option');
-                option.value = p.id;
-                option.textContent = `[${p.code}] ${p.name}`;
-                select.appendChild(option);
+        // ==================================================
+        // ★★★ その他 ★★★
+        // ==================================================
+        // --- タブ切り替えロジック ---
+        document.querySelectorAll('.tab-button').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab-button').forEach(item => item.classList.remove('active'));
+                tab.classList.add('active');
+                document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+                document.getElementById(tab.dataset.tab).classList.add('active');
             });
-        }
+        });
+
+        // --- メニュー表示ロジック ---
+        document.getElementById('menu-button').addEventListener('click', () => {
+            document.getElementById('dropdown-menu').classList.toggle('hidden');
+        });
+
+        // --- ログアウト処理 ---
+        document.getElementById('logout-button').addEventListener('click', () => {
+            signOut(auth);
+        });
 
     </script>
 </body>
