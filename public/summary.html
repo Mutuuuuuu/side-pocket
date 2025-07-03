@@ -407,8 +407,7 @@
 
                 const timestampData = { id: docSnap.id, ...docSnap.data() };
 
-                editTimestampIdInput.value = timestampData.id;
-                editClockInTimeInput.value = timestampData.clockInTime.toDate().toISOString().substring(0, 16);
+                editTimestampIdInput.value = timestampData.clockInTime.toDate().toISOString().substring(0, 16);
                 editClockOutTimeInput.value = timestampData.clockOutTime.toDate().toISOString().substring(0, 16);
                 editProjectSelect.value = timestampData.projectCode || ''; // プロジェクトコードを設定
 
@@ -505,81 +504,114 @@
         async function generateSummaryPdf() {
             showStatus("PDFを生成中...", false, 'summary-status');
 
-            // PDFに含めるコンテンツを一時的に構築する
-            const pdfContent = document.createElement('div');
-            pdfContent.className = 'p-6'; // PDFに適切なパディングを追加
-
-            // タイトルを追加
-            const title = document.createElement('h2');
-            title.className = 'text-2xl font-bold mb-4';
-            title.textContent = `稼働実績サマリー (${summaryMonthInput.value}月)`;
-            pdfContent.appendChild(title);
+            // 現在アクティブなタブのプロジェクトコードを取得
+            const activeTabButton = projectTabList.querySelector('button[role="tab"][aria-selected="true"]');
+            if (!activeTabButton) {
+                showStatus("PDFにするプロジェクトタブを選択してください。", true, 'summary-status');
+                return;
+            }
+            const activeProjectCode = activeTabButton.dataset.projectCode;
+            const activeProjectName = activeTabButton.textContent; // プロジェクト名
 
             if (!loadedTimestamps || loadedTimestamps.length === 0) {
                 showStatus("PDFにする稼働実績がありません。", true, 'summary-status');
                 return;
             }
 
-            // プロジェクトごとにグループ化
-            const groupedByProjectForPdf = loadedTimestamps.reduce((acc, ts) => {
-                const projectCode = ts.projectCode || '未選択';
-                if (!acc[projectCode]) {
-                    acc[projectCode] = [];
-                }
-                acc[projectCode].push(ts);
-                return acc;
-            }, {});
+            // アクティブなプロジェクトのタイムスタンプのみをフィルタリング
+            const projectTimestamps = loadedTimestamps.filter(ts => (ts.projectCode || '未選択') === activeProjectCode);
 
-            for (const projectCode in groupedByProjectForPdf) {
-                const projectEntries = groupedByProjectForPdf[projectCode];
-                const projectName = userProjects.get(projectCode)?.name || projectCode;
-
-                const projectHeader = document.createElement('h3');
-                projectHeader.className = 'text-xl font-semibold mt-6 mb-2';
-                projectHeader.textContent = `プロジェクト: ${projectName}`;
-                pdfContent.appendChild(projectHeader);
-
-                // 日付ごとにグループ化
-                const groupedByDateForPdf = projectEntries.reduce((acc, ts) => {
-                    const date = ts.clockInTime.toDate().toLocaleDateString('ja-JP');
-                    if (!acc[date]) {
-                        acc[date] = [];
-                    }
-                    acc[date].push(ts);
-                    return acc;
-                }, {});
-
-                for (const date in groupedByDateForPdf) {
-                    const dailyEntries = groupedByDateForPdf[date];
-                    let dailyTotalHours = 0;
-
-                    const dateSubHeader = document.createElement('h4');
-                    dateSubHeader.className = 'text-lg font-medium mt-4 mb-1';
-                    dateSubHeader.textContent = date;
-                    pdfContent.appendChild(dateSubHeader);
-
-                    dailyEntries.sort((a, b) => a.clockInTime.toDate() - b.clockInTime.toDate());
-
-                    dailyEntries.forEach(ts => {
-                        const clockIn = ts.clockInTime.toDate();
-                        const clockOut = ts.clockOutTime.toDate();
-                        const duration = ts.durationHours || ((clockOut.getTime() - clockIn.getTime()) / 3600000);
-                        dailyTotalHours += duration;
-
-                        const entryP = document.createElement('p');
-                        entryP.className = 'text-sm ml-4';
-                        entryP.textContent = `${clockIn.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })} - ${clockOut.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })} | PJ: ${ts.projectCode || '未選択'} | 時間: ${duration.toFixed(2)}h`;
-                        pdfContent.appendChild(entryP);
-                    });
-                    const dailyTotalP = document.createElement('p');
-                    dailyTotalP.className = 'text-md font-semibold ml-4 mt-1';
-                    dailyTotalP.textContent = `日合計: ${dailyTotalHours.toFixed(2)}h`;
-                    pdfContent.appendChild(dailyTotalP);
-                }
+            if (projectTimestamps.length === 0) {
+                showStatus(`選択されたプロジェクト (${activeProjectName}) に稼働実績がありません。`, true, 'summary-status');
+                return;
             }
 
-            // html2pdfを使用してPDFを生成
-            html2pdf().from(pdfContent).save(`稼働実績サマリー_${summaryMonthInput.value}.pdf`);
+            // プロジェクトの合計時間を計算
+            let totalProjectHours = 0;
+            projectTimestamps.forEach(ts => {
+                const clockIn = ts.clockInTime.toDate();
+                const clockOut = ts.clockOutTime.toDate();
+                const duration = ts.durationHours || ((clockOut.getTime() - clockIn.getTime()) / 3600000);
+                totalProjectHours += duration;
+            });
+
+            const selectedMonth = summaryMonthInput.value; // YYYY-MM
+
+            // PDFに含めるコンテンツを構築
+            const pdfContent = document.createElement('div');
+            pdfContent.className = 'p-6 font-sans text-gray-800'; // Added font-sans for better default font
+
+            pdfContent.innerHTML = `
+                <style>
+                    /* PDF用のスタイル */
+                    body { font-family: 'sans-serif'; }
+                    h2, h3, p { margin: 0; padding: 0; }
+                    .header-title { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
+                    .project-info { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
+                    .total-time { font-size: 18px; font-weight: bold; margin-bottom: 20px; }
+                    table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-top: 15px;
+                        font-size: 14px;
+                    }
+                    th, td {
+                        border: 1px solid #e2e8f0; /* Tailwind gray-200 */
+                        padding: 8px;
+                        text-align: left;
+                    }
+                    th {
+                        background-color: #f0f0f0; /* Light gray for header */
+                        font-weight: bold;
+                    }
+                    .text-right { text-align: right; }
+                </style>
+                <div class="text-center">
+                    <h2 class="header-title">${selectedMonth} 稼働時間報告書</h2>
+                    <p class="project-info">${activeProjectName} (${activeProjectCode})</p>
+                    <p class="total-time">合計時間: ${totalProjectHours.toFixed(2)} 時間</p>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>日付</th>
+                            <th>出勤</th>
+                            <th>退勤</th>
+                            <th class="text-right">時間(h)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${Object.entries(projectTimestamps.reduce((acc, ts) => {
+                            // 日付フォーマットを YYYY/M/D に統一
+                            const date = ts.clockInTime.toDate().toLocaleDateString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric' });
+                            if (!acc[date]) {
+                                acc[date] = [];
+                            }
+                            acc[date].push(ts);
+                            return acc;
+                        }, {})).sort(([dateA], [dateB]) => new Date(dateA) - new Date(dateB)).map(([date, dailyEntries]) => {
+                            dailyEntries.sort((a, b) => a.clockInTime.toDate() - b.clockInTime.toDate());
+                            return dailyEntries.map(ts => {
+                                const clockIn = ts.clockInTime.toDate();
+                                const clockOut = ts.clockOutTime.toDate();
+                                const duration = ts.durationHours || ((clockOut.getTime() - clockIn.getTime()) / 3600000);
+                                return `
+                                    <tr>
+                                        <td>${date}</td>
+                                        <td>${clockIn.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}</td>
+                                        <td>${clockOut.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}</td>
+                                        <td class="text-right">${duration.toFixed(2)}</td>
+                                    </tr>
+                                `;
+                            }).join('');
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+
+            // PDFを生成
+            html2pdf().from(pdfContent).save(`稼働報告書_${selectedMonth}_${activeProjectCode}.pdf`);
             showStatus("PDFを生成しました。", false, 'summary-status');
         }
 
