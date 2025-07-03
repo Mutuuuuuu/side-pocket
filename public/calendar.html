@@ -67,6 +67,10 @@
                     <input type="text" id="event-summary" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
                 </div>
                 <div>
+                    <label for="event-calendar-select" class="block text-sm font-medium text-gray-700">カレンダーを選択:</label>
+                    <select id="event-calendar-select" class="mt-1 block w-full p-2 border border-gray-300 rounded-md"></select>
+                </div>
+                <div>
                     <label for="event-start-datetime" class="block text-sm font-medium text-gray-700">開始日時:</label>
                     <input type="datetime-local" id="event-start-datetime" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
                 </div>
@@ -101,6 +105,7 @@
         let gisInited = false;  // Google Identity Servicesが初期化されたか
         let codeClient;         // Google Identity Servicesの認証コードクライアント (リダイレクト用)
         let currentUser = null; // Firebaseから認証されたユーザー情報
+        let userCalendars = []; // ユーザーがアクセスできるカレンダーのリストを保持
 
         const authStatusElement = document.getElementById('gcal-auth-status');
         const authorizeButton = document.getElementById('gcal-authorize-button');
@@ -119,6 +124,7 @@
         const createEventForm = document.getElementById('create-event-form');
         const cancelCreateEventButton = document.getElementById('cancel-create-event');
         const eventSummaryInput = document.getElementById('event-summary');
+        const eventCalendarSelect = document.getElementById('event-calendar-select'); // 予定作成モーダル内のカレンダー選択
         const eventStartDatetimeInput = document.getElementById('event-start-datetime');
         const eventEndDatetimeInput = document.getElementById('event-end-datetime');
         const eventDescriptionInput = document.getElementById('event-description');
@@ -443,15 +449,25 @@
         async function listCalendars() {
             try {
                 const response = await gapi.client.calendar.calendarList.list();
-                const calendars = response.result.items;
+                userCalendars = response.result.items; // カレンダーリストを保存
                 calendarSelect.innerHTML = ''; // 既存のオプションをクリア
-                if (calendars.length > 0) {
-                    calendars.forEach(calendar => {
+                eventCalendarSelect.innerHTML = ''; // 予定作成モーダル内のカレンダー選択もクリア
+
+                if (userCalendars.length > 0) {
+                    userCalendars.forEach(calendar => {
                         const option = document.createElement('option');
                         option.value = calendar.id;
                         option.textContent = calendar.summary;
                         calendarSelect.appendChild(option);
                     });
+                    // メインのカレンダー選択の初期値を設定
+                    // ユーザーのプライマリカレンダーがあればそれを選択、なければリストの最初のカレンダー
+                    const primaryCalendar = userCalendars.find(cal => cal.primary);
+                    if (primaryCalendar) {
+                        calendarSelect.value = primaryCalendar.id;
+                    } else if (userCalendars.length > 0) {
+                        calendarSelect.value = userCalendars[0].id;
+                    }
                     loadCalendarEvents();
                 } else {
                     calendarSelect.innerHTML = '<option value="">カレンダーが見つかりません</option>';
@@ -637,7 +653,7 @@
                         console.error("Parent event element (.flex) not found for checkbox.");
                     }
                     showStatus("プロジェクト選択ドロップダウンが見つからない予定があります。", true, 'reflect-status');
-                    return; // プロジェクト選択ドロップダウンが見つからない場合は処理を中断
+                    continue; // プロジェクト選択ドロップダウンが見つからない場合は処理を中断
                 }
 
                 const projectCode = projectSelect.value;
@@ -706,8 +722,6 @@
         function handleCreateEventClick() {
             // モーダルを表示
             createEventModal.classList.remove('hidden');
-            // 現在選択されているカレンダーのIDをモーダル内のどこかに設定するなど、初期値を設定することも可能
-            // 例: eventSummaryInput.value = '新しい予定';
             // 現在時刻をデフォルト値に設定
             const now = new Date();
             const year = now.getFullYear();
@@ -719,6 +733,35 @@
             eventStartDatetimeInput.value = currentDateTime;
             eventEndDatetimeInput.value = currentDateTime; // 終了時刻も初期値は同じに
             showStatus('', false, 'create-event-status'); // ステータスをクリア
+
+            // 予定作成モーダル内のカレンダー選択ドロップダウンを更新
+            eventCalendarSelect.innerHTML = '';
+            // 書き込み権限のあるカレンダーのみをフィルタリング
+            const writableCalendars = userCalendars.filter(cal => 
+                cal.accessRole === 'owner' || cal.accessRole === 'writer'
+            );
+
+            if (writableCalendars.length > 0) {
+                writableCalendars.forEach(calendar => {
+                    const option = document.createElement('option');
+                    option.value = calendar.id;
+                    option.textContent = calendar.summary;
+                    eventCalendarSelect.appendChild(option);
+                });
+                // メインのカレンダー選択と同じカレンダーを初期選択（書き込み可能であれば）
+                const currentMainCalendarId = calendarSelect.value;
+                const isMainCalendarWritable = writableCalendars.some(cal => cal.id === currentMainCalendarId);
+
+                if (isMainCalendarWritable) {
+                    eventCalendarSelect.value = currentMainCalendarId;
+                } else {
+                    // メインカレンダーが書き込み不可の場合、最初の書き込み可能カレンダーを選択
+                    eventCalendarSelect.value = writableCalendars[0].id;
+                }
+            } else {
+                eventCalendarSelect.innerHTML = '<option value="">作成可能なカレンダーがありません</option>';
+                showStatus("予定を作成できるカレンダーが見つかりませんでした。Googleカレンダーの権限を確認してください。", true, 'create-event-status');
+            }
         }
 
         /**
@@ -731,13 +774,13 @@
             showStatus("予定を作成中...", false, 'create-event-status');
 
             const summary = eventSummaryInput.value.trim();
+            const selectedCalendarId = eventCalendarSelect.value; // モーダル内のカレンダー選択からIDを取得
             const startDateTime = eventStartDatetimeInput.value;
             const endDateTime = eventEndDatetimeInput.value;
             const description = eventDescriptionInput.value.trim();
-            const calendarId = calendarSelect.value; // 現在選択されているカレンダーID
-
-            if (!summary || !startDateTime || !endDateTime || !calendarId) {
-                showStatus("タイトル、開始日時、終了日時、カレンダーは必須です。", true, 'create-event-status');
+            
+            if (!summary || !selectedCalendarId || !startDateTime || !endDateTime) {
+                showStatus("タイトル、カレンダー、開始日時、終了日時は必須です。", true, 'create-event-status');
                 return;
             }
 
@@ -770,7 +813,7 @@
 
             try {
                 const response = await gapi.client.calendar.events.insert({
-                    'calendarId': calendarId,
+                    'calendarId': selectedCalendarId, // モーダルで選択されたカレンダーIDを使用
                     'resource': eventBody,
                 });
 
@@ -780,11 +823,28 @@
                     createEventModal.classList.add('hidden'); // モーダルを閉じる
                     loadCalendarEvents(); // カレンダーイベントを再読み込みして、新しく作成された予定を表示
                 } else {
-                    throw new Error(`Google Calendar API Error: ${response.result.error.message}`);
+                    // Google APIからのエラーメッセージを直接表示
+                    const errorMessage = response.result?.error?.message || '不明なエラーが発生しました。';
+                    throw new Error(`Google Calendar API Error: ${errorMessage}`);
                 }
             } catch (error) {
                 console.error("Error creating calendar event:", error);
-                showStatus(`予定の作成に失敗しました: ${error.message}`, true, 'create-event-status');
+                let displayMessage = "不明なエラーが発生しました。";
+                if (error.message && error.message.startsWith('Google Calendar API Error: ')) {
+                    displayMessage = error.message.replace('Google Calendar API Error: ', '');
+                } else if (error.result?.error?.message) {
+                    displayMessage = error.result.error.message;
+                } else if (error.body) {
+                    try {
+                        const errorBody = JSON.parse(error.body);
+                        if (errorBody.error?.message) {
+                            displayMessage = errorBody.error.message;
+                        }
+                    } catch (parseError) {
+                        // JSONパースエラーは無視
+                    }
+                }
+                showStatus(`予定の作成に失敗しました: ${displayMessage}`, true, 'create-event-status');
             }
         }
 
