@@ -2,12 +2,9 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>稼働管理 - side pocket</title>
+    <title>稼働実績サマリー - side pocket</title>
     <link rel="icon" href="images/sidepocket_symbol.png">
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -22,219 +19,399 @@
 
         <main class="w-full max-w-4xl mx-auto">
             <div class="p-6 sm:p-8 space-y-6 bg-white rounded-2xl shadow-lg">
-                <header><h2 class="text-2xl sm:text-3xl font-bold text-gray-800">稼働管理</h2></header>
-                <div class="bg-gray-50 p-4 rounded-lg"><canvas id="monthlyChart"></canvas></div>
-                <div class="flex flex-wrap justify-between items-center gap-4">
+                <header class="flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <h2 class="text-2xl sm:text-3xl font-bold text-gray-800">稼働実績サマリー</h2>
+                </header>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end mb-6">
                     <div>
-                        <label for="monthSelector" class="text-sm font-medium text-gray-700">表示月を選択:</label>
-                        <select id="monthSelector" class="mt-1 block w-full sm:w-auto p-2 border border-gray-300 rounded-md"></select>
+                        <label for="summary-month" class="block text-sm font-medium text-gray-700">月を選択:</label>
+                        <input type="month" id="summary-month" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
                     </div>
-                    <div id="monthTotalHours" class="text-lg font-bold text-right text-gray-800"></div>
+                    <button id="load-summary-btn" class="btn bg-main hover:bg-main-dark text-white font-bold py-2 px-4 rounded md:col-span-1">サマリーを読み込む</button>
                 </div>
-                <div id="detailsContainer">
-                    <div id="projectTabs" class="border-b border-gray-200"></div>
-                    <div id="projectTabContent" class="mt-4"></div>
+
+                <div id="summary-container" class="space-y-4">
+                    <p class="text-gray-500 text-center py-4">月を選択して「サマリーを読み込む」を押してください。</p>
                 </div>
-                <div id="summaryStatus" class="pt-2 text-center text-gray-600 font-medium h-8"></div>
+                <div id="summary-status" class="text-center h-5 mt-4"></div>
             </div>
         </main>
     </div>
+
+    <!-- 編集モーダル -->
+    <div id="edit-timestamp-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+            <h3 class="text-xl font-bold mb-4">稼働実績を編集</h3>
+            <form id="edit-timestamp-form" class="space-y-4">
+                <input type="hidden" id="edit-timestamp-id">
+                <div>
+                    <label for="edit-clock-in-time" class="block text-sm font-medium text-gray-700">開始日時:</label>
+                    <input type="datetime-local" id="edit-clock-in-time" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
+                </div>
+                <div>
+                    <label for="edit-clock-out-time" class="block text-sm font-medium text-gray-700">終了日時:</label>
+                    <input type="datetime-local" id="edit-clock-out-time" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
+                </div>
+                <div>
+                    <label for="edit-project-select" class="block text-sm font-medium text-gray-700">プロジェクト:</label>
+                    <select id="edit-project-select" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
+                        <option value="">プロジェクトを選択</option>
+                    </select>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" id="cancel-edit-timestamp" class="btn bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded">キャンセル</button>
+                    <button type="submit" class="btn bg-main hover:bg-main-dark text-white font-bold py-2 px-4 rounded">更新</button>
+                </div>
+            </form>
+            <div id="edit-timestamp-status" class="text-center mt-4 h-5"></div>
+        </div>
+    </div>
+
+    <!-- 削除確認モーダル -->
+    <div id="delete-confirm-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm">
+            <h3 class="text-xl font-bold mb-4">稼働実績を削除</h3>
+            <p class="mb-6 text-gray-700">この稼働実績を本当に削除しますか？</p>
+            <div class="flex justify-end space-x-3">
+                <button type="button" id="cancel-delete-timestamp" class="btn bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded">キャンセル</button>
+                <button type="button" id="confirm-delete-timestamp" class="btn bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">削除</button>
+            </div>
+            <div id="delete-timestamp-status" class="text-center mt-4 h-5"></div>
+        </div>
+    </div>
     
     <script type="module">
-        import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { collection, query, where, onSnapshot, Timestamp, getDocs, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { initializePage, auth, db, showStatus } from './shared.js';
-        import { IPAEXG_FONT_B64 } from './fonts.js';
 
         let currentUser = null;
-        let fullDashboardData = {};
-        let monthlyChartInstance = null;
-        let timestampsUnsubscribe = null;
-        let projectsUnsubscribe = null;
-        const projectDataMap = new Map();
+        let userProjects = new Map(); // プロジェクトコードをキーとするMap
 
-        initializePage(user => {
+        const summaryMonthInput = document.getElementById('summary-month');
+        const loadSummaryBtn = document.getElementById('load-summary-btn');
+        const summaryContainer = document.getElementById('summary-container');
+        const summaryStatusElement = document.getElementById('summary-status');
+
+        // 編集モーダル関連要素
+        const editTimestampModal = document.getElementById('edit-timestamp-modal');
+        const editTimestampForm = document.getElementById('edit-timestamp-form');
+        const editTimestampIdInput = document.getElementById('edit-timestamp-id');
+        const editClockInTimeInput = document.getElementById('edit-clock-in-time');
+        const editClockOutTimeInput = document.getElementById('edit-clock-out-time');
+        const editProjectSelect = document.getElementById('edit-project-select');
+        const cancelEditTimestampButton = document.getElementById('cancel-edit-timestamp');
+        const editTimestampStatusElement = document.getElementById('edit-timestamp-status');
+
+        // 削除確認モーダル関連要素
+        const deleteConfirmModal = document.getElementById('delete-confirm-modal');
+        const cancelDeleteTimestampButton = document.getElementById('cancel-delete-timestamp');
+        const confirmDeleteTimestampButton = document.getElementById('confirm-delete-timestamp');
+        const deleteTimestampStatusElement = document.getElementById('delete-timestamp-status');
+
+        let currentTimestampToDeleteId = null; // 削除対象のタイムスタンプIDを保持
+
+        /**
+         * Firebase認証完了後に呼び出されるメインのセットアップ関数
+         * @param {object} user - Firebase認証ユーザーオブジェクト
+         */
+        async function setupSummaryPage(user) {
             currentUser = user;
-            listenToAllProjects();
-        });
+            // 月の入力フィールドの初期値を今月に設定
+            const now = new Date();
+            summaryMonthInput.value = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
 
-        function listenToAllProjects() {
-            if (!currentUser) return;
-            if (projectsUnsubscribe) projectsUnsubscribe();
-            const q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid));
-            projectsUnsubscribe = onSnapshot(q, (snapshot) => {
-                projectDataMap.clear();
-                snapshot.forEach(doc => {
-                    projectDataMap.set(doc.data().code, { id: doc.id, ...doc.data() });
-                });
-                listenToTimestamps();
-            });
-        }
-
-        function listenToTimestamps() {
-            if (!currentUser) return;
-            showStatus('データを読み込んでいます...', false, 'summaryStatus');
-            if (timestampsUnsubscribe) timestampsUnsubscribe();
-            const q = query(collection(db, "timestamps"), where("userId", "==", currentUser.uid), orderBy("clockInTime", "desc"));
-            timestampsUnsubscribe = onSnapshot(q, (snapshot) => {
-                const records = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                processDashboardData(records);
-                showStatus('', false, 'summaryStatus');
-            }, (error) => {
-                showStatus(`エラー: ${error.message}`, true, 'summaryStatus');
-            });
-        }
-        
-        function processDashboardData(records) {
-            const monthlyData = {};
-            records.forEach(record => {
-                if (!record.clockInTime) return;
-                const clockInTime = record.clockInTime.toDate();
-                const yearMonth = `${clockInTime.getFullYear()}-${(clockInTime.getMonth() + 1).toString().padStart(2, '0')}`;
-                const projectCode = record.projectCode || '未指定';
-                const duration = record.durationHours || 0;
-                if (!monthlyData[yearMonth]) monthlyData[yearMonth] = {};
-                if (!monthlyData[yearMonth][projectCode]) {
-                    const projectInfo = projectDataMap.get(projectCode) || { name: record.projectName, color: '#698966' };
-                    monthlyData[yearMonth][projectCode] = { projectName: projectInfo.name, total: 0, details: [] };
-                }
-                monthlyData[yearMonth][projectCode].total += duration;
-                if (record.durationHours !== null) {
-                    monthlyData[yearMonth][projectCode].details.push({
-                        recordId: record.id,
-                        clockIn: clockInTime,
-                        clockOut: record.clockOutTime ? record.clockOutTime.toDate() : null,
-                        duration: duration.toFixed(2),
-                        projectCode: projectCode
-                    });
-                }
-            });
-
-            fullDashboardData = monthlyData;
-            const allMonths = Object.keys(monthlyData).sort();
-            const allProjectCodes = [...new Set(Object.values(monthlyData).flatMap(month => Object.keys(month)))];
-            const datasets = allProjectCodes.map(projectCode => {
-                const projectInfo = projectDataMap.get(projectCode) || {};
-                const color = projectInfo.color || '#698966';
-                const dataPoints = allMonths.map(month => monthlyData[month][projectCode]?.total || 0);
-                return { label: `${projectInfo.name || projectCode}`, data: dataPoints, borderColor: color, backgroundColor: color, fill: false };
-            });
-            renderMonthlyChart({ labels: allMonths, datasets });
-
-            const availableMonths = Object.keys(fullDashboardData).sort().reverse();
-            const monthSelector = document.getElementById('monthSelector');
-            const currentMonth = monthSelector.value;
-            monthSelector.innerHTML = availableMonths.map(month => `<option value="${month}">${month}</option>`).join('');
+            // イベントリスナーの設定
+            loadSummaryBtn.addEventListener('click', loadSummary);
             
-            if (availableMonths.includes(currentMonth)) {
-                monthSelector.value = currentMonth;
-            }
+            // 編集モーダルのイベントリスナー
+            cancelEditTimestampButton.addEventListener('click', () => {
+                editTimestampModal.classList.add('hidden');
+                editTimestampForm.reset();
+                showStatus('', false, 'edit-timestamp-status');
+            });
+            editTimestampForm.addEventListener('submit', handleEditTimestampSubmit);
 
-            if (availableMonths.length > 0) {
-                renderMonthData(monthSelector.value || availableMonths[0]);
-            } else {
-                document.getElementById('detailsContainer').innerHTML = '<p class="text-center text-gray-500 py-4">表示できるデータがありません。</p>';
-                document.getElementById('monthTotalHours').textContent = '';
-            }
+            // 削除確認モーダルのイベントリスナー
+            cancelDeleteTimestampButton.addEventListener('click', () => {
+                deleteConfirmModal.classList.add('hidden');
+                showStatus('', false, 'delete-timestamp-status');
+            });
+            confirmDeleteTimestampButton.addEventListener('click', handleDeleteConfirmed);
+
+            // プロジェクトリストをFirestoreから読み込み
+            listenToUserProjects();
+
+            // 初期ロード
+            loadSummary();
+
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('app-container').style.display = 'block';
         }
 
-        function renderMonthlyChart(graphData) {
-            const ctx = document.getElementById('monthlyChart').getContext('2d');
-            if (monthlyChartInstance) {
-                monthlyChartInstance.data = graphData;
-                monthlyChartInstance.update();
-            } else {
-                monthlyChartInstance = new Chart(ctx, {
-                    type: 'line', data: graphData,
-                    options: { responsive: true, scales: { y: { beginAtZero: true, ticks: { callback: value => value + 'h' } } } }
+        /**
+         * ユーザーのプロジェクトリストをFirestoreから購読し、マップに保存する
+         */
+        function listenToUserProjects() {
+            if (!currentUser) return;
+            const q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid));
+            onSnapshot(q, (snapshot) => {
+                userProjects.clear();
+                snapshot.forEach(doc => {
+                    userProjects.set(doc.data().code, { id: doc.id, ...doc.data() });
                 });
-            }
+                updateProjectSelectDropdowns(); // プロジェクト選択ドロップダウンを更新
+            }, (error) => {
+                console.error("Error listening to projects:", error);
+                showStatus("プロジェクトの読み込みに失敗しました。", true, 'summary-status');
+            });
         }
 
-        document.getElementById('monthSelector').addEventListener('change', (e) => renderMonthData(e.target.value));
+        /**
+         * 編集モーダル内のプロジェクト選択ドロップダウンを更新
+         */
+        function updateProjectSelectDropdowns() {
+            editProjectSelect.innerHTML = '<option value="">プロジェクトを選択</option>';
+            Array.from(userProjects.values()).forEach(p => {
+                const option = document.createElement('option');
+                option.value = p.code;
+                option.textContent = `${p.code}: ${p.name}`;
+                editProjectSelect.appendChild(option);
+            });
+        }
 
-        function renderMonthData(month) {
-            const dataForMonth = fullDashboardData[month] || {};
-            const projects = Object.keys(dataForMonth);
-            const tabsContainer = document.getElementById('projectTabs');
-            const contentContainer = document.getElementById('projectTabContent');
-            let monthGrandTotal = 0;
-
-            if (projects.length === 0) {
-                tabsContainer.innerHTML = '';
-                contentContainer.innerHTML = '<p class="text-center text-gray-500 py-4">この月には記録がありません。</p>';
-                document.getElementById('monthTotalHours').textContent = '';
+        /**
+         * 選択された月の稼働実績サマリーを読み込む
+         */
+        async function loadSummary() {
+            if (!currentUser) {
+                showStatus("ユーザーが認証されていません。", true, 'summary-status');
                 return;
             }
-            tabsContainer.innerHTML = `<nav class="-mb-px flex space-x-4 overflow-x-auto">${projects.map((p, i) => `<button data-project="${p}" class="tab-btn whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm ${i===0 ? 'active border-main' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}">${dataForMonth[p].projectName}</button>`).join('')}</nav>`;
-            contentContainer.innerHTML = projects.map((p, i) => {
-                const projectData = dataForMonth[p];
-                const totalHours = projectData.total.toFixed(2);
-                monthGrandTotal += projectData.total;
-                let detailsHtml = `<div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-200"><thead><tr>
-                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">出勤</th>
-                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">退勤</th>
-                    <th class="px-4 py-2 text-right text-xs font-medium text-gray-500">時間(h)</th>
-                    </tr></thead><tbody>
-                    ${projectData.details.sort((a, b) => new Date(a.clockIn) - new Date(b.clockIn)).map(d => `<tr>
-                        <td class="px-4 py-2 text-sm">${d.clockIn.toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
-                        <td class="px-4 py-2 text-sm">${d.clockOut ? d.clockOut.toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '勤務中'}</td>
-                        <td class="px-4 py-2 text-sm text-right">${d.duration}</td>
-                    </tr>`).join('')}
-                </tbody></table></div>`;
-                return `<div data-content="${p}" class="${i===0 ? '' : 'hidden'}">
-                    <div class="flex flex-col sm:flex-row justify-between items-center p-4 bg-main-light rounded-lg gap-4">
-                        <h3 class="text-lg font-bold">プロジェクト合計: <span class="text-main">${totalHours}</span> 時間</h3>
-                        <button data-month="${month}" data-project="${p}" class="download-pdf-btn btn w-full sm:w-auto text-white bg-main hover:bg-main-dark px-4 py-2 rounded-lg">PDF出力</button>
-                    </div>
-                    <div class="mt-4">${detailsHtml}</div>
-                </div>`;
-            }).join('');
-            document.getElementById('monthTotalHours').textContent = `月間合計: ${monthGrandTotal.toFixed(2)} 時間`;
-            tabsContainer.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => {
-                const targetProject = btn.dataset.project;
-                tabsContainer.querySelectorAll('.tab-btn').forEach(b => {
-                    b.classList.remove('active', 'border-main');
-                    b.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
-                    if (b.dataset.project === targetProject) {
-                        b.classList.add('active', 'border-main');
-                        b.classList.remove('border-transparent', 'text-gray-500');
+
+            const selectedMonth = summaryMonthInput.value;
+            if (!selectedMonth) {
+                showStatus("月を選択してください。", true, 'summary-status');
+                return;
+            }
+
+            showStatus("サマリーを読み込み中...", false, 'summary-status');
+            summaryContainer.innerHTML = '<p class="text-gray-500 text-center py-4">読み込み中...</p>';
+
+            try {
+                const startOfMonth = new Date(selectedMonth + '-01T00:00:00');
+                const endOfMonth = new Date(startOfMonth.getFullYear(), startOfMonth.getMonth() + 1, 0, 23, 59, 59);
+
+                const q = query(
+                    collection(db, "timestamps"),
+                    where("userId", "==", currentUser.uid),
+                    where("clockInTime", ">=", Timestamp.fromDate(startOfMonth)),
+                    where("clockInTime", "<=", Timestamp.fromDate(endOfMonth))
+                );
+
+                onSnapshot(q, (snapshot) => {
+                    const timestamps = [];
+                    snapshot.forEach(doc => {
+                        timestamps.push({ id: doc.id, ...doc.data() });
+                    });
+                    renderSummary(timestamps);
+                    showStatus("サマリーを更新しました。", false, 'summary-status');
+                }, (error) => {
+                    console.error("Error fetching summary:", error);
+                    showStatus("サマリーの読み込みに失敗しました。", true, 'summary-status');
+                });
+
+            } catch (error) {
+                console.error("Error loading summary:", error);
+                showStatus(`サマリーの読み込み中にエラーが発生しました: ${error.message}`, true, 'summary-status');
+            }
+        }
+
+        /**
+         * 稼働実績データをHTMLにレンダリングする
+         * @param {Array} timestamps - 稼働実績データの配列
+         */
+        function renderSummary(timestamps) {
+            summaryContainer.innerHTML = '';
+            if (timestamps.length === 0) {
+                summaryContainer.innerHTML = '<p class="text-gray-500 text-center py-4">この月には稼働実績がありません。</p>';
+                return;
+            }
+
+            // 日付ごとにグループ化
+            const groupedByDate = timestamps.reduce((acc, ts) => {
+                const date = ts.clockInTime.toDate().toLocaleDateString('ja-JP');
+                if (!acc[date]) {
+                    acc[date] = [];
+                }
+                acc[date].push(ts);
+                return acc;
+            }, {});
+
+            for (const date in groupedByDate) {
+                const dailyEntries = groupedByDate[date];
+                let dailyTotalHours = 0;
+
+                const dateHeader = document.createElement('h3');
+                dateHeader.className = 'text-lg font-semibold text-gray-700 mt-4 mb-2 border-b pb-1';
+                dateHeader.textContent = date;
+                summaryContainer.appendChild(dateHeader);
+
+                dailyEntries.sort((a, b) => a.clockInTime.toDate() - b.clockInTime.toDate());
+
+                dailyEntries.forEach(ts => {
+                    const clockIn = ts.clockInTime.toDate();
+                    const clockOut = ts.clockOutTime.toDate();
+                    const duration = ts.durationHours || ((clockOut.getTime() - clockIn.getTime()) / 3600000);
+                    dailyTotalHours += duration;
+
+                    const entryDiv = document.createElement('div');
+                    entryDiv.className = 'flex flex-col sm:flex-row items-start sm:items-center p-3 bg-white rounded-lg shadow-sm mb-2';
+                    entryDiv.innerHTML = `
+                        <div class="flex-grow grid grid-cols-1 sm:grid-cols-3 gap-2 w-full sm:w-auto">
+                            <p class="text-sm text-gray-800 font-medium whitespace-nowrap overflow-hidden text-ellipsis">${clockIn.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })} - ${clockOut.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}</p>
+                            <p class="text-sm text-gray-600 whitespace-nowrap overflow-hidden text-ellipsis">PJ: ${ts.projectCode || '未選択'}</p>
+                            <p class="text-sm text-gray-600 whitespace-nowrap overflow-hidden text-ellipsis">時間: ${duration.toFixed(2)}h</p>
+                        </div>
+                        <div class="flex-shrink-0 flex gap-2 mt-3 sm:mt-0 sm:ml-4">
+                            <button class="btn btn-sm bg-blue-500 hover:bg-blue-600 text-white py-1 px-3 rounded text-xs edit-btn" data-id="${ts.id}">編集</button>
+                            <button class="btn btn-sm bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded text-xs delete-btn" data-id="${ts.id}">削除</button>
+                        </div>
+                    `;
+                    summaryContainer.appendChild(entryDiv);
+                });
+
+                const dailyTotalDiv = document.createElement('div');
+                dailyTotalDiv.className = 'flex justify-end font-bold text-gray-800 text-md mt-2 mb-4 pr-3';
+                dailyTotalDiv.textContent = `合計: ${dailyTotalHours.toFixed(2)}h`;
+                summaryContainer.appendChild(dailyTotalDiv);
+            }
+
+            // 編集・削除ボタンにイベントリスナーをアタッチ
+            document.querySelectorAll('.edit-btn').forEach(button => {
+                button.addEventListener('click', (e) => handleEditClick(e.target.dataset.id));
+            });
+            document.querySelectorAll('.delete-btn').forEach(button => {
+                button.addEventListener('click', (e) => handleDeleteClick(e.target.dataset.id));
+            });
+        }
+
+        /**
+         * 編集ボタンがクリックされたときのハンドラー
+         * @param {string} timestampId - 編集対象のタイムスタンプID
+         */
+        async function handleEditClick(timestampId) {
+            showStatus("稼働実績データを読み込み中...", false, 'edit-timestamp-status');
+            try {
+                const docRef = doc(db, "timestamps", timestampId);
+                const docSnap = await getDocs(docRef); // getDocではなくgetDocsを使用
+                
+                let timestampData = null;
+                // getDocsはクエリ結果のスナップショットを返すため、forEachでアクセス
+                docSnap.forEach(d => {
+                    if (d.id === timestampId) { // 念のためIDを再確認
+                        timestampData = { id: d.id, ...d.data() };
                     }
                 });
-                contentContainer.querySelectorAll('[data-content]').forEach(c => c.classList.toggle('hidden', c.dataset.content !== targetProject));
-            }));
-        }
 
-        document.getElementById('detailsContainer').addEventListener('click', (e) => {
-            if (e.target && e.target.classList.contains('download-pdf-btn')) {
-                downloadPdf(e.target.dataset.month, e.target.dataset.project);
+                if (!timestampData) {
+                    throw new Error("稼働実績が見つかりませんでした。");
+                }
+
+                editTimestampIdInput.value = timestampData.id;
+                editClockInTimeInput.value = timestampData.clockInTime.toDate().toISOString().substring(0, 16);
+                editClockOutTimeInput.value = timestampData.clockOutTime.toDate().toISOString().substring(0, 16);
+                editProjectSelect.value = timestampData.projectCode || ''; // プロジェクトコードを設定
+
+                editTimestampModal.classList.remove('hidden');
+                showStatus('', false, 'edit-timestamp-status'); // ステータスをクリア
+            } catch (error) {
+                console.error("Error loading timestamp for edit:", error);
+                showStatus(`編集データの読み込みに失敗しました: ${error.message}`, true, 'edit-timestamp-status');
             }
-        });
-
-        function downloadPdf(month, projectCode) {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            const projectData = fullDashboardData[month]?.[projectCode];
-            if (!projectData) return;
-            doc.addFileToVFS("ipaexg.ttf", IPAEXG_FONT_B64);
-            doc.addFont("ipaexg.ttf", "ipaexg", "normal");
-            doc.setFont("ipaexg");
-            doc.setFontSize(18);
-            doc.text(`${month} 稼働時間報告書`, 14, 22);
-            doc.setFontSize(14);
-            doc.text(`${projectData.projectName} (${projectCode})`, 14, 32);
-            doc.setFontSize(12);
-            doc.text(`合計時間: ${projectData.total.toFixed(2)} 時間`, 14, 42);
-            const tableColumn = ["日付", "出勤", "退勤", "時間(h)"];
-            const tableRows = [];
-            projectData.details.sort((a, b) => new Date(a.clockIn) - new Date(b.clockIn)).forEach(detail => {
-                const datePart = detail.clockIn.toLocaleDateString('ja-JP');
-                const clockInTimePart = (detail.clockIn || "").toLocaleString('ja-JP', { hour: '2-digit', minute: '2-digit' });
-                const clockOutTimePart = (detail.clockOut || "").toLocaleString('ja-JP', { hour: '2-digit', minute: '2-digit' });
-                tableRows.push([datePart, clockInTimePart, clockOutTimePart, detail.duration]);
-            });
-            doc.autoTable({ head: [tableColumn], body: tableRows, startY: 50, styles: { font: "ipaexg", fontStyle: 'normal' }, headStyles: { fillColor: [105, 137, 102] }, margin: { top: 10, right: 10, bottom: 10, left: 10 } });
-            doc.save(`稼働報告書_${month}_${projectCode}.pdf`);
         }
+
+        /**
+         * 稼働実績編集フォームが送信されたときのハンドラー
+         * @param {Event} event - フォーム送信イベント
+         */
+        async function handleEditTimestampSubmit(event) {
+            event.preventDefault();
+            showStatus("稼働実績を更新中...", false, 'edit-timestamp-status');
+
+            const timestampId = editTimestampIdInput.value;
+            const clockInTimeStr = editClockInTimeInput.value;
+            const clockOutTimeStr = editClockOutTimeInput.value;
+            const projectCode = editProjectSelect.value;
+
+            if (!timestampId || !clockInTimeStr || !clockOutTimeStr || !projectCode) {
+                showStatus("すべてのフィールドを入力してください。", true, 'edit-timestamp-status');
+                return;
+            }
+
+            const clockInTime = Timestamp.fromDate(new Date(clockInTimeStr));
+            const clockOutTime = Timestamp.fromDate(new Date(clockOutTimeStr));
+
+            if (clockInTime.toDate() >= clockOutTime.toDate()) {
+                showStatus("終了日時は開始日時より後に設定してください。", true, 'edit-timestamp-status');
+                return;
+            }
+
+            const durationHours = (clockOutTime.toDate().getTime() - clockInTime.toDate().getTime()) / 3600000;
+            const projectName = userProjects.get(projectCode)?.name || projectCode; // プロジェクト名を取得
+
+            try {
+                const timestampRef = doc(db, "timestamps", timestampId);
+                await updateDoc(timestampRef, {
+                    clockInTime: clockInTime,
+                    clockOutTime: clockOutTime,
+                    durationHours: parseFloat(durationHours.toFixed(2)),
+                    projectCode: projectCode,
+                    projectName: projectName,
+                    updatedAt: Timestamp.now() // 更新日時を追加
+                });
+
+                showStatus("稼働実績が更新されました！", false, 'edit-timestamp-status');
+                editTimestampModal.classList.add('hidden');
+                editTimestampForm.reset();
+                // onSnapshotが自動的にUIを更新するため、loadSummary()は不要
+            } catch (error) {
+                console.error("Error updating timestamp:", error);
+                showStatus(`稼働実績の更新に失敗しました: ${error.message}`, true, 'edit-timestamp-status');
+            }
+        }
+
+        /**
+         * 削除ボタンがクリックされたときのハンドラー
+         * @param {string} timestampId - 削除対象のタイムスタンプID
+         */
+        function handleDeleteClick(timestampId) {
+            currentTimestampToDeleteId = timestampId; // 削除対象IDを保存
+            deleteConfirmModal.classList.remove('hidden'); // 削除確認モーダルを表示
+            showStatus('', false, 'delete-timestamp-status'); // ステータスをクリア
+        }
+
+        /**
+         * 削除確認モーダルで「削除」がクリックされたときのハンドラー
+         */
+        async function handleDeleteConfirmed() {
+            if (!currentTimestampToDeleteId) return;
+
+            showStatus("稼働実績を削除中...", false, 'delete-timestamp-status');
+            try {
+                await deleteDoc(doc(db, "timestamps", currentTimestampToDeleteId));
+                showStatus("稼働実績が削除されました！", false, 'delete-timestamp-status');
+                deleteConfirmModal.classList.add('hidden');
+                currentTimestampToDeleteId = null; // IDをクリア
+                // onSnapshotが自動的にUIを更新するため、loadSummary()は不要
+            } catch (error) {
+                console.error("Error deleting timestamp:", error);
+                showStatus(`稼働実績の削除に失敗しました: ${error.message}`, true, 'delete-timestamp-status');
+            }
+        }
+
+        // 共通の初期化処理を呼び出し、認証完了後にサマリーページの処理を実行
+        initializePage(setupSummaryPage);
     </script>
 </body>
 </html>
