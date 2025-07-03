@@ -528,14 +528,23 @@
                 }
 
                 const eventId = checkbox.dataset.eventId;
-                const eventElement = checkbox.closest('.flex');
-                const projectSelect = eventElement.querySelector(`.project-select`);
+                console.log(`Processing eventId: ${eventId}`); // デバッグ用ログを追加
+
+                // プロジェクト選択ドロップダウンをIDで直接取得するように修正
+                const projectSelect = document.getElementById(`project-select-${eventId}`);
                 
                 // projectSelectがnullでないことを確認
                 if (!projectSelect) {
                     console.error(`プロジェクト選択ドロップダウンが見つかりません。Event ID: ${eventId}`);
+                    // デバッグのために、親要素のHTML内容をログに出力
+                    const eventElement = checkbox.closest('.flex');
+                    if (eventElement) {
+                        console.error("Parent event element HTML:", eventElement.innerHTML);
+                    } else {
+                        console.error("Parent event element (.flex) not found for checkbox.");
+                    }
                     showStatus("プロジェクト選択ドロップダウンが見つからない予定があります。", true, 'reflect-status');
-                    continue; // このイベントはスキップして次のイベントへ
+                    return; // プロジェクト選択ドロップダウンが見つからない場合は処理を中断
                 }
 
                 const projectCode = projectSelect.value;
