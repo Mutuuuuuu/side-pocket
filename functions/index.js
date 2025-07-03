@@ -81,9 +81,10 @@ exports.exchangeGoogleToken = onRequest(async (req, res) => {
 
             const { tokens } = await oAuth2Client.getToken(code);
 
-            if (tokens.refresh_token) {
+            // ここもtokens.credentials.refresh_tokenに修正
+            if (tokens.credentials.refresh_token) {
                 await db.collection('users').doc(decodedIdToken.uid).set({
-                    googleRefreshToken: tokens.refresh_token,
+                    googleRefreshToken: tokens.credentials.refresh_token,
                     googleAccessTokenExpiresAt: admin.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
             }
@@ -157,14 +158,16 @@ exports.refreshGoogleAccessToken = onRequest(async (req, res) => {
                 return;
             }
 
-            if (tokens.refresh_token) {
+            // ここを tokens.credentials.refresh_token に修正
+            if (tokens.credentials.refresh_token) {
                 await db.collection('users').doc(decodedIdToken.uid).set({
-                    googleRefreshToken: tokens.refresh_token,
+                    googleRefreshToken: tokens.credentials.refresh_token,
                     googleAccessTokenExpiresAt: admin.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
             }
 
-            res.status(200).json({ accessToken: tokens.access_token });
+            // ここを tokens.credentials.access_token に修正
+            res.status(200).json({ accessToken: tokens.credentials.access_token });
 
         } catch (error) {
             console.error("Error refreshing access token (outer catch):", error); // デバッグログ
