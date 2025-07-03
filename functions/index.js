@@ -129,10 +129,12 @@ exports.refreshGoogleAccessToken = onRequest(async (req, res) => {
 
         try {
             const userDoc = await db.collection('users').doc(decodedIdToken.uid).get();
-            const refreshToken = userDoc.data()?.googleRefreshToken;
+            // userDoc.data() が undefined の可能性があるので、安全にアクセスする
+            const refreshToken = userDoc.data()?.googleRefreshToken; 
 
             if (!refreshToken) {
                 console.error(`Refresh token not found for user: ${decodedIdToken.uid}`);
+                // リフレッシュトークンがない場合は404エラーを返す
                 res.status(404).send('リフレッシュトークンが見つかりません。Googleアカウントとの連携を再度行ってください。');
                 return;
             }
