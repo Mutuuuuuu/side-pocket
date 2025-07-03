@@ -24,10 +24,11 @@ const GOOGLE_CLIENT_SECRET = process.env.GOOGLEAPI_CLIENT_SECRET; // 環境変�
 const GOOGLE_REDIRECT_URI = process.env.GOOGLEAPI_REDIRECT_URI; // 環境変数から直接取得
 
 // OAuth2クライアントを設定します。
+// redirect_uri を初期化時に含めるように修正しました。
 const oAuth2Client = new google.auth.OAuth2(
     GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET,
-    GOOGLE_REDIRECT_URI
+    GOOGLE_REDIRECT_URI // ここでredirect_uriを含める
 );
 
 /**
@@ -73,7 +74,11 @@ exports.exchangeGoogleToken = onRequest(async (req, res) => {
         }
 
         try {
-            oAuth2Client.setRedirectUri(redirectUri);
+            // oAuth2Clientのredirect_uriは初期化時に設定済みのため、ここでのsetRedirectUriは不要です。
+            // ただし、もし動的に変更する必要がある場合は、新しいOAuth2Clientインスタンスを作成するか、
+            // Google API Client Libraryの適切なメソッドを使用する必要があります。
+            // 現在のシナリオでは、Functionsの環境変数として設定されたredirect_uriを使用します。
+
             const { tokens } = await oAuth2Client.getToken(code);
 
             if (tokens.refresh_token) {
@@ -132,6 +137,7 @@ exports.refreshGoogleAccessToken = onRequest(async (req, res) => {
                 return;
             }
 
+            // oAuth2Clientのredirect_uriは初期化時に設定済みのため、ここでのsetRedirectUriは不要です。
             oAuth2Client.setCredentials({ refresh_token: refreshToken });
             const { tokens } = await oAuth2Client.refreshAccessToken();
 
