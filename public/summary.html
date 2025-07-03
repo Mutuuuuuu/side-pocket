@@ -21,6 +21,8 @@
             <div class="p-6 sm:p-8 space-y-6 bg-white rounded-2xl shadow-lg">
                 <header class="flex flex-col sm:flex-row justify-between items-center gap-4">
                     <h2 class="text-2xl sm:text-3xl font-bold text-gray-800">稼働実績サマリー</h2>
+                    <!-- PDF出力ボタンを追加 -->
+                    <button id="generate-pdf-btn" class="btn bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">PDF出力</button>
                 </header>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end mb-6">
@@ -31,8 +33,15 @@
                     <button id="load-summary-btn" class="btn bg-main hover:bg-main-dark text-white font-bold py-2 px-4 rounded md:col-span-1">サマリーを読み込む</button>
                 </div>
 
-                <div id="summary-container" class="space-y-4">
-                    <p class="text-gray-500 text-center py-4">月を選択して「サマリーを読み込む」を押してください。</p>
+                <!-- タブとコンテンツのコンテナ -->
+                <div id="summary-tabs-container" class="space-y-4">
+                    <div role="tablist" id="project-tab-list" class="flex flex-wrap border-b border-gray-200 -mb-px">
+                        <!-- プロジェクトタブがここに動的に挿入されます -->
+                    </div>
+                    <div id="project-tab-content" class="mt-4">
+                        <!-- プロジェクトごとの稼働実績がここに動的に挿入されます -->
+                        <p class="text-gray-500 text-center py-4">月を選択して「サマリーを読み込む」を押してください。</p>
+                    </div>
                 </div>
                 <div id="summary-status" class="text-center h-5 mt-4"></div>
             </div>
@@ -81,17 +90,24 @@
         </div>
     </div>
     
+    <!-- html2pdf.js ライブラリを読み込み -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
     <script type="module">
-        import { collection, query, where, onSnapshot, Timestamp, getDocs, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { collection, query, where, onSnapshot, Timestamp, getDocs, doc, updateDoc, deleteDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { initializePage, auth, db, showStatus } from './shared.js';
 
         let currentUser = null;
         let userProjects = new Map(); // プロジェクトコードをキーとするMap
+        let loadedTimestamps = []; // 読み込んだ稼働実績データを保持するグローバル変数
 
         const summaryMonthInput = document.getElementById('summary-month');
         const loadSummaryBtn = document.getElementById('load-summary-btn');
-        const summaryContainer = document.getElementById('summary-container');
+        const summaryTabsContainer = document.getElementById('summary-tabs-container'); // 新しいコンテナ
+        const projectTabList = document.getElementById('project-tab-list'); // タブリスト
+        const projectTabContent = document.getElementById('project-tab-content'); // タブコンテンツ
         const summaryStatusElement = document.getElementById('summary-status');
+        const generatePdfBtn = document.getElementById('generate-pdf-btn'); // PDF出力ボタン
 
         // 編集モーダル関連要素
         const editTimestampModal = document.getElementById('edit-timestamp-modal');
@@ -123,6 +139,7 @@
 
             // イベントリスナーの設定
             loadSummaryBtn.addEventListener('click', loadSummary);
+            generatePdfBtn.addEventListener('click', generateSummaryPdf); // PDF出力ボタンのイベントリスナー
             
             // 編集モーダルのイベントリスナー
             cancelEditTimestampButton.addEventListener('click', () => {
@@ -161,6 +178,8 @@
                     userProjects.set(doc.data().code, { id: doc.id, ...doc.data() });
                 });
                 updateProjectSelectDropdowns(); // プロジェクト選択ドロップダウンを更新
+                // プロジェクトリストが更新されたら、サマリーを再描画する
+                renderSummary(loadedTimestamps);
             }, (error) => {
                 console.error("Error listening to projects:", error);
                 showStatus("プロジェクトの読み込みに失敗しました。", true, 'summary-status');
@@ -196,7 +215,8 @@
             }
 
             showStatus("サマリーを読み込み中...", false, 'summary-status');
-            summaryContainer.innerHTML = '<p class="text-gray-500 text-center py-4">読み込み中...</p>';
+            projectTabList.innerHTML = ''; // タブをクリア
+            projectTabContent.innerHTML = '<p class="text-gray-500 text-center py-4">読み込み中...</p>'; // コンテンツをクリア
 
             try {
                 const startOfMonth = new Date(selectedMonth + '-01T00:00:00');
@@ -210,11 +230,11 @@
                 );
 
                 onSnapshot(q, (snapshot) => {
-                    const timestamps = [];
+                    loadedTimestamps = []; // グローバル変数に割り当て
                     snapshot.forEach(doc => {
-                        timestamps.push({ id: doc.id, ...doc.data() });
+                        loadedTimestamps.push({ id: doc.id, ...doc.data() });
                     });
-                    renderSummary(timestamps);
+                    renderSummary(loadedTimestamps); // renderSummaryに渡す
                     showStatus("サマリーを更新しました。", false, 'summary-status');
                 }, (error) => {
                     console.error("Error fetching summary:", error);
@@ -228,66 +248,140 @@
         }
 
         /**
-         * 稼働実績データをHTMLにレンダリングする
+         * 稼働実績データをHTMLにレンダリングする (プロジェクトごとのタブ表示)
          * @param {Array} timestamps - 稼働実績データの配列
          */
         function renderSummary(timestamps) {
-            summaryContainer.innerHTML = '';
+            projectTabList.innerHTML = ''; // 既存のタブをクリア
+            projectTabContent.innerHTML = ''; // 既存のコンテンツをクリア
+
             if (timestamps.length === 0) {
-                summaryContainer.innerHTML = '<p class="text-gray-500 text-center py-4">この月には稼働実績がありません。</p>';
+                projectTabContent.innerHTML = '<p class="text-gray-500 text-center py-4">この月には稼働実績がありません。</p>';
                 return;
             }
 
-            // 日付ごとにグループ化
-            const groupedByDate = timestamps.reduce((acc, ts) => {
-                const date = ts.clockInTime.toDate().toLocaleDateString('ja-JP');
-                if (!acc[date]) {
-                    acc[date] = [];
+            // Group by projectCode
+            const groupedByProject = timestamps.reduce((acc, ts) => {
+                const projectCode = ts.projectCode || '未選択';
+                if (!acc[projectCode]) {
+                    acc[projectCode] = [];
                 }
-                acc[date].push(ts);
+                acc[projectCode].push(ts);
                 return acc;
             }, {});
 
-            for (const date in groupedByDate) {
-                const dailyEntries = groupedByDate[date];
-                let dailyTotalHours = 0;
+            let firstTab = true;
 
-                const dateHeader = document.createElement('h3');
-                dateHeader.className = 'text-lg font-semibold text-gray-700 mt-4 mb-2 border-b pb-1';
-                dateHeader.textContent = date;
-                summaryContainer.appendChild(dateHeader);
+            for (const projectCode in groupedByProject) {
+                const projectEntries = groupedByProject[projectCode];
+                const projectName = userProjects.get(projectCode)?.name || projectCode; // プロジェクト名を取得
 
-                dailyEntries.sort((a, b) => a.clockInTime.toDate() - b.clockInTime.toDate());
+                // Create Tab Button
+                const tabButton = document.createElement('button');
+                tabButton.className = `py-2 px-4 text-sm font-medium focus:outline-none ${firstTab ? 'border-b-2 border-main text-main' : 'text-gray-600 hover:text-gray-800 hover:border-gray-300'}`;
+                tabButton.setAttribute('role', 'tab');
+                tabButton.setAttribute('aria-selected', firstTab ? 'true' : 'false');
+                tabButton.setAttribute('aria-controls', `panel-${projectCode}`);
+                tabButton.id = `tab-${projectCode}`;
+                tabButton.textContent = projectName; // プロジェクト名を表示
+                tabButton.dataset.projectCode = projectCode; // プロジェクトコードをデータ属性に保存
 
-                dailyEntries.forEach(ts => {
-                    const clockIn = ts.clockInTime.toDate();
-                    const clockOut = ts.clockOutTime.toDate();
-                    const duration = ts.durationHours || ((clockOut.getTime() - clockIn.getTime()) / 3600000);
-                    dailyTotalHours += duration;
+                projectTabList.appendChild(tabButton);
 
-                    const entryDiv = document.createElement('div');
-                    entryDiv.className = 'flex flex-col sm:flex-row items-start sm:items-center p-3 bg-white rounded-lg shadow-sm mb-2';
-                    entryDiv.innerHTML = `
-                        <div class="flex-grow grid grid-cols-1 sm:grid-cols-3 gap-2 w-full sm:w-auto">
-                            <p class="text-sm text-gray-800 font-medium whitespace-nowrap overflow-hidden text-ellipsis">${clockIn.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })} - ${clockOut.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}</p>
-                            <p class="text-sm text-gray-600 whitespace-nowrap overflow-hidden text-ellipsis">PJ: ${ts.projectCode || '未選択'}</p>
-                            <p class="text-sm text-gray-600 whitespace-nowrap overflow-hidden text-ellipsis">時間: ${duration.toFixed(2)}h</p>
-                        </div>
-                        <div class="flex-shrink-0 flex gap-2 mt-3 sm:mt-0 sm:ml-4">
-                            <button class="btn btn-sm bg-blue-500 hover:bg-blue-600 text-white py-1 px-3 rounded text-xs edit-btn" data-id="${ts.id}">編集</button>
-                            <button class="btn btn-sm bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded text-xs delete-btn" data-id="${ts.id}">削除</button>
-                        </div>
-                    `;
-                    summaryContainer.appendChild(entryDiv);
-                });
+                // Create Tab Panel
+                const tabPanel = document.createElement('div');
+                tabPanel.className = `p-4 bg-white rounded-lg shadow-sm ${firstTab ? '' : 'hidden'}`;
+                tabPanel.setAttribute('role', 'tabpanel');
+                tabPanel.setAttribute('aria-labelledby', `tab-${projectCode}`);
+                tabPanel.id = `panel-${projectCode}`;
 
-                const dailyTotalDiv = document.createElement('div');
-                dailyTotalDiv.className = 'flex justify-end font-bold text-gray-800 text-md mt-2 mb-4 pr-3';
-                dailyTotalDiv.textContent = `合計: ${dailyTotalHours.toFixed(2)}h`;
-                summaryContainer.appendChild(dailyTotalDiv);
+                // Group by date within this project
+                const groupedByDate = projectEntries.reduce((acc, ts) => {
+                    const date = ts.clockInTime.toDate().toLocaleDateString('ja-JP');
+                    if (!acc[date]) {
+                        acc[date] = [];
+                    }
+                    acc[date].push(ts);
+                    return acc;
+                }, {});
+
+                for (const date in groupedByDate) {
+                    const dailyEntries = groupedByDate[date];
+                    let dailyTotalHours = 0;
+
+                    const dateHeader = document.createElement('h4'); // h4に変更
+                    dateHeader.className = 'text-md font-semibold text-gray-700 mt-4 mb-2 border-b pb-1';
+                    dateHeader.textContent = date;
+                    tabPanel.appendChild(dateHeader);
+
+                    dailyEntries.sort((a, b) => a.clockInTime.toDate() - b.clockInTime.toDate());
+
+                    dailyEntries.forEach(ts => {
+                        const clockIn = ts.clockInTime.toDate();
+                        const clockOut = ts.clockOutTime.toDate();
+                        const duration = ts.durationHours || ((clockOut.getTime() - clockIn.getTime()) / 3600000);
+                        dailyTotalHours += duration;
+
+                        const entryDiv = document.createElement('div');
+                        entryDiv.className = 'flex flex-col sm:flex-row items-start sm:items-center p-3 bg-white rounded-lg shadow-sm mb-2';
+                        entryDiv.innerHTML = `
+                            <div class="flex-grow grid grid-cols-1 sm:grid-cols-3 gap-2 w-full sm:w-auto">
+                                <p class="text-sm text-gray-800 font-medium whitespace-nowrap overflow-hidden text-ellipsis">${clockIn.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })} - ${clockOut.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}</p>
+                                <p class="text-sm text-gray-600 whitespace-nowrap overflow-hidden text-ellipsis">PJ: ${ts.projectCode || '未選択'}</p>
+                                <p class="text-sm text-gray-600 whitespace-nowrap overflow-hidden text-ellipsis">時間: ${duration.toFixed(2)}h</p>
+                            </div>
+                            <div class="flex-shrink-0 flex gap-2 mt-3 sm:mt-0 sm:ml-4">
+                                <button class="btn btn-sm bg-blue-500 hover:bg-blue-600 text-white py-1 px-3 rounded text-xs edit-btn" data-id="${ts.id}">編集</button>
+                                <button class="btn btn-sm bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded text-xs delete-btn" data-id="${ts.id}">削除</button>
+                            </div>
+                        `;
+                        tabPanel.appendChild(entryDiv);
+                    });
+
+                    const dailyTotalDiv = document.createElement('div');
+                    dailyTotalDiv.className = 'flex justify-end font-bold text-gray-800 text-md mt-2 mb-4 pr-3';
+                    dailyTotalDiv.textContent = `合計: ${dailyTotalHours.toFixed(2)}h`;
+                    tabPanel.appendChild(dailyTotalDiv);
+                }
+                projectTabContent.appendChild(tabPanel);
+                firstTab = false;
             }
 
-            // 編集・削除ボタンにイベントリスナーをアタッチ
+            // タブ切り替えロジック
+            projectTabList.querySelectorAll('button[role="tab"]').forEach(tabButton => {
+                tabButton.addEventListener('click', (e) => {
+                    const targetTab = e.target;
+                    const targetPanelId = targetTab.getAttribute('aria-controls');
+
+                    // すべてのタブを非アクティブ化し、すべてのパネルを非表示にする
+                    projectTabList.querySelectorAll('button[role="tab"]').forEach(btn => {
+                        btn.setAttribute('aria-selected', 'false');
+                        btn.classList.remove('border-b-2', 'border-main', 'text-main');
+                        btn.classList.add('text-gray-600', 'hover:text-gray-800', 'hover:border-gray-300');
+                    });
+                    projectTabContent.querySelectorAll('div[role="tabpanel"]').forEach(panel => {
+                        panel.classList.add('hidden');
+                    });
+
+                    // クリックされたタブをアクティブ化し、そのパネルを表示する
+                    targetTab.setAttribute('aria-selected', 'true');
+                    targetTab.classList.add('border-b-2', 'border-main', 'text-main');
+                    targetTab.classList.remove('text-gray-600', 'hover:text-gray-800', 'hover:border-gray-300');
+                    document.getElementById(targetPanelId).classList.remove('hidden');
+
+                    // アクティブなタブコンテンツの編集/削除リスナーを再アタッチ
+                    // onSnapshotで自動更新されるため、再アタッチは通常不要ですが、念のため
+                    // document.querySelectorAll(`#${targetPanelId} .edit-btn`).forEach(button => {
+                    //     button.addEventListener('click', (e) => handleEditClick(e.target.dataset.id));
+                    // });
+                    // document.querySelectorAll(`#${targetPanelId} .delete-btn`).forEach(button => {
+                    //     button.addEventListener('click', (e) => handleDeleteClick(e.target.dataset.id));
+                    // });
+                });
+            });
+
+            // 初回ロード時またはデータ更新時に、編集・削除ボタンのイベントリスナーをアタッチ
+            // onSnapshotからの更新でこの関数が呼ばれるため、ここでアタッチするのが適切
             document.querySelectorAll('.edit-btn').forEach(button => {
                 button.addEventListener('click', (e) => handleEditClick(e.target.dataset.id));
             });
@@ -304,19 +398,14 @@
             showStatus("稼働実績データを読み込み中...", false, 'edit-timestamp-status');
             try {
                 const docRef = doc(db, "timestamps", timestampId);
-                const docSnap = await getDocs(docRef); // getDocではなくgetDocsを使用
+                // getDocsではなくgetDocを使用するように修正
+                const docSnap = await getDoc(docRef); 
                 
-                let timestampData = null;
-                // getDocsはクエリ結果のスナップショットを返すため、forEachでアクセス
-                docSnap.forEach(d => {
-                    if (d.id === timestampId) { // 念のためIDを再確認
-                        timestampData = { id: d.id, ...d.data() };
-                    }
-                });
-
-                if (!timestampData) {
+                if (!docSnap.exists()) {
                     throw new Error("稼働実績が見つかりませんでした。");
                 }
+
+                const timestampData = { id: docSnap.id, ...docSnap.data() };
 
                 editTimestampIdInput.value = timestampData.id;
                 editClockInTimeInput.value = timestampData.clockInTime.toDate().toISOString().substring(0, 16);
@@ -408,6 +497,90 @@
                 console.error("Error deleting timestamp:", error);
                 showStatus(`稼働実績の削除に失敗しました: ${error.message}`, true, 'delete-timestamp-status');
             }
+        }
+
+        /**
+         * 表示されているサマリー内容をPDFとして生成する
+         */
+        async function generateSummaryPdf() {
+            showStatus("PDFを生成中...", false, 'summary-status');
+
+            // PDFに含めるコンテンツを一時的に構築する
+            const pdfContent = document.createElement('div');
+            pdfContent.className = 'p-6'; // PDFに適切なパディングを追加
+
+            // タイトルを追加
+            const title = document.createElement('h2');
+            title.className = 'text-2xl font-bold mb-4';
+            title.textContent = `稼働実績サマリー (${summaryMonthInput.value}月)`;
+            pdfContent.appendChild(title);
+
+            if (!loadedTimestamps || loadedTimestamps.length === 0) {
+                showStatus("PDFにする稼働実績がありません。", true, 'summary-status');
+                return;
+            }
+
+            // プロジェクトごとにグループ化
+            const groupedByProjectForPdf = loadedTimestamps.reduce((acc, ts) => {
+                const projectCode = ts.projectCode || '未選択';
+                if (!acc[projectCode]) {
+                    acc[projectCode] = [];
+                }
+                acc[projectCode].push(ts);
+                return acc;
+            }, {});
+
+            for (const projectCode in groupedByProjectForPdf) {
+                const projectEntries = groupedByProjectForPdf[projectCode];
+                const projectName = userProjects.get(projectCode)?.name || projectCode;
+
+                const projectHeader = document.createElement('h3');
+                projectHeader.className = 'text-xl font-semibold mt-6 mb-2';
+                projectHeader.textContent = `プロジェクト: ${projectName}`;
+                pdfContent.appendChild(projectHeader);
+
+                // 日付ごとにグループ化
+                const groupedByDateForPdf = projectEntries.reduce((acc, ts) => {
+                    const date = ts.clockInTime.toDate().toLocaleDateString('ja-JP');
+                    if (!acc[date]) {
+                        acc[date] = [];
+                    }
+                    acc[date].push(ts);
+                    return acc;
+                }, {});
+
+                for (const date in groupedByDateForPdf) {
+                    const dailyEntries = groupedByDateForPdf[date];
+                    let dailyTotalHours = 0;
+
+                    const dateSubHeader = document.createElement('h4');
+                    dateSubHeader.className = 'text-lg font-medium mt-4 mb-1';
+                    dateSubHeader.textContent = date;
+                    pdfContent.appendChild(dateSubHeader);
+
+                    dailyEntries.sort((a, b) => a.clockInTime.toDate() - b.clockInTime.toDate());
+
+                    dailyEntries.forEach(ts => {
+                        const clockIn = ts.clockInTime.toDate();
+                        const clockOut = ts.clockOutTime.toDate();
+                        const duration = ts.durationHours || ((clockOut.getTime() - clockIn.getTime()) / 3600000);
+                        dailyTotalHours += duration;
+
+                        const entryP = document.createElement('p');
+                        entryP.className = 'text-sm ml-4';
+                        entryP.textContent = `${clockIn.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })} - ${clockOut.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })} | PJ: ${ts.projectCode || '未選択'} | 時間: ${duration.toFixed(2)}h`;
+                        pdfContent.appendChild(entryP);
+                    });
+                    const dailyTotalP = document.createElement('p');
+                    dailyTotalP.className = 'text-md font-semibold ml-4 mt-1';
+                    dailyTotalP.textContent = `日合計: ${dailyTotalHours.toFixed(2)}h`;
+                    pdfContent.appendChild(dailyTotalP);
+                }
+            }
+
+            // html2pdfを使用してPDFを生成
+            html2pdf().from(pdfContent).save(`稼働実績サマリー_${summaryMonthInput.value}.pdf`);
+            showStatus("PDFを生成しました。", false, 'summary-status');
         }
 
         // 共通の初期化処理を呼び出し、認証完了後にサマリーページの処理を実行
