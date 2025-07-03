@@ -42,6 +42,10 @@ const oAuth2Client = new google.auth.OAuth2(
  * @returns {object} アクセストークンを含むオブジェクト。
  */
 exports.exchangeGoogleToken = onCall(async (data, context) => {
+    // onCall関数はデフォルトでCORSを処理するため、通常は明示的なCORSヘッダーは不要です。
+    // ただし、もしプリフライトリクエストで問題が発生する場合は、以下の設定を検討します。
+    // ここでは、HTTP Callable Functionsの推奨されるCORS設定方法に従います。
+
     // Firebaseで認証されたユーザーのみがこの関数を呼び出せるようにします。
     if (!context.auth) {
         console.error("Unauthenticated user attempted to call exchangeGoogleToken.");
@@ -94,6 +98,8 @@ exports.exchangeGoogleToken = onCall(async (data, context) => {
  * @returns {object} 新しいアクセストークンを含むオブジェクト。
  */
 exports.refreshGoogleAccessToken = onCall(async (data, context) => {
+    // onCall関数はデフォルトでCORSを処理するため、通常は明示的なCORSヘッダーは不要です。
+
     // Firebaseで認証されたユーザーのみがこの関数を呼び出せるようにします。
     if (!context.auth) {
         console.error("Unauthenticated user attempted to call refreshGoogleAccessToken.");
@@ -130,6 +136,7 @@ exports.refreshGoogleAccessToken = onCall(async (data, context) => {
 
     } catch (error) {
         console.error("Error refreshing access token:", error);
+        // エラーが発生した場合、クライアントに適切なエラーメッセージを返します。
         throw new HttpsError('internal', 'アクセストークンの更新に失敗しました。', error.message);
     }
 });
