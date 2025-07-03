@@ -321,7 +321,8 @@
                 // Sort entries by clockInTime for this project
                 projectEntries.sort((a, b) => a.clockInTime.toDate() - b.clockInTime.toDate());
 
-                let projectTotalHours = 0;
+                // 各プロジェクトの合計時間を初期化
+                let projectTotalHours = 0; 
 
                 // Create table for each project
                 const table = document.createElement('table');
@@ -365,7 +366,7 @@
 
                 const projectTotalDiv = document.createElement('div');
                 projectTotalDiv.className = 'flex justify-end font-bold text-gray-800 text-lg mt-4 pr-3';
-                projectTotalDiv.textContent = `合計時間: ${totalProjectHours.toFixed(2)} 時間`;
+                projectTotalDiv.textContent = `合計時間: ${projectTotalHours.toFixed(2)} 時間`;
                 tabPanel.appendChild(projectTotalDiv);
 
                 projectTabContent.appendChild(tabPanel);
