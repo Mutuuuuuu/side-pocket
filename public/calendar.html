@@ -191,7 +191,8 @@
             try {
                 showStatus("認証情報を交換中...", false, 'gcal-auth-status');
                 // Firebase FunctionsのURLが設定されているか確認
-                if (EXCHANGE_TOKEN_FUNCTION_URL === "https://exchangegoogletoken-ej3atw2f2a-an.a.run.app" || !EXCHANGE_TOKEN_FUNCTION_URL) {
+                // URLが空でないことのみを確認する
+                if (!EXCHANGE_TOKEN_FUNCTION_URL) { // 修正点: URLが空でないことのみをチェック
                     throw new Error("Firebase FunctionsのURLが設定されていません。");
                 }
 
