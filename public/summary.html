@@ -644,6 +644,11 @@
          * @param {Array} timestamps - 稼働実績データの配列
          */
         function updateChart(timestamps) {
+            // chartContainerが非表示の場合は何もしない
+            if (chartContainer.classList.contains('hidden')) {
+                return;
+            }
+
             if (chartInstance) {
                 chartInstance.destroy(); // 既存のグラフがあれば破棄
             }
