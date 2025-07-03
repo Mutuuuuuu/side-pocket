@@ -1,12 +1,11 @@
 // functions/index.js
 // Firebase Functionsに必要なモジュールをインポートします。
-// V2 APIのHTTPSトリガーとグローバルオプションをインポートします。
+// onRequest HTTPトリガーとグローバルオプションをインポートします。
 const { setGlobalOptions } = require('firebase-functions/v2');
-const { HttpsError, onCall } = require('firebase-functions/v2/https');
-// functions.config() の代わりに、設定パラメータを定義するためにparamsをインポートします。
-const { defineString } = require('firebase-functions/params');
+const { onRequest } = require('firebase-functions/v2/https'); // onRequestをインポート
 const { google } = require('googleapis');
 const admin = require('firebase-admin');
+const cors = require('cors')({ origin: true }); // CORSミドルウェアをインポート
 
 // Firebase Admin SDKを初期化します。
 admin.initializeApp();
@@ -20,123 +19,134 @@ setGlobalOptions({
 });
 
 // 環境変数をFirebase Functionsのparamsとして定義します。
-// これらはFirebase CLIで設定した環境変数に対応します。
-const GOOGLE_CLIENT_ID = defineString('GOOGLEAPI_CLIENT_ID');
-const GOOGLE_CLIENT_SECRET = defineString('GOOGLEAPI_CLIENT_SECRET');
-const GOOGLE_REDIRECT_URI = defineString('GOOGLEAPI_REDIRECT_URI');
-
+const GOOGLE_CLIENT_ID = process.env.GOOGLEAPI_CLIENT_ID; // 環境変数から直接取得
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLEAPI_CLIENT_SECRET; // 環境変数から直接取得
+const GOOGLE_REDIRECT_URI = process.env.GOOGLEAPI_REDIRECT_URI; // 環境変数から直接取得
 
 // OAuth2クライアントを設定します。
 const oAuth2Client = new google.auth.OAuth2(
-    GOOGLE_CLIENT_ID.value(),     // paramsからクライアントIDを取得
-    GOOGLE_CLIENT_SECRET.value(), // paramsからクライアントシークレットを取得
-    GOOGLE_REDIRECT_URI.value()   // paramsからリダイレクトURIを取得
+    GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET,
+    GOOGLE_REDIRECT_URI
 );
 
 /**
- * Google認証コードをアクセストークンとリフレッシュトークンに交換するHTTP Callable Functionです。
+ * Google認証コードをアクセストークンとリフレッシュトークンに交換するHTTP Functionです。
  * クライアントサイドから認証コードを受け取り、サーバーサイドで安全にトークン交換を行います。
  *
- * @param {object} data - クライアントから送信されるデータ。`code` (認証コード) と `redirectUri` を含みます。
- * @param {object} context - 関数の実行コンテキスト。Firebase認証情報を含みます。
- * @returns {object} アクセストークンを含むオブジェクト。
+ * @param {object} req - HTTPリクエストオブジェクト。
+ * @param {object} res - HTTPレスポンスオブジェクト。
  */
-exports.exchangeGoogleToken = onCall(async (data, context) => {
-    // onCall関数はデフォルトでCORSを処理するため、通常は明示的なCORSヘッダーは不要です。
-    // ただし、もしプリフライトリクエストで問題が発生する場合は、以下の設定を検討します。
-    // ここでは、HTTP Callable Functionsの推奨されるCORS設定方法に従います。
-
-    // Firebaseで認証されたユーザーのみがこの関数を呼び出せるようにします。
-    if (!context.auth) {
-        console.error("Unauthenticated user attempted to call exchangeGoogleToken.");
-        throw new HttpsError('unauthenticated', 'ユーザーは認証されていません。');
-    }
-
-    const { code, redirectUri } = data;
-
-    // 必要なデータが提供されているか確認します。
-    if (!code || !redirectUri) {
-        console.error("Missing code or redirectUri in exchangeGoogleToken call.");
-        throw new HttpsError('invalid-argument', '認証コードまたはリダイレクトURIが不足しています。');
-    }
-
-    try {
-        // OAuth2クライアントのリダイレクトURIを動的に設定します。
-        // これは、Google Cloud Consoleに登録されているリダイレクトURIと一致している必要があります。
-        oAuth2Client.setRedirectUri(redirectUri);
-
-        // 認証コードをGoogleのアクセストークンとリフレッシュトークンに交換します。
-        const { tokens } = await oAuth2Client.getToken(code);
-
-        // リフレッシュトークンは機密情報であり、クライアントには返すべきではありません。
-        // Firestoreなど、サーバーサイドで安全に保存します。
-        // これにより、将来的にユーザーの介入なしにアクセストークンを更新できます。
-        if (tokens.refresh_token) {
-            await db.collection('users').doc(context.auth.uid).set({
-                googleRefreshToken: tokens.refresh_token,
-                // アクセストークンの有効期限も記録しておくと良いでしょう（オプション）。
-                googleAccessTokenExpiresAt: admin.firestore.FieldValue.serverTimestamp()
-            }, { merge: true }); // 既存のユーザーデータとマージして更新します。
+exports.exchangeGoogleToken = onRequest(async (req, res) => {
+    // CORSミドルウェアを適用します。
+    // これにより、許可されたオリジンからのクロスオリジンリクエストを処理します。
+    cors(req, res, async () => {
+        // リクエストメソッドがOPTIONSの場合（プリフライトリクエスト）、即座に成功応答を返します。
+        if (req.method === 'OPTIONS') {
+            res.status(204).send('');
+            return;
         }
 
-        // クライアントにはアクセストークンのみを返します。
-        return { accessToken: tokens.access_token };
+        // Firebase認証トークンをリクエストヘッダーから取得します。
+        const idToken = req.headers.authorization?.split('Bearer ')[1];
+        if (!idToken) {
+            console.error("Unauthenticated request to exchangeGoogleToken: Missing ID token.");
+            res.status(401).send('ユーザーは認証されていません。');
+            return;
+        }
 
-    } catch (error) {
-        console.error("Error exchanging code for tokens:", error);
-        // エラーが発生した場合、クライアントに適切なエラーメッセージを返します。
-        throw new HttpsError('internal', 'トークン交換に失敗しました。', error.message);
-    }
+        let decodedIdToken;
+        try {
+            decodedIdToken = await admin.auth().verifyIdToken(idToken);
+        } catch (error) {
+            console.error("Error verifying Firebase ID token:", error);
+            res.status(401).send('無効な認証トークンです。');
+            return;
+        }
+
+        const { code, redirectUri } = req.body;
+
+        if (!code || !redirectUri) {
+            console.error("Missing code or redirectUri in exchangeGoogleToken request body.");
+            res.status(400).send('認証コードまたはリダイレクトURIが不足しています。');
+            return;
+        }
+
+        try {
+            oAuth2Client.setRedirectUri(redirectUri);
+            const { tokens } = await oAuth2Client.getToken(code);
+
+            if (tokens.refresh_token) {
+                await db.collection('users').doc(decodedIdToken.uid).set({
+                    googleRefreshToken: tokens.refresh_token,
+                    googleAccessTokenExpiresAt: admin.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+            }
+
+            res.status(200).json({ accessToken: tokens.access_token });
+
+        } catch (error) {
+            console.error("Error exchanging code for tokens:", error);
+            res.status(500).send(`トークン交換に失敗しました: ${error.message}`);
+        }
+    });
 });
 
 /**
- * 保存されたリフレッシュトークンを使用して新しいアクセストークンを取得するHTTP Callable Functionです。
+ * 保存されたリフレッシュトークンを使用して新しいアクセストークンを取得するHTTP Functionです。
  * クライアントサイドから呼び出され、Google APIへのリクエスト前にアクセストークンを更新します。
  *
- * @param {object} data - クライアントから送信されるデータ（この関数では不要）。
- * @param {object} context - 関数の実行コンテキスト。Firebase認証情報を含みます。
- * @returns {object} 新しいアクセストークンを含むオブジェクト。
+ * @param {object} req - HTTPリクエストオブジェクト。
+ * @param {object} res - HTTPレスポンスオブジェクト。
  */
-exports.refreshGoogleAccessToken = onCall(async (data, context) => {
-    // onCall関数はデフォルトでCORSを処理するため、通常は明示的なCORSヘッダーは不要です。
-
-    // Firebaseで認証されたユーザーのみがこの関数を呼び出せるようにします。
-    if (!context.auth) {
-        console.error("Unauthenticated user attempted to call refreshGoogleAccessToken.");
-        throw new HttpsError('unauthenticated', 'ユーザーは認証されていません。');
-    }
-
-    try {
-        // ユーザーのFirestoreドキュメントから保存されたリフレッシュトークンを取得します。
-        const userDoc = await db.collection('users').doc(context.auth.uid).get();
-        const refreshToken = userDoc.data()?.googleRefreshToken;
-
-        // リフレッシュトークンが見つからない場合はエラーを返します。
-        if (!refreshToken) {
-            console.error(`Refresh token not found for user: ${context.auth.uid}`);
-            throw new HttpsError('not-found', 'リフレッシュトークンが見つかりません。Googleアカウントとの連携を再度行ってください。');
+exports.refreshGoogleAccessToken = onRequest(async (req, res) => {
+    cors(req, res, async () => {
+        if (req.method === 'OPTIONS') {
+            res.status(204).send('');
+            return;
         }
 
-        // OAuth2クライアントにリフレッシュトークンを設定します。
-        oAuth2Client.setCredentials({ refresh_token: refreshToken });
-
-        // リフレッシュトークンを使用して新しいアクセストークンを取得します。
-        const { tokens } = await oAuth2Client.refreshAccessToken();
-
-        // 新しいリフレッシュトークンが発行された場合（稀ですが）、Firestoreの情報を更新します。
-        if (tokens.refresh_token) {
-            await db.collection('users').doc(context.auth.uid).set({
-                googleRefreshToken: tokens.refresh_token,
-                googleAccessTokenExpiresAt: admin.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
+        const idToken = req.headers.authorization?.split('Bearer ')[1];
+        if (!idToken) {
+            console.error("Unauthenticated request to refreshGoogleAccessToken: Missing ID token.");
+            res.status(401).send('ユーザーは認証されていません。');
+            return;
         }
 
-        // 新しいアクセストークンをクライアントに返します。
-        return { accessToken: tokens.access_token };
+        let decodedIdToken;
+        try {
+            decodedIdToken = await admin.auth().verifyIdToken(idToken);
+        } catch (error) {
+            console.error("Error verifying Firebase ID token:", error);
+            res.status(401).send('無効な認証トークンです。');
+            return;
+        }
 
-    } catch (error) {
-        console.error("Error refreshing access token:", error);
-        // エラーが発生した場合、クライアントに適切なエラーメッセージを返します。
-        throw new HttpsError('internal', 'アクセストークンの更新に失敗しました。', error.message);
-    }
+        try {
+            const userDoc = await db.collection('users').doc(decodedIdToken.uid).get();
+            const refreshToken = userDoc.data()?.googleRefreshToken;
+
+            if (!refreshToken) {
+                console.error(`Refresh token not found for user: ${decodedIdToken.uid}`);
+                res.status(404).send('リフレッシュトークンが見つかりません。Googleアカウントとの連携を再度行ってください。');
+                return;
+            }
+
+            oAuth2Client.setCredentials({ refresh_token: refreshToken });
+            const { tokens } = await oAuth2Client.refreshAccessToken();
+
+            if (tokens.refresh_token) {
+                await db.collection('users').doc(decodedIdToken.uid).set({
+                    googleRefreshToken: tokens.refresh_token,
+                    googleAccessTokenExpiresAt: admin.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+            }
+
+            res.status(200).json({ accessToken: tokens.access_token });
+
+        } catch (error) {
+            console.error("Error refreshing access token:", error);
+            res.status(500).send(`アクセストークンの更新に失敗しました: ${error.message}`);
+        }
+    });
 });
