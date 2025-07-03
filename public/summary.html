@@ -31,10 +31,20 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end mb-6">
                     <div>
-                        <label for="summary-month" class="block text-sm font-medium text-gray-700">月を選択:</label>
+                        <label for="summary-month" class="block text-sm font-medium text-gray-700">表示月 (テーブル用):</label>
                         <input type="month" id="summary-month" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
                     </div>
-                    <button id="load-summary-btn" class="btn bg-main hover:bg-main-dark text-white font-bold py-2 px-4 rounded md:col-span-1">サマリーを読み込む</button>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="chart-start-month" class="block text-sm font-medium text-gray-700">グラフ開始月 (任意):</label>
+                            <input type="month" id="chart-start-month" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                        </div>
+                        <div>
+                            <label for="chart-end-month" class="block text-sm font-medium text-gray-700">グラフ終了月 (任意):</label>
+                            <input type="month" id="chart-end-month" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                        </div>
+                    </div>
+                    <button id="load-summary-btn" class="btn bg-main hover:bg-main-dark text-white font-bold py-2 px-4 rounded md:col-span-2">サマリーを読み込む</button>
                 </div>
 
                 <!-- グラフ表示エリア -->
@@ -60,7 +70,7 @@
     </div>
 
     <!-- 編集モーダル -->
-    <div id="edit-timestamp-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 hidden">
+    <div id="edit-timestamp-modal" class="fixed inset-0 bg-gray-600 bg-opacity50 flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
             <h3 class="text-xl font-bold mb-4">稼働実績を編集</h3>
             <form id="edit-timestamp-form" class="space-y-4">
@@ -117,6 +127,8 @@
         let chartInstance = null; // Chart.jsのインスタンスを保持
 
         const summaryMonthInput = document.getElementById('summary-month');
+        const chartStartMonthInput = document.getElementById('chart-start-month'); // 追加
+        const chartEndMonthInput = document.getElementById('chart-end-month');   // 追加
         const loadSummaryBtn = document.getElementById('load-summary-btn');
         const summaryTabsContainer = document.getElementById('summary-tabs-container'); // 新しいコンテナ
         const projectTabList = document.getElementById('project-tab-list'); // タブリスト
@@ -229,7 +241,7 @@
 
             const selectedMonth = summaryMonthInput.value;
             if (!selectedMonth) {
-                showStatus("月を選択してください。", true, 'summary-status');
+                showStatus("テーブル表示用の月を選択してください。", true, 'summary-status');
                 return;
             }
 
@@ -238,11 +250,24 @@
             projectTabContent.innerHTML = '<p class="text-gray-500 text-center py-4">読み込み中...</p>'; // コンテンツをクリア
 
             try {
-                const selectedDate = new Date(selectedMonth + '-01T00:00:00');
+                const selectedDateForTable = new Date(selectedMonth + '-01T00:00:00');
                 
-                // Fetch data for the selected month and the 5 preceding months (total 6 months)
-                const endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0, 23, 59, 59); // End of selected month
-                const startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() - 5, 1, 0, 0, 0); // Start of 6 months ago
+                let startDate;
+                let endDate;
+
+                const chartStartMonth = chartStartMonthInput.value;
+                const chartEndMonth = chartEndMonthInput.value;
+
+                if (chartStartMonth && chartEndMonth) {
+                    // ユーザーがカスタム期間を指定した場合
+                    startDate = new Date(chartStartMonth + '-01T00:00:00');
+                    const tempEndDate = new Date(chartEndMonth + '-01T00:00:00');
+                    endDate = new Date(tempEndDate.getFullYear(), tempEndDate.getMonth() + 1, 0, 23, 59, 59); // 終了月の最終日
+                } else {
+                    // デフォルト: テーブル表示用の月と過去5ヶ月 (合計6ヶ月)
+                    startDate = new Date(selectedDateForTable.getFullYear(), selectedDateForTable.getMonth() - 5, 1, 0, 0, 0);
+                    endDate = new Date(selectedDateForTable.getFullYear(), selectedDateForTable.getMonth() + 1, 0, 23, 59, 59);
+                }
 
                 const q = query(
                     collection(db, "timestamps"),
@@ -259,10 +284,10 @@
                     // Filter timestamps for the currently selected month for the table view
                     const currentMonthTimestamps = loadedTimestamps.filter(ts => {
                         const tsDate = ts.clockInTime.toDate();
-                        return tsDate.getFullYear() === selectedDate.getFullYear() && tsDate.getMonth() === selectedDate.getMonth();
+                        return tsDate.getFullYear() === selectedDateForTable.getFullYear() && tsDate.getMonth() === selectedDateForTable.getMonth();
                     });
-                    renderSummary(currentMonthTimestamps); // Table view only shows selected month
-                    updateChart(loadedTimestamps); // Chart uses all loaded data for trend
+                    renderSummary(currentMonthTimestamps); // テーブル表示は選択された月のみ
+                    updateChart(loadedTimestamps, startDate, endDate); // グラフは全期間のデータを使用
                     showStatus("サマリーを更新しました。", false, 'summary-status');
                 }, (error) => {
                     console.error("Error fetching summary:", error);
@@ -643,7 +668,10 @@
             chartContainer.classList.toggle('hidden');
             if (!chartContainer.classList.contains('hidden')) {
                 toggleChartBtn.textContent = 'グラフを非表示';
-                updateChart(loadedTimestamps); // 表示時にグラフを更新
+                updateChart(loadedTimestamps, 
+                            new Date(summaryMonthInput.value + '-01T00:00:00'), // Start of selected month
+                            new Date(new Date(summaryMonthInput.value + '-01T00:00:00').getFullYear(), new Date(summaryMonthInput.value + '-01T00:00:00').getMonth() + 1, 0, 23, 59, 59) // End of selected month
+                            ); // 表示時にグラフを更新
             } else {
                 toggleChartBtn.textContent = 'グラフを表示';
             }
@@ -651,9 +679,11 @@
 
         /**
          * 稼働実績データに基づいてグラフを更新する
-         * @param {Array} timestamps - 稼働実績データの配列
+         * @param {Array} timestamps - 稼働実績データの配列 (全期間)
+         * @param {Date} chartStartDate - グラフの開始日付
+         * @param {Date} chartEndDate - グラフの終了日付
          */
-        function updateChart(timestamps) {
+        function updateChart(timestamps, chartStartDate, chartEndDate) {
             // chartContainerが非表示の場合は何もしない
             if (chartContainer.classList.contains('hidden')) {
                 return;
@@ -679,19 +709,15 @@
                 }
             }
 
-            // グラフに表示する月の範囲を決定
-            const selectedMonth = summaryMonthInput.value;
-            const selectedYear = parseInt(selectedMonth.substring(0, 4));
-            const selectedMon = parseInt(selectedMonth.substring(5, 7)) - 1;
-
-            const monthLabels = []; // '7月', '8月'
-            const monthKeys = []; // 'YYYY-MM'
+            const monthLabels = [];
+            const monthKeys = [];
             
-            // 選択された月と過去5ヶ月 (合計6ヶ月) のラベルを生成
-            for (let i = 5; i >= 0; i--) {
-                const date = new Date(selectedYear, selectedMon - i, 1);
-                monthLabels.push(`${date.getMonth() + 1}月`);
-                monthKeys.push(`${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`);
+            // Generate month labels and keys based on the actual chartStartDate and chartEndDate
+            let currentDate = new Date(chartStartDate.getFullYear(), chartStartDate.getMonth(), 1);
+            while (currentDate <= chartEndDate) {
+                monthLabels.push(`${currentDate.getMonth() + 1}月`);
+                monthKeys.push(`${currentDate.getFullYear()}-${(currentDate.getMonth() + 1).toString().padStart(2, '0')}`);
+                currentDate.setMonth(currentDate.getMonth() + 1);
             }
 
             // プロジェクトごとの月次稼働時間を集計
