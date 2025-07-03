@@ -21,8 +21,12 @@
             <div class="p-6 sm:p-8 space-y-6 bg-white rounded-2xl shadow-lg">
                 <header class="flex flex-col sm:flex-row justify-between items-center gap-4">
                     <h2 class="text-2xl sm:text-3xl font-bold text-gray-800">稼働実績サマリー</h2>
-                    <!-- PDF出力ボタンを追加 -->
-                    <button id="generate-pdf-btn" class="btn bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">PDF出力</button>
+                    <div class="flex flex-wrap gap-2">
+                        <!-- PDF出力ボタンの色を統一 -->
+                        <button id="generate-pdf-btn" class="btn bg-main hover:bg-main-dark text-white font-bold py-2 px-4 rounded">PDF出力</button>
+                        <!-- グラフ表示/非表示ボタンを追加 -->
+                        <button id="toggle-chart-btn" class="btn bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded">グラフを表示</button>
+                    </div>
                 </header>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end mb-6">
@@ -31,6 +35,12 @@
                         <input type="month" id="summary-month" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
                     </div>
                     <button id="load-summary-btn" class="btn bg-main hover:bg-main-dark text-white font-bold py-2 px-4 rounded md:col-span-1">サマリーを読み込む</button>
+                </div>
+
+                <!-- グラフ表示エリア -->
+                <div id="chart-container" class="hidden bg-gray-50 p-4 rounded-lg shadow-inner mb-6">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">月次プロジェクト別稼働推移</h3>
+                    <canvas id="time-chart"></canvas>
                 </div>
 
                 <!-- タブとコンテンツのコンテナ -->
@@ -70,6 +80,7 @@
                 </div>
                 <div class="flex justify-end space-x-3">
                     <button type="button" id="cancel-edit-timestamp" class="btn bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded">キャンセル</button>
+                    <!-- 編集モーダルの更新ボタンの色を統一 -->
                     <button type="submit" class="btn bg-main hover:bg-main-dark text-white font-bold py-2 px-4 rounded">更新</button>
                 </div>
             </form>
@@ -92,6 +103,8 @@
     
     <!-- html2pdf.js ライブラリを読み込み -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- Chart.js ライブラリを読み込み -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <script type="module">
         import { collection, query, where, onSnapshot, Timestamp, getDocs, doc, updateDoc, deleteDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -100,6 +113,7 @@
         let currentUser = null;
         let userProjects = new Map(); // プロジェクトコードをキーとするMap
         let loadedTimestamps = []; // 読み込んだ稼働実績データを保持するグローバル変数
+        let chartInstance = null; // Chart.jsのインスタンスを保持
 
         const summaryMonthInput = document.getElementById('summary-month');
         const loadSummaryBtn = document.getElementById('load-summary-btn');
@@ -108,6 +122,9 @@
         const projectTabContent = document.getElementById('project-tab-content'); // タブコンテンツ
         const summaryStatusElement = document.getElementById('summary-status');
         const generatePdfBtn = document.getElementById('generate-pdf-btn'); // PDF出力ボタン
+        const toggleChartBtn = document.getElementById('toggle-chart-btn'); // グラフ表示/非表示ボタン
+        const chartContainer = document.getElementById('chart-container'); // グラフコンテナ
+        const timeChartCanvas = document.getElementById('time-chart'); // Chart.jsのキャンバス
 
         // 編集モーダル関連要素
         const editTimestampModal = document.getElementById('edit-timestamp-modal');
@@ -140,6 +157,7 @@
             // イベントリスナーの設定
             loadSummaryBtn.addEventListener('click', loadSummary);
             generatePdfBtn.addEventListener('click', generateSummaryPdf); // PDF出力ボタンのイベントリスナー
+            toggleChartBtn.addEventListener('click', toggleChartVisibility); // グラフ表示/非表示ボタンのイベントリスナー
             
             // 編集モーダルのイベントリスナー
             cancelEditTimestampButton.addEventListener('click', () => {
@@ -235,6 +253,7 @@
                         loadedTimestamps.push({ id: doc.id, ...doc.data() });
                     });
                     renderSummary(loadedTimestamps); // renderSummaryに渡す
+                    updateChart(loadedTimestamps); // グラフを更新
                     showStatus("サマリーを更新しました。", false, 'summary-status');
                 }, (error) => {
                     console.error("Error fetching summary:", error);
@@ -249,6 +268,7 @@
 
         /**
          * 稼働実績データをHTMLにレンダリングする (プロジェクトごとのタブ表示)
+         * 日ごとのグループ化を廃止
          * @param {Array} timestamps - 稼働実績データの配列
          */
         function renderSummary(timestamps) {
@@ -270,9 +290,12 @@
                 return acc;
             }, {});
 
+            // Sort project codes alphabetically
+            const sortedProjectCodes = Object.keys(groupedByProject).sort();
+
             let firstTab = true;
 
-            for (const projectCode in groupedByProject) {
+            sortedProjectCodes.forEach(projectCode => {
                 const projectEntries = groupedByProject[projectCode];
                 const projectName = userProjects.get(projectCode)?.name || projectCode; // プロジェクト名を取得
 
@@ -295,57 +318,59 @@
                 tabPanel.setAttribute('aria-labelledby', `tab-${projectCode}`);
                 tabPanel.id = `panel-${projectCode}`;
 
-                // Group by date within this project
-                const groupedByDate = projectEntries.reduce((acc, ts) => {
-                    const date = ts.clockInTime.toDate().toLocaleDateString('ja-JP');
-                    if (!acc[date]) {
-                        acc[date] = [];
-                    }
-                    acc[date].push(ts);
-                    return acc;
-                }, {});
+                // Sort entries by clockInTime for this project
+                projectEntries.sort((a, b) => a.clockInTime.toDate() - b.clockInTime.toDate());
 
-                for (const date in groupedByDate) {
-                    const dailyEntries = groupedByDate[date];
-                    let dailyTotalHours = 0;
+                let projectTotalHours = 0;
 
-                    const dateHeader = document.createElement('h4'); // h4に変更
-                    dateHeader.className = 'text-md font-semibold text-gray-700 mt-4 mb-2 border-b pb-1';
-                    dateHeader.textContent = date;
-                    tabPanel.appendChild(dateHeader);
+                // Create table for each project
+                const table = document.createElement('table');
+                table.className = 'min-w-full divide-y divide-gray-200';
+                table.innerHTML = `
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">日付</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">稼働時間</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">時間(h)</th>
+                            <th scope="col" class="relative px-6 py-3">
+                                <span class="sr-only">編集</span>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                    </tbody>
+                `;
+                const tbody = table.querySelector('tbody');
 
-                    dailyEntries.sort((a, b) => a.clockInTime.toDate() - b.clockInTime.toDate());
+                projectEntries.forEach(ts => {
+                    const clockIn = ts.clockInTime.toDate();
+                    const clockOut = ts.clockOutTime.toDate();
+                    const duration = ts.durationHours || ((clockOut.getTime() - clockIn.getTime()) / 3600000);
+                    projectTotalHours += duration;
 
-                    dailyEntries.forEach(ts => {
-                        const clockIn = ts.clockInTime.toDate();
-                        const clockOut = ts.clockOutTime.toDate();
-                        const duration = ts.durationHours || ((clockOut.getTime() - clockIn.getTime()) / 3600000);
-                        dailyTotalHours += duration;
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${clockIn.toLocaleDateString('ja-JP')}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${clockIn.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })} - ${clockOut.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${duration.toFixed(2)}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button class="btn btn-sm bg-blue-500 hover:bg-blue-600 text-white py-1 px-3 rounded text-xs edit-btn" data-id="${ts.id}">編集</button>
+                            <button class="btn btn-sm bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded text-xs delete-btn" data-id="${ts.id}">削除</button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
 
-                        const entryDiv = document.createElement('div');
-                        entryDiv.className = 'flex flex-col sm:flex-row items-start sm:items-center p-3 bg-white rounded-lg shadow-sm mb-2';
-                        entryDiv.innerHTML = `
-                            <div class="flex-grow grid grid-cols-1 sm:grid-cols-3 gap-2 w-full sm:w-auto">
-                                <p class="text-sm text-gray-800 font-medium whitespace-nowrap overflow-hidden text-ellipsis">${clockIn.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })} - ${clockOut.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}</p>
-                                <p class="text-sm text-gray-600 whitespace-nowrap overflow-hidden text-ellipsis">PJ: ${ts.projectCode || '未選択'}</p>
-                                <p class="text-sm text-gray-600 whitespace-nowrap overflow-hidden text-ellipsis">時間: ${duration.toFixed(2)}h</p>
-                            </div>
-                            <div class="flex-shrink-0 flex gap-2 mt-3 sm:mt-0 sm:ml-4">
-                                <button class="btn btn-sm bg-blue-500 hover:bg-blue-600 text-white py-1 px-3 rounded text-xs edit-btn" data-id="${ts.id}">編集</button>
-                                <button class="btn btn-sm bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded text-xs delete-btn" data-id="${ts.id}">削除</button>
-                            </div>
-                        `;
-                        tabPanel.appendChild(entryDiv);
-                    });
+                tabPanel.appendChild(table);
 
-                    const dailyTotalDiv = document.createElement('div');
-                    dailyTotalDiv.className = 'flex justify-end font-bold text-gray-800 text-md mt-2 mb-4 pr-3';
-                    dailyTotalDiv.textContent = `合計: ${dailyTotalHours.toFixed(2)}h`;
-                    tabPanel.appendChild(dailyTotalDiv);
-                }
+                const projectTotalDiv = document.createElement('div');
+                projectTotalDiv.className = 'flex justify-end font-bold text-gray-800 text-lg mt-4 pr-3';
+                projectTotalDiv.textContent = `合計時間: ${totalProjectHours.toFixed(2)} 時間`;
+                tabPanel.appendChild(projectTotalDiv);
+
                 projectTabContent.appendChild(tabPanel);
                 firstTab = false;
-            }
+            });
 
             // タブ切り替えロジック
             projectTabList.querySelectorAll('button[role="tab"]').forEach(tabButton => {
@@ -368,20 +393,10 @@
                     targetTab.classList.add('border-b-2', 'border-main', 'text-main');
                     targetTab.classList.remove('text-gray-600', 'hover:text-gray-800', 'hover:border-gray-300');
                     document.getElementById(targetPanelId).classList.remove('hidden');
-
-                    // アクティブなタブコンテンツの編集/削除リスナーを再アタッチ
-                    // onSnapshotで自動更新されるため、再アタッチは通常不要ですが、念のため
-                    // document.querySelectorAll(`#${targetPanelId} .edit-btn`).forEach(button => {
-                    //     button.addEventListener('click', (e) => handleEditClick(e.target.dataset.id));
-                    // });
-                    // document.querySelectorAll(`#${targetPanelId} .delete-btn`).forEach(button => {
-                    //     button.addEventListener('click', (e) => handleDeleteClick(e.target.dataset.id));
-                    // });
                 });
             });
 
             // 初回ロード時またはデータ更新時に、編集・削除ボタンのイベントリスナーをアタッチ
-            // onSnapshotからの更新でこの関数が呼ばれるため、ここでアタッチするのが適切
             document.querySelectorAll('.edit-btn').forEach(button => {
                 button.addEventListener('click', (e) => handleEditClick(e.target.dataset.id));
             });
@@ -398,16 +413,16 @@
             showStatus("稼働実績データを読み込み中...", false, 'edit-timestamp-status');
             try {
                 const docRef = doc(db, "timestamps", timestampId);
-                // getDocsではなくgetDocを使用するように修正
-                const docSnap = await getDoc(docRef); 
-                
+                const docSnap = await getDoc(docRef); // getDocを使用
+
                 if (!docSnap.exists()) {
                     throw new Error("稼働実績が見つかりませんでした。");
                 }
 
                 const timestampData = { id: docSnap.id, ...docSnap.data() };
 
-                editTimestampIdInput.value = timestampData.clockInTime.toDate().toISOString().substring(0, 16);
+                editTimestampIdInput.value = timestampData.id; // IDを設定
+                editClockInTimeInput.value = timestampData.clockInTime.toDate().toISOString().substring(0, 16);
                 editClockOutTimeInput.value = timestampData.clockOutTime.toDate().toISOString().substring(0, 16);
                 editProjectSelect.value = timestampData.projectCode || ''; // プロジェクトコードを設定
 
@@ -554,6 +569,15 @@
                         border-collapse: collapse;
                         margin-top: 15px;
                         font-size: 14px;
+                        /* PDFの罫線が途切れないように */
+                        page-break-inside: auto;
+                    }
+                    thead {
+                        display: table-header-group;
+                    }
+                    tr {
+                        page-break-inside: avoid;
+                        page-break-after: auto;
                     }
                     th, td {
                         border: 1px solid #e2e8f0; /* Tailwind gray-200 */
@@ -576,35 +600,22 @@
                     <thead>
                         <tr>
                             <th>日付</th>
-                            <th>出勤</th>
-                            <th>退勤</th>
+                            <th>稼働時間</th>
                             <th class="text-right">時間(h)</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${Object.entries(projectTimestamps.reduce((acc, ts) => {
-                            // 日付フォーマットを YYYY/M/D に統一
-                            const date = ts.clockInTime.toDate().toLocaleDateString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric' });
-                            if (!acc[date]) {
-                                acc[date] = [];
-                            }
-                            acc[date].push(ts);
-                            return acc;
-                        }, {})).sort(([dateA], [dateB]) => new Date(dateA) - new Date(dateB)).map(([date, dailyEntries]) => {
-                            dailyEntries.sort((a, b) => a.clockInTime.toDate() - b.clockInTime.toDate());
-                            return dailyEntries.map(ts => {
-                                const clockIn = ts.clockInTime.toDate();
-                                const clockOut = ts.clockOutTime.toDate();
-                                const duration = ts.durationHours || ((clockOut.getTime() - clockIn.getTime()) / 3600000);
-                                return `
-                                    <tr>
-                                        <td>${date}</td>
-                                        <td>${clockIn.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}</td>
-                                        <td>${clockOut.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}</td>
-                                        <td class="text-right">${duration.toFixed(2)}</td>
-                                    </tr>
-                                `;
-                            }).join('');
+                        ${projectTimestamps.sort((a, b) => a.clockInTime.toDate() - b.clockInTime.toDate()).map(ts => {
+                            const clockIn = ts.clockInTime.toDate();
+                            const clockOut = ts.clockOutTime.toDate();
+                            const duration = ts.durationHours || ((clockOut.getTime() - clockIn.getTime()) / 3600000);
+                            return `
+                                <tr>
+                                    <td>${clockIn.toLocaleDateString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric' })}</td>
+                                    <td>${clockIn.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })} - ${clockOut.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}</td>
+                                    <td class="text-right">${duration.toFixed(2)}</td>
+                                </tr>
+                            `;
                         }).join('')}
                     </tbody>
                 </table>
@@ -613,6 +624,137 @@
             // PDFを生成
             html2pdf().from(pdfContent).save(`稼働報告書_${selectedMonth}_${activeProjectCode}.pdf`);
             showStatus("PDFを生成しました。", false, 'summary-status');
+        }
+
+        /**
+         * グラフの表示/非表示を切り替える
+         */
+        function toggleChartVisibility() {
+            chartContainer.classList.toggle('hidden');
+            if (!chartContainer.classList.contains('hidden')) {
+                toggleChartBtn.textContent = 'グラフを非表示';
+                updateChart(loadedTimestamps); // 表示時にグラフを更新
+            } else {
+                toggleChartBtn.textContent = 'グラフを表示';
+            }
+        }
+
+        /**
+         * 稼働実績データに基づいてグラフを更新する
+         * @param {Array} timestamps - 稼働実績データの配列
+         */
+        function updateChart(timestamps) {
+            if (chartInstance) {
+                chartInstance.destroy(); // 既存のグラフがあれば破棄
+            }
+
+            if (!timestamps || timestamps.length === 0) {
+                // グラフコンテナ内にメッセージを表示
+                timeChartCanvas.style.display = 'none';
+                const noDataMessage = document.createElement('p');
+                noDataMessage.className = 'text-gray-500 text-center py-4';
+                noDataMessage.textContent = '表示するデータがありません。';
+                chartContainer.appendChild(noDataMessage);
+                return;
+            } else {
+                timeChartCanvas.style.display = 'block'; // キャンバスを表示
+                const existingMessage = chartContainer.querySelector('p.text-gray-500');
+                if (existingMessage) {
+                    existingMessage.remove(); // メッセージがあれば削除
+                }
+            }
+
+
+            // 月の日付ラベルを生成 (例: 1日, 2日, ...)
+            const selectedMonth = summaryMonthInput.value;
+            const year = parseInt(selectedMonth.substring(0, 4));
+            const month = parseInt(selectedMonth.substring(5, 7)) - 1; // 月は0から始まる
+
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const labels = Array.from({ length: daysInMonth }, (_, i) => `${i + 1}日`);
+
+            // プロジェクトごとの日次稼働時間を集計
+            const projectDailyHours = {}; // { 'P-001': { '2025/7/1': 8, '2025/7/2': 4 }, ... }
+
+            timestamps.forEach(ts => {
+                const date = ts.clockInTime.toDate().toLocaleDateString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric' });
+                const projectCode = ts.projectCode || '未選択';
+                const duration = ts.durationHours || 0;
+
+                if (!projectDailyHours[projectCode]) {
+                    projectDailyHours[projectCode] = {};
+                }
+                projectDailyHours[projectCode][date] = (projectDailyHours[projectCode][date] || 0) + duration;
+            });
+
+            // Chart.jsのデータセットを準備
+            const datasets = Object.keys(projectDailyHours).map((projectCode, index) => {
+                const data = labels.map(label => {
+                    const fullDate = `${year}/${month + 1}/${parseInt(label.replace('日', ''))}`;
+                    return projectDailyHours[projectCode][fullDate] || 0;
+                });
+                const projectName = userProjects.get(projectCode)?.name || projectCode;
+                
+                // 色を動的に生成
+                const colors = [
+                    'rgba(75, 192, 192, 0.8)', // Teal
+                    'rgba(153, 102, 255, 0.8)', // Purple
+                    'rgba(255, 159, 64, 0.8)',  // Orange
+                    'rgba(255, 99, 132, 0.8)',  // Red
+                    'rgba(54, 162, 235, 0.8)',  // Blue
+                    'rgba(255, 206, 86, 0.8)',  // Yellow
+                    'rgba(201, 203, 207, 0.8)'  // Gray
+                ];
+                const borderColor = colors[index % colors.length].replace('0.8', '1');
+                const backgroundColor = colors[index % colors.length].replace('0.8', '0.2');
+
+                return {
+                    label: projectName,
+                    data: data,
+                    borderColor: borderColor,
+                    backgroundColor: backgroundColor,
+                    borderWidth: 1,
+                    fill: true,
+                    tension: 0.1
+                };
+            });
+
+            // Chart.jsのグラフを描画
+            const ctx = timeChartCanvas.getContext('2d');
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false, // コンテナのサイズに合わせる
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: false, // タイトルはHTMLで表示
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: '日付'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: '稼働時間 (h)'
+                            },
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
         }
 
         // 共通の初期化処理を呼び出し、認証完了後にサマリーページの処理を実行
