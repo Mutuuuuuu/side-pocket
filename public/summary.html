@@ -356,7 +356,7 @@
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${clockIn.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })} - ${clockOut.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${duration.toFixed(2)}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <button class="btn btn-sm bg-blue-500 hover:bg-blue-600 text-white py-1 px-3 rounded text-xs edit-btn" data-id="${ts.id}">編集</button>
+                            <button class="btn btn-sm bg-main hover:bg-main-dark text-white py-1 px-3 rounded text-xs edit-btn" data-id="${ts.id}">編集</button>
                             <button class="btn btn-sm bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded text-xs delete-btn" data-id="${ts.id}">削除</button>
                         </td>
                     `;
@@ -671,65 +671,58 @@
                 }
             }
 
-
-            // 月の日付ラベルを生成 (例: 1日, 2日, ...)
-            const selectedMonth = summaryMonthInput.value;
-            const year = parseInt(selectedMonth.substring(0, 4));
-            const month = parseInt(selectedMonth.substring(5, 7)) - 1; // 月は0から始まる
-
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
-            const labels = Array.from({ length: daysInMonth }, (_, i) => `${i + 1}日`);
-
-            // プロジェクトごとの日次稼働時間を集計
-            const projectDailyHours = {}; // { 'P-001': { '2025/7/1': 8, '2025/7/2': 4 }, ... }
+            // プロジェクトごとの合計稼働時間を集計
+            const projectTotalHours = {}; // { 'P-001': 10.5, 'P-002': 5.2, ... }
 
             timestamps.forEach(ts => {
-                const date = ts.clockInTime.toDate().toLocaleDateString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric' });
                 const projectCode = ts.projectCode || '未選択';
                 const duration = ts.durationHours || 0;
 
-                if (!projectDailyHours[projectCode]) {
-                    projectDailyHours[projectCode] = {};
-                }
-                projectDailyHours[projectCode][date] = (projectDailyHours[projectCode][date] || 0) + duration;
+                projectTotalHours[projectCode] = (projectTotalHours[projectCode] || 0) + duration;
             });
+
+            // プロジェクトコードをソートしてラベルとデータセットの順序を決定
+            const sortedProjectCodes = Object.keys(projectTotalHours).sort();
+            const labels = sortedProjectCodes.map(code => userProjects.get(code)?.name || code); // プロジェクト名をラベルに
 
             // Chart.jsのデータセットを準備
-            const datasets = Object.keys(projectDailyHours).map((projectCode, index) => {
-                const data = labels.map(label => {
-                    const fullDate = `${year}/${month + 1}/${parseInt(label.replace('日', ''))}`;
-                    return projectDailyHours[projectCode][fullDate] || 0;
-                });
-                const projectName = userProjects.get(projectCode)?.name || projectCode;
-                
-                // 色を動的に生成
-                const colors = [
-                    'rgba(75, 192, 192, 0.8)', // Teal
-                    'rgba(153, 102, 255, 0.8)', // Purple
-                    'rgba(255, 159, 64, 0.8)',  // Orange
-                    'rgba(255, 99, 132, 0.8)',  // Red
-                    'rgba(54, 162, 235, 0.8)',  // Blue
-                    'rgba(255, 206, 86, 0.8)',  // Yellow
-                    'rgba(201, 203, 207, 0.8)'  // Gray
-                ];
-                const borderColor = colors[index % colors.length].replace('0.8', '1');
-                const backgroundColor = colors[index % colors.length].replace('0.8', '0.2');
+            const data = sortedProjectCodes.map(code => projectTotalHours[code]);
 
-                return {
-                    label: projectName,
-                    data: data,
-                    borderColor: borderColor,
-                    backgroundColor: backgroundColor,
-                    borderWidth: 1,
-                    fill: true,
-                    tension: 0.1
-                };
+            // 色を動的に生成またはプロジェクトから取得
+            const backgroundColors = sortedProjectCodes.map((projectCode, index) => {
+                const project = userProjects.get(projectCode);
+                if (project && project.color) {
+                    // プロジェクトに色が指定されていればそれを使用
+                    return project.color;
+                } else {
+                    // デフォルトの色のリスト (透明度を下げて棒グラフに適した色に)
+                    const defaultColors = [
+                        'rgba(75, 192, 192, 0.6)', // Teal
+                        'rgba(153, 102, 255, 0.6)', // Purple
+                        'rgba(255, 159, 64, 0.6)',  // Orange
+                        'rgba(255, 99, 132, 0.6)',  // Red
+                        'rgba(54, 162, 235, 0.6)',  // Blue
+                        'rgba(255, 206, 86, 0.6)',  // Yellow
+                        'rgba(201, 203, 207, 0.6)'  // Gray
+                    ];
+                    return defaultColors[index % defaultColors.length];
+                }
             });
+
+            const borderColors = backgroundColors.map(color => color.replace('0.6', '1')); // 枠線は不透明に
+
+            const datasets = [{
+                label: '稼働時間 (h)',
+                data: data,
+                backgroundColor: backgroundColors,
+                borderColor: borderColors,
+                borderWidth: 1
+            }];
 
             // Chart.jsのグラフを描画
             const ctx = timeChartCanvas.getContext('2d');
             chartInstance = new Chart(ctx, {
-                type: 'line',
+                type: 'bar', // 棒グラフに変更
                 data: {
                     labels: labels,
                     datasets: datasets
@@ -739,7 +732,7 @@
                     maintainAspectRatio: false, // コンテナのサイズに合わせる
                     plugins: {
                         legend: {
-                            position: 'top',
+                            display: false, // 棒グラフなので凡例は不要
                         },
                         title: {
                             display: false, // タイトルはHTMLで表示
@@ -749,7 +742,7 @@
                         x: {
                             title: {
                                 display: true,
-                                text: '日付'
+                                text: 'プロジェクト'
                             }
                         },
                         y: {
