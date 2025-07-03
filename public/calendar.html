@@ -69,7 +69,7 @@
 
         let gapiInited = false; // gapiクライアントが初期化されたか
         let gisInited = false;  // Google Identity Servicesが初期化されたか
-        let tokenClient;        // Google Identity Servicesのトークンクライアント (ポップアップ用)
+        let codeClient;         // Google Identity Servicesの認証コードクライアント (リダイレクト用)
         let currentUser = null; // Firebaseから認証されたユーザー情報
 
         const authStatusElement = document.getElementById('gcal-auth-status');
@@ -83,6 +83,11 @@
         const calendarEventsContainer = document.getElementById('calendar-events-container');
         const reflectEventsBtn = document.getElementById('reflect-events-btn');
         const calendarActionBar = document.getElementById('calendar-action-bar');
+
+        // Firebase FunctionsのエンドポイントURL (例: あなたのプロジェクトIDとリージョンに置き換えてください)
+        // これは、認証コードをアクセストークンに交換するためのサーバーサイド関数です。
+        // 例: https://us-central1-your-project-id.cloudfunctions.net/exchangeGoogleToken
+        const EXCHANGE_TOKEN_FUNCTION_URL = "https://console.firebase.google.com/project/side-pocket-sl/overview"; 
 
         /**
          * Google APIクライアントライブラリ (gapi) の初期化
@@ -104,58 +109,125 @@
         };
 
         /**
-         * Google Identity Services (GIS) の初期化 (ポップアップ用)
+         * Google Identity Services (GIS) の初期化 (リダイレクト用)
          */
         const initGisClient = () => {
             console.log("initGisClient() called.");
             try {
-                // ポップアップフロー用のトークンクライアントを初期化
-                tokenClient = google.accounts.oauth2.initTokenClient({
+                // リダイレクトフロー用の認証コードクライアントを初期化
+                codeClient = google.accounts.oauth2.initCodeClient({
                     client_id: GOOGLE_CLIENT_ID,
                     scope: GOOGLE_SCOPES,
-                    callback: '', // トークンが返されたときにGISが呼び出すコールバックは後で設定
+                    ux_mode: 'redirect', // リダイレクトモードを指定
+                    redirect_uri: window.location.origin + window.location.pathname, // 現在のページに戻る
+                    callback: handleCodeResponse, // 認証コードを受け取った後のコールバック
                 });
                 gisInited = true;
-                console.log("GIS token client initialized. gisInited:", gisInited, "tokenClient:", tokenClient);
+                console.log("GIS code client initialized. gisInited:", gisInited, "codeClient:", codeClient);
                 maybeEnableCalendarFeatures();
             } catch (error) {
-                console.error("Error initializing GIS token client:", error);
+                console.error("Error initializing GIS code client:", error);
                 showStatus("Google Identity Servicesの初期化に失敗しました。", true, 'gcal-auth-status');
             }
         };
 
         /**
          * gapiとGISの初期化が両方完了し、かつFirebase認証が完了したら、カレンダー機能を有効にする
-         * ここでサイレント認証を試みる
+         * ここで認証コードの処理も行う
          */
         function maybeEnableCalendarFeatures() {
             console.log("maybeEnableCalendarFeatures called. gapiInited:", gapiInited, "gisInited:", gisInited, "currentUser:", currentUser ? true : false);
             if (gapiInited && gisInited && currentUser) {
-                authStatusElement.textContent = 'ステータス：準備完了';
-                
-                // サイレント認証を試行
-                tokenClient.callback = async (resp) => {
-                    if (resp.error) {
-                        console.warn("Silent authentication failed, user needs to authorize interactively:", resp.error);
-                        // サイレント認証失敗時は、手動認証ボタンを表示
-                        authStatusElement.textContent = 'ステータス：Googleアカウントと未連携';
-                        authorizeButton.classList.remove('hidden');
-                        signoutButton.classList.add('hidden');
-                        gcalControls.classList.add('hidden');
-                        addEventButton.classList.add('hidden');
-                    } else {
-                        // サイレント認証成功
-                        updateSignInStatus(); // 認証状態を更新し、カレンダーリストをロード
-                    }
-                };
-                // 'prompt: none' を使用してサイレントにトークンをリクエスト
-                tokenClient.requestAccessToken({ prompt: 'none' }); 
+                // URLに認証コードが含まれているかチェック
+                const urlParams = new URLSearchParams(window.location.search);
+                const code = urlParams.get('code');
+                const error = urlParams.get('error');
 
-                // ローディング画面を非表示にし、アプリコンテナを表示
+                if (code) {
+                    // 認証コードがある場合、サーバーサイドでトークン交換
+                    showStatus("Google認証を完了しています...", false, 'gcal-auth-status');
+                    handleAuthCodeExchange(code);
+                    // URLからコードを削除してクリーンアップ (履歴を汚さないため)
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                } else if (error) {
+                    // 認証エラーがある場合
+                    showStatus(`Google認証エラー: ${error}`, true, 'gcal-auth-status');
+                    console.error("Google authentication error:", error);
+                    updateSignInStatus(false); // 未連携状態に更新
+                } else {
+                    // 通常のページロード時、または認証コードなし
+                    // 既存のアクセストークンがあるか確認し、UIを更新
+                    updateSignInStatus(gapi.client.getToken() !== null);
+                }
+                
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('app-container').style.display = 'block';
+
             } else if (currentUser) {
                 authStatusElement.textContent = 'ステータス：Google APIを読み込み中...';
+            }
+        }
+
+        /**
+         * Googleから認証コードが返された後のコールバック関数
+         * @param {object} response - 認証コードを含むレスポンスオブジェクト
+         */
+        async function handleCodeResponse(response) {
+            if (response.error) {
+                showStatus(`Google認証エラー: ${response.error}`, true, 'gcal-auth-status');
+                console.error("Google authentication error:", response.error);
+                updateSignInStatus(false);
+                return;
+            }
+            // 認証コードをサーバーサイドで交換
+            await handleAuthCodeExchange(response.code);
+        }
+
+        /**
+         * 認証コードをサーバーサイドのFirebase Functionsでアクセストークンに交換する
+         * @param {string} code - Googleから受け取った認証コード
+         */
+        async function handleAuthCodeExchange(code) {
+            try {
+                showStatus("認証情報を交換中...", false, 'gcal-auth-status');
+                // Firebase FunctionsのURLが設定されているか確認
+                if (EXCHANGE_TOKEN_FUNCTION_URL === "YOUR_FIREBASE_FUNCTIONS_EXCHANGE_TOKEN_URL" || !EXCHANGE_TOKEN_FUNCTION_URL) {
+                    throw new Error("Firebase FunctionsのURLが設定されていません。");
+                }
+
+                const firebaseIdToken = await auth.currentUser.getIdToken();
+                if (!firebaseIdToken) {
+                    throw new Error("Firebase認証トークンが取得できません。");
+                }
+
+                const response = await fetch(EXCHANGE_TOKEN_FUNCTION_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${firebaseIdToken}` // Firebase認証トークンを渡す
+                    },
+                    body: JSON.stringify({ code: code, redirectUri: window.location.origin + window.location.pathname })
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+                }
+
+                const data = await response.json();
+                if (data.accessToken) {
+                    // 取得したアクセストークンをgapiクライアントに設定
+                    gapi.client.setToken({ access_token: data.accessToken });
+                    // オプション: リフレッシュトークンをFirestoreに保存するなどして永続化
+                    // data.refreshToken が返された場合、サーバーサイドで安全に保存する
+                    updateSignInStatus(true);
+                } else {
+                    throw new Error("Failed to get access token from server.");
+                }
+            } catch (error) {
+                console.error("Error exchanging auth code for token:", error);
+                showStatus(`認証情報の交換に失敗しました: ${error.message}`, true, 'gcal-auth-status');
+                updateSignInStatus(false);
             }
         }
 
@@ -186,7 +258,7 @@
                 if (typeof window.gapi !== 'undefined' && typeof window.google !== 'undefined' && typeof window.google.accounts !== 'undefined') {
                     clearInterval(checkGoogleApiReady); // ポーリング停止
                     gapi.load('client', initGapiClient);
-                    initGisClient(); // GISクライアントはポップアップ用を初期化
+                    initGisClient(); // GISクライアントはリダイレクト用を初期化
                 }
             }, 100); // 100msごとにチェック
         }
@@ -218,31 +290,16 @@
         }
 
         /**
-         * Google認証ボタンがクリックされたときのハンドラー (ポップアップを開始)
+         * Google認証ボタンがクリックされたときのハンドラー (リダイレクトを開始)
          */
         async function handleAuthClick() {
-            if (!tokenClient) {
-                console.error("tokenClientがまだ初期化されていません。");
+            if (!codeClient) {
+                console.error("codeClientがまだ初期化されていません。");
                 showStatus("Google認証ライブラリの準備ができていません。しばらくお待ちください。", true, 'gcal-auth-status');
                 return;
             }
-            // 既存のトークンがあれば再利用、なければ同意プロンプトを表示
-            // 'prompt' パラメータを指定しないことで、既存のセッションがあればそれを利用し、
-            // なければアカウント選択画面などを表示するようにする
-            tokenClient.callback = async (resp) => {
-                if (resp.error) {
-                    authStatusElement.textContent = `認証エラー: ${resp.error.message}`;
-                    console.error('認証エラー:', resp.error);
-                    // 認証失敗時は、手動認証ボタンを表示
-                    authorizeButton.classList.remove('hidden');
-                    signoutButton.classList.add('hidden');
-                    gcalControls.classList.add('hidden');
-                    addEventButton.classList.add('hidden');
-                    return;
-                }
-                updateSignInStatus(); // 認証状態を更新し、カレンダーリストをロード
-            };
-            tokenClient.requestAccessToken(); 
+            // 認証コードリクエストを開始し、Google認証ページにリダイレクト
+            codeClient.requestCode();
         }
 
         /**
@@ -253,7 +310,8 @@
             if (token !== null) {
                 google.accounts.oauth2.revoke(token.access_token, () => {
                     gapi.client.setToken(''); // gapiクライアントからトークンをクリア
-                    updateSignInStatus(); // 引数なしで呼び出し
+                    // オプション: Firestoreに保存されたリフレッシュトークンも削除するAPI呼び出し
+                    updateSignInStatus(false);
                     authStatusElement.textContent = 'ステータス：連携解除済み';
                     calendarSelect.innerHTML = ''; // カレンダー選択肢をクリア
                     calendarEventsContainer.innerHTML = '<p class="text-gray-500 text-center py-4">カレンダーと月を選択して「予定を読み込む」を押してください。</p>';
@@ -265,9 +323,9 @@
 
         /**
          * 認証状態に基づいてUIを更新する
-         * @param {boolean} [isSignedIn] - 現在Googleに認証済みかどうかのフラグ (オプション)
+         * @param {boolean} isSignedIn - 現在Googleに認証済みかどうかのフラグ
          */
-        function updateSignInStatus(isSignedIn = gapi.client.getToken() !== null) { // デフォルト値を設定
+        function updateSignInStatus(isSignedIn) {
             if (isSignedIn) {
                 authStatusElement.textContent = 'ステータス：Googleアカウントと連携済み';
                 authorizeButton.classList.add('hidden');
