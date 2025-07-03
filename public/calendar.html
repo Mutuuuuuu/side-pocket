@@ -24,7 +24,8 @@
              <div class="p-6 sm:p-8 space-y-6 bg-white rounded-2xl shadow-lg">
                 <header class="flex flex-col sm:flex-row justify-between items-center gap-4">
                     <h2 class="text-2xl sm:text-3xl font-bold text-gray-800">Googleカレンダー連携</h2>
-                    <button id="gcal-add-event-button" class="btn bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded hidden">＋ 予定を作成</button>
+                    <!-- 予定作成ボタンの色をbg-mainに変更 -->
+                    <button id="gcal-add-event-button" class="btn bg-main hover:bg-main-dark text-white font-bold py-2 px-4 rounded hidden">＋ 予定を作成</button>
                 </header>
                 <div id="gcal-auth-container" class="bg-gray-50 p-4 rounded-lg">
                     <p id="gcal-auth-status" class="text-gray-600 mb-4">ステータス：初期化中...</p>
@@ -273,7 +274,7 @@
                 showStatus(`認証情報の交換に失敗しました: ${error.message}`, true, 'gcal-auth-status');
                 updateSignInStatus(false);
             }
-        }
+        };
 
         /**
          * 保存されたリフレッシュトークンを使用してGoogleアクセストークンを更新しようと試みる
@@ -318,7 +319,7 @@
                 showStatus(`Google連携の自動更新に失敗しました: ${error.message} 再度連携してください。`, true, 'gcal-auth-status');
                 updateSignInStatus(false); // 認証ボタンを表示
             }
-        }
+        };
 
 
         /**
@@ -595,16 +596,16 @@
                         <div class="flex items-center w-full sm:w-auto mb-2 sm:mb-0 sm:mr-3">
                             <input type="checkbox" class="event-checkbox mt-1 mr-2 h-4 w-4 text-main rounded" data-event-id="${event.id}" ${isReflected ? 'disabled checked' : ''}>
                             ${isReflected ? '<span class="text-green-600 text-xs font-semibold mr-2">反映済</span>' : ''}
-                            <h4 class="font-semibold text-gray-800 flex-grow">${event.summary || 'タイトルなし'}</h4>
+                            <h4 class="font-semibold text-gray-800 flex-grow-0 flex-shrink-0 w-40 truncate">${event.summary || 'タイトルなし'}</h4>
                         </div>
                         <div class="flex-grow grid grid-cols-1 sm:grid-cols-2 gap-1 sm:gap-2 w-full">
-                            <p class="text-xs text-gray-600">
+                            <p class="text-xs text-gray-600 flex-grow-0 flex-shrink-0 w-40 truncate">
                                 ${start.toLocaleDateString('ja-JP')} ${isAllDay ? '終日' : start.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })} 
                                 ${!isAllDay ? ` - ${end.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}` : ''}
                             </p>
-                            <div class="flex items-center">
+                            <div class="flex items-center flex-grow">
                                 <label for="project-select-${event.id}" class="block text-xs font-medium text-gray-700 mr-1 whitespace-nowrap">PJ:</label>
-                                <select id="project-select-${event.id}" class="block w-full text-xs p-1 border border-gray-300 rounded-md project-select" ${isReflected ? 'disabled' : ''}>
+                                <select id="project-select-${event.id}" class="block w-full text-xs p-1 border border-gray-300 rounded-md project-select flex-grow" ${isReflected ? 'disabled' : ''}>
                                     <option value="">プロジェクトを選択</option>
                                     ${Array.from(userProjects.values()).map(p => `<option value="${p.code}" data-project-name="${p.name}">${p.code}: ${p.name}</option>`).join('')}
                                 </select>
