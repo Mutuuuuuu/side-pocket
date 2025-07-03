@@ -130,7 +130,11 @@ exports.refreshGoogleAccessToken = onRequest(async (req, res) => {
         try {
             const userDoc = await db.collection('users').doc(decodedIdToken.uid).get();
             // userDoc.data() が undefined の可能性があるので、安全にアクセスする
-            const refreshToken = userDoc.data()?.googleRefreshToken; 
+            const userData = userDoc.data(); // userDataとして取得
+            const refreshToken = userData?.googleRefreshToken; 
+
+            console.log("Firestoreから取得したユーザーデータ:", userData); // デバッグログ
+            console.log("取得したリフレッシュトークン:", refreshToken ? "取得済み" : "なし"); // デバッグログ
 
             if (!refreshToken) {
                 console.error(`Refresh token not found for user: ${decodedIdToken.uid}`);
@@ -141,7 +145,17 @@ exports.refreshGoogleAccessToken = onRequest(async (req, res) => {
 
             // oAuth2Clientのredirect_uriは初期化時に設定済みのため、ここでのsetRedirectUriは不要です。
             oAuth2Client.setCredentials({ refresh_token: refreshToken });
-            const { tokens } = await oAuth2Client.refreshAccessToken();
+            
+            let tokens;
+            try {
+                tokens = await oAuth2Client.refreshAccessToken();
+                console.log("refreshAccessToken() からの応答:", tokens); // デバッグログ
+            } catch (refreshError) {
+                console.error("refreshAccessToken() の呼び出し中にエラーが発生しました:", refreshError); // デバッグログ
+                // refreshAccessTokenが失敗した場合、そのエラーメッセージをクライアントに返す
+                res.status(500).send(`アクセストークンの更新に失敗しました: ${refreshError.message}`);
+                return;
+            }
 
             if (tokens.refresh_token) {
                 await db.collection('users').doc(decodedIdToken.uid).set({
@@ -153,7 +167,7 @@ exports.refreshGoogleAccessToken = onRequest(async (req, res) => {
             res.status(200).json({ accessToken: tokens.access_token });
 
         } catch (error) {
-            console.error("Error refreshing access token:", error);
+            console.error("Error refreshing access token (outer catch):", error); // デバッグログ
             res.status(500).send(`アクセストークンの更新に失敗しました: ${error.message}`);
         }
     });
