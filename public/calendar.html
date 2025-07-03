@@ -87,7 +87,7 @@
         // Firebase FunctionsのエンドポイントURL (例: あなたのプロジェクトIDとリージョンに置き換えてください)
         // これは、認証コードをアクセストークンに交換するためのサーバーサイド関数です。
         // 例: https://us-central1-your-project-id.cloudfunctions.net/exchangeGoogleToken
-        const EXCHANGE_TOKEN_FUNCTION_URL = "https://console.firebase.google.com/project/side-pocket-sl/overview"; 
+        const EXCHANGE_TOKEN_FUNCTION_URL = "https://exchangegoogletoken-ej3atw2f2a-an.a.run.app"; 
 
         /**
          * Google APIクライアントライブラリ (gapi) の初期化
@@ -191,7 +191,7 @@
             try {
                 showStatus("認証情報を交換中...", false, 'gcal-auth-status');
                 // Firebase FunctionsのURLが設定されているか確認
-                if (EXCHANGE_TOKEN_FUNCTION_URL === "YOUR_FIREBASE_FUNCTIONS_EXCHANGE_TOKEN_URL" || !EXCHANGE_TOKEN_FUNCTION_URL) {
+                if (EXCHANGE_TOKEN_FUNCTION_URL === "https://exchangegoogletoken-ej3atw2f2a-an.a.run.app" || !EXCHANGE_TOKEN_FUNCTION_URL) {
                     throw new Error("Firebase FunctionsのURLが設定されていません。");
                 }
 
