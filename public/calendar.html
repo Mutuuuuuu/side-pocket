@@ -1,856 +1,859 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <title>カレンダー連携 - side pocket</title>
-    <link rel="icon" href="images/sidepocket_symbol.png">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google APIクライアントライブラリとGoogle Identity Servicesライブラリを非同期で読み込む -->
-    <script async defer src="https://apis.google.com/js/api.js"></script>
-    <script async defer src="https://accounts.google.com/gsi/client"></script>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="style.css">
-</head>
-<body class="bg-gray-100 min-h-screen p-4">
+    <!DOCTYPE html>
+    <html lang="ja">
+    <head>
+        <meta charset="UTF-8">
+        <title>カレンダー連携 - side pocket</title>
+        <link rel="icon" href="images/sidepocket_symbol.png">
+        <script src="https://cdn.tailwindcss.com"></script>
+        <!-- Google APIクライアントライブラリとGoogle Identity Servicesライブラリを非同期で読み込む -->
+        <script async defer src="https://apis.google.com/js/api.js"></script>
+        <script async defer src="https://accounts.google.com/gsi/client"></script>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="style.css">
+    </head>
+    <body class="bg-gray-100 min-h-screen p-4">
 
-    <div id="loading" class="flex justify-center items-center h-screen">
-        <div class="loader"></div><p class="ml-4 text-lg">読み込んでいます...</p>
-    </div>
-
-    <div id="app-container" class="w-full" style="display: none;">
-        <div id="header-placeholder"></div>
-
-        <main class="w-full max-w-4xl mx-auto">
-             <div class="p-6 sm:p-8 space-y-6 bg-white rounded-2xl shadow-lg">
-                <header class="flex flex-col sm:flex-row justify-between items-center gap-4">
-                    <h2 class="text-2xl sm:text-3xl font-bold text-gray-800">Googleカレンダー連携</h2>
-                    <!-- 予定作成ボタンの色をbg-mainに変更 -->
-                    <button id="gcal-add-event-button" class="btn bg-main hover:bg-main-dark text-white font-bold py-2 px-4 rounded hidden">＋ 予定を作成</button>
-                </header>
-                <div id="gcal-auth-container" class="bg-gray-50 p-4 rounded-lg">
-                    <p id="gcal-auth-status" class="text-gray-600 mb-4">ステータス：初期化中...</p>
-                    <div class="flex flex-wrap gap-2">
-                        <button id="gcal-authorize-button" class="btn bg-main hover:bg-main-dark text-white font-bold py-2 px-4 rounded hidden">Googleと連携する</button>
-                        <button id="gcal-signout-button" class="btn bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded hidden">連携を解除</button>
-                    </div>
-                </div>
-                <div id="gcal-controls" class="hidden space-y-4">
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                        <div>
-                            <label for="calendar-select" class="block text-sm font-medium text-gray-700">カレンダーを選択:</label>
-                            <select id="calendar-select" class="mt-1 block w-full p-2 border border-gray-300 rounded-md"></select>
-                        </div>
-                        <div>
-                            <label for="calendar-month" class="block text-sm font-medium text-gray-700">月を選択:</label>
-                            <input type="month" id="calendar-month" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
-                        </div>
-                        <button id="load-calendar-events-btn" class="btn bg-main hover:bg-main-dark text-white font-bold py-2 px-4 rounded">予定を読み込む</button>
-                    </div>
-                    <div id="calendar-events-container" class="space-y-2 max-h-96 overflow-y-auto p-2 border rounded-lg bg-gray-50">
-                        <p class="text-gray-500 text-center py-4">カレンダーと月を選択して「予定を読み込む」を押してください。</p>
-                    </div>
-                    <div id="calendar-action-bar" class="hidden flex justify-end p-4 border-t">
-                        <button id="reflect-events-btn" class="btn bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded w-full md:w-auto">選択した予定を稼働実績に反映</button>
-                    </div>
-                    <div id="reflect-status" class="text-center h-5"></div>
-                </div>
-            </div>
-        </main>
-    </div>
-
-    <!-- 予定作成モーダル -->
-    <div id="create-event-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 hidden">
-        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-            <h3 class="text-xl font-bold mb-4">新しい予定を作成</h3>
-            <form id="create-event-form" class="space-y-4">
-                <div>
-                    <label for="event-summary" class="block text-sm font-medium text-gray-700">タイトル:</label>
-                    <input type="text" id="event-summary" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
-                </div>
-                <div>
-                    <label for="event-calendar-select" class="block text-sm font-medium text-gray-700">カレンダーを選択:</label>
-                    <select id="event-calendar-select" class="mt-1 block w-full p-2 border border-gray-300 rounded-md"></select>
-                </div>
-                <div>
-                    <label for="event-start-datetime" class="block text-sm font-medium text-gray-700">開始日時:</label>
-                    <input type="datetime-local" id="event-start-datetime" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
-                </div>
-                <div>
-                    <label for="event-end-datetime" class="block text-sm font-medium text-gray-700">終了日時:</label>
-                    <input type="datetime-local" id="event-end-datetime" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
-                </div>
-                <div>
-                    <label for="event-description" class="block text-sm font-medium text-gray-700">説明 (オプション):</label>
-                    <textarea id="event-description" rows="3" class="mt-1 block w-full p-2 border border-gray-300 rounded-md"></textarea>
-                </div>
-                <div class="flex justify-end space-x-3">
-                    <button type="button" id="cancel-create-event" class="btn bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded">キャンセル</button>
-                    <button type="submit" class="btn bg-main hover:bg-main-dark text-white font-bold py-2 px-4 rounded">作成</button>
-                </div>
-            </form>
-            <div id="create-event-status" class="text-center mt-4 h-5"></div>
+        <div id="loading" class="flex justify-center items-center h-screen">
+            <div class="loader"></div><p class="ml-4 text-lg">読み込んでいます...</p>
         </div>
-    </div>
-    
-    <script type="module">
-        import { collection, addDoc, query, where, onSnapshot, getDocs, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-        import { initializePage, auth, db, showStatus } from './shared.js';
 
-        // Google APIのクライアントIDとAPIキーはFirebaseプロジェクトの設定から取得できます
-        const GOOGLE_CLIENT_ID = "887116583823-32evpk9fa2m0ondbbco6tv4m1980i7bj.apps.googleusercontent.com"; 
-        const GOOGLE_API_KEY = "AIzaSyBuRc0oRFQk-GvVAh_90S9NGAYu5sOkxyM"; 
-        const GOOGLE_DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"];
-        const GOOGLE_SCOPES = "https://www.googleapis.com/auth/calendar.events"; // 読み書き可能スコープ
+        <div id="app-container" class="w-full" style="display: none;">
+            <!-- ヘッダーを読み込むためのプレースホルダー -->
+            <div id="header-placeholder"></div>
 
-        let gapiInited = false; // gapiクライアントが初期化されたか
-        let gisInited = false;  // Google Identity Servicesが初期化されたか
-        let codeClient;         // Google Identity Servicesの認証コードクライアント (リダイレクト用)
-        let currentUser = null; // Firebaseから認証されたユーザー情報
-        let userCalendars = []; // ユーザーがアクセスできるカレンダーのリストを保持
+            <main class="w-full max-w-4xl mx-auto">
+                 <div class="p-6 sm:p-8 space-y-6 bg-white rounded-2xl shadow-lg">
+                    <header class="flex flex-col sm:flex-row justify-between items-center gap-4">
+                        <h2 class="text-2xl sm:text-3xl font-bold text-gray-800">Googleカレンダー連携</h2>
+                        <!-- 予定作成ボタンの色をbg-mainに変更 -->
+                        <button id="gcal-add-event-button" class="btn bg-main hover:bg-main-dark text-white font-bold py-2 px-4 rounded hidden">＋ 予定を作成</button>
+                    </header>
+                    <div id="gcal-auth-container" class="bg-gray-50 p-4 rounded-lg">
+                        <p id="gcal-auth-status" class="text-gray-600 mb-4">ステータス：初期化中...</p>
+                        <div class="flex flex-wrap gap-2">
+                            <button id="gcal-authorize-button" class="btn bg-main hover:bg-main-dark text-white font-bold py-2 px-4 rounded hidden">Googleと連携する</button>
+                            <button id="gcal-signout-button" class="btn bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded hidden">連携を解除</button>
+                        </div>
+                    </div>
+                    <div id="gcal-controls" class="hidden space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                            <div>
+                                <label for="calendar-select" class="block text-sm font-medium text-gray-700">カレンダーを選択:</label>
+                                <select id="calendar-select" class="mt-1 block w-full p-2 border border-gray-300 rounded-md"></select>
+                            </div>
+                            <div>
+                                <label for="calendar-month" class="block text-sm font-medium text-gray-700">月を選択:</label>
+                                <input type="month" id="calendar-month" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                            </div>
+                            <button id="load-calendar-events-btn" class="btn bg-main hover:bg-main-dark text-white font-bold py-2 px-4 rounded">予定を読み込む</button>
+                        </div>
+                        <div id="calendar-events-container" class="space-y-2 max-h-96 overflow-y-auto p-2 border rounded-lg bg-gray-50">
+                            <p class="text-gray-500 text-center py-4">カレンダーと月を選択して「予定を読み込む」を押してください。</p>
+                        </div>
+                        <div id="calendar-action-bar" class="hidden flex justify-end p-4 border-t">
+                            <button id="reflect-events-btn" class="btn bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded w-full md:w-auto">選択した予定を稼働実績に反映</button>
+                        </div>
+                        <div id="reflect-status" class="text-center h-5"></div>
+                    </div>
+                </div>
+            </main>
+        </div>
 
-        const authStatusElement = document.getElementById('gcal-auth-status');
-        const authorizeButton = document.getElementById('gcal-authorize-button');
-        const signoutButton = document.getElementById('gcal-signout-button');
-        const gcalControls = document.getElementById('gcal-controls');
-        const addEventButton = document.getElementById('gcal-add-event-button');
-        const calendarSelect = document.getElementById('calendar-select');
-        const calendarMonthInput = document.getElementById('calendar-month');
-        const loadEventsBtn = document.getElementById('load-calendar-events-btn');
-        const calendarEventsContainer = document.getElementById('calendar-events-container');
-        const reflectEventsBtn = document.getElementById('reflect-events-btn');
-        const calendarActionBar = document.getElementById('calendar-action-bar');
+        <!-- 予定作成モーダル -->
+        <div id="create-event-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 hidden">
+            <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+                <h3 class="text-xl font-bold mb-4">新しい予定を作成</h3>
+                <form id="create-event-form" class="space-y-4">
+                    <div>
+                        <label for="event-summary" class="block text-sm font-medium text-gray-700">タイトル:</label>
+                        <input type="text" id="event-summary" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
+                    </div>
+                    <div>
+                        <label for="event-calendar-select" class="block text-sm font-medium text-gray-700">カレンダーを選択:</label>
+                        <select id="event-calendar-select" class="mt-1 block w-full p-2 border border-gray-300 rounded-md"></select>
+                    </div>
+                    <div>
+                        <label for="event-start-datetime" class="block text-sm font-medium text-gray-700">開始日時:</label>
+                        <input type="datetime-local" id="event-start-datetime" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
+                    </div>
+                    <div>
+                        <label for="event-end-datetime" class="block text-sm font-medium text-gray-700">終了日時:</label>
+                        <input type="datetime-local" id="event-end-datetime" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
+                    </div>
+                    <div>
+                        <label for="event-description" class="block text-sm font-medium text-gray-700">説明 (オプション):</label>
+                        <textarea id="event-description" rows="3" class="mt-1 block w-full p-2 border border-gray-300 rounded-md"></textarea>
+                    </div>
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" id="cancel-create-event" class="btn bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded">キャンセル</button>
+                        <button type="submit" class="btn bg-main hover:bg-main-dark text-white font-bold py-2 px-4 rounded">作成</button>
+                    </div>
+                </form>
+                <div id="create-event-status" class="text-center mt-4 h-5"></div>
+            </div>
+        </div>
+        
+        <script type="module">
+            // ヘッダーを動的に読み込むスクリプト
+            document.addEventListener('DOMContentLoaded', function() {
+                fetch('_header.html')
+                    .then(response => response.text())
+                    .then(data => {
+                        document.getElementById('header-placeholder').innerHTML = data;
+                    })
+                    .catch(error => console.error('Error loading header:', error));
+            });
 
-        // 予定作成モーダル関連要素
-        const createEventModal = document.getElementById('create-event-modal');
-        const createEventForm = document.getElementById('create-event-form');
-        const cancelCreateEventButton = document.getElementById('cancel-create-event');
-        const eventSummaryInput = document.getElementById('event-summary');
-        const eventCalendarSelect = document.getElementById('event-calendar-select'); // 予定作成モーダル内のカレンダー選択
-        const eventStartDatetimeInput = document.getElementById('event-start-datetime');
-        const eventEndDatetimeInput = document.getElementById('event-end-datetime');
-        const eventDescriptionInput = document.getElementById('event-description');
-        const createEventStatusElement = document.getElementById('create-event-status');
+            import { collection, addDoc, query, where, onSnapshot, getDocs, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+            import { initializePage, auth, db, showStatus } from './shared.js';
+
+            // Google APIのクライアントIDとAPIキーはFirebaseプロジェクトの設定から取得できます
+            const GOOGLE_CLIENT_ID = "887116583823-32evpk9fa2m0ondbbco6tv4m1980i7bj.apps.googleusercontent.com"; 
+            const GOOGLE_API_KEY = "AIzaSyBuRc0oRFQk-GvVAh_90S9NGAYu5sOkxyM"; 
+            const GOOGLE_DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"];
+            const GOOGLE_SCOPES = "https://www.googleapis.com/auth/calendar.events"; // 読み書き可能スコープ
+
+            let gapiInited = false; // gapiクライアントが初期化されたか
+            let gisInited = false;  // Google Identity Servicesが初期化されたか
+            let codeClient;         // Google Identity Servicesの認証コードクライアント (リダイレクト用)
+            let currentUser = null; // Firebaseから認証されたユーザー情報
+            let userCalendars = []; // ユーザーがアクセスできるカレンダーのリストを保持
+
+            const authStatusElement = document.getElementById('gcal-auth-status');
+            const authorizeButton = document.getElementById('gcal-authorize-button');
+            const signoutButton = document.getElementById('gcal-signout-button');
+            const gcalControls = document.getElementById('gcal-controls');
+            const addEventButton = document.getElementById('gcal-add-event-button');
+            const calendarSelect = document.getElementById('calendar-select');
+            const calendarMonthInput = document.getElementById('calendar-month');
+            const loadEventsBtn = document.getElementById('load-calendar-events-btn');
+            const calendarEventsContainer = document.getElementById('calendar-events-container');
+            const reflectEventsBtn = document.getElementById('reflect-events-btn');
+            const calendarActionBar = document.getElementById('calendar-action-bar');
+
+            // 予定作成モーダル関連要素
+            const createEventModal = document.getElementById('create-event-modal');
+            const createEventForm = document.getElementById('create-event-form');
+            const cancelCreateEventButton = document.getElementById('cancel-create-event');
+            const eventSummaryInput = document.getElementById('event-summary');
+            const eventCalendarSelect = document.getElementById('event-calendar-select'); // 予定作成モーダル内のカレンダー選択
+            const eventStartDatetimeInput = document.getElementById('event-start-datetime');
+            const eventEndDatetimeInput = document.getElementById('event-end-datetime');
+            const eventDescriptionInput = document.getElementById('event-description');
+            const createEventStatusElement = document.getElementById('create-event-status');
 
 
-        // Firebase FunctionsのエンドポイントURL (例: あなたのプロジェクトIDとリージョンに置き換えてください)
-        // これは、認証コードをアクセストークンに交換するためのサーバーサイド関数です。
-        // onRequestトリガーに切り替えたため、FunctionsのURLを直接指定します。
-        const EXCHANGE_TOKEN_FUNCTION_URL = "https://exchangegoogletoken-ej3atw2f2a-an.a.run.app"; 
-        const REFRESH_TOKEN_FUNCTION_URL = "https://refreshgoogleaccesstoken-ej3atw2f2a-an.a.run.app"; // refreshGoogleAccessTokenのURLも必要になります
+            // Firebase FunctionsのエンドポイントURL (例: あなたのプロジェクトIDとリージョンに置き換えてください)
+            // これは、認証コードをアクセストークンに交換するためのサーバーサイド関数です。
+            // onRequestトリガーに切り替えたため、FunctionsのURLを直接指定します。
+            const EXCHANGE_TOKEN_FUNCTION_URL = "https://exchangegoogletoken-ej3atw2f2a-an.a.run.app"; 
+            const REFRESH_TOKEN_FUNCTION_URL = "https://refreshgoogleaccesstoken-ej3atw2f2a-an.a.run.app"; // refreshGoogleAccessTokenのURLも必要になります
 
-        /**
-         * Google APIクライアントライブラリ (gapi) の初期化
-         */
-        const initGapiClient = async () => {
-            console.log("initGapiClient() called.");
-            try {
-                await gapi.client.init({
-                    apiKey: GOOGLE_API_KEY,
-                    discoveryDocs: GOOGLE_DISCOVERY_DOCS,
-                });
-                gapiInited = true;
-                console.log("gapi client initialized. gapiInited:", gapiInited);
-                maybeEnableCalendarFeatures();
-            } catch (error) {
-                console.error("Error initializing gapi client:", error);
-                showStatus("Google APIクライアントの初期化に失敗しました。", true, 'gcal-auth-status');
-            }
-        };
-
-        /**
-         * Google Identity Services (GIS) の初期化 (リダイレクト用)
-         */
-        const initGisClient = () => {
-            console.log("initGisClient() called.");
-            try {
-                // リダイレクトフロー用の認証コードクライアントを初期化
-                codeClient = google.accounts.oauth2.initCodeClient({
-                    client_id: GOOGLE_CLIENT_ID,
-                    scope: GOOGLE_SCOPES,
-                    ux_mode: 'redirect', // リダイレクトモードを指定
-                    redirect_uri: window.location.origin + window.location.pathname, // 現在のページに戻る
-                    callback: handleCodeResponse, // 認証コードを受け取った後のコールバック
-                });
-                gisInited = true;
-                console.log("GIS code client initialized. gisInited:", gisInited, "codeClient:", codeClient);
-                maybeEnableCalendarFeatures();
-            } catch (error) {
-                console.error("Error initializing GIS code client:", error);
-                showStatus("Google Identity Servicesの初期化に失敗しました。", true, 'gcal-auth-status');
-            }
-        };
-
-        /**
-         * gapiとGISの初期化が両方完了し、かつFirebase認証が完了したら、カレンダー機能を有効にする
-         * ここで認証コードの処理も行う
-         */
-        function maybeEnableCalendarFeatures() {
-            console.log("maybeEnableCalendarFeatures called. gapiInited:", gapiInited, "gisInited:", gisInited, "currentUser:", currentUser ? true : false);
-            if (gapiInited && gisInited && currentUser) {
-                const urlParams = new URLSearchParams(window.location.search);
-                const code = urlParams.get('code');
-                const error = urlParams.get('error');
-
-                if (code) {
-                    // Case 1: 新しい認証コードがGoogleリダイレクトから受信された場合
-                    showStatus("Google認証を完了しています...", false, 'gcal-auth-status');
-                    handleAuthCodeExchange(code);
-                    window.history.replaceState({}, document.title, window.location.pathname);
-                } else if (error) {
-                    // Case 2: Google認証エラーがリダイレクト中に発生した場合
-                    showStatus(`Google認証エラー: ${error}`, true, 'gcal-auth-status');
-                    console.error("Google authentication error:", error);
-                    updateSignInStatus(false);
-                } else {
-                    // Case 3: 通常のページロード時、保存されたリフレッシュトークンを使用してトークンを更新しようと試みる
-                    attemptTokenRefresh(); // 新しい関数で更新を処理
+            /**
+             * Google APIクライアントライブラリ (gapi) の初期化
+             */
+            const initGapiClient = async () => {
+                console.log("initGapiClient() called.");
+                try {
+                    await gapi.client.init({
+                        apiKey: GOOGLE_API_KEY,
+                        discoveryDocs: GOOGLE_DISCOVERY_DOCS,
+                    });
+                    gapiInited = true;
+                    console.log("gapi client initialized. gapiInited:", gapiInited);
+                    maybeEnableCalendarFeatures();
+                } catch (error) {
+                    console.error("Error initializing gapi client:", error);
+                    showStatus("Google APIクライアントの初期化に失敗しました。", true, 'gcal-auth-status');
                 }
-                
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('app-container').style.display = 'block';
+            };
 
-            } else if (currentUser) {
-                authStatusElement.textContent = 'ステータス：Google APIを読み込み中...';
-            }
-        }
-
-        /**
-         * Googleから認証コードが返された後のコールバック関数
-         * @param {object} response - 認証コードを含むレスポンスオブジェクト
-         */
-        async function handleCodeResponse(response) {
-            if (response.error) {
-                showStatus(`Google認証エラー: ${response.error}`, true, 'gcal-auth-status');
-                console.error("Google authentication error:", response.error);
-                updateSignInStatus(false);
-                return;
-            }
-            // 認証コードをサーバーサイドで交換
-            await handleAuthCodeExchange(response.code);
-        }
-
-        /**
-         * 認証コードをサーバーサイドのFirebase Functionsでアクセストークンに交換する
-         * @param {string} code - Googleから受け取った認証コード
-         */
-        async function handleAuthCodeExchange(code) {
-            try {
-                showStatus("認証情報を交換中...", false, 'gcal-auth-status');
-                if (!EXCHANGE_TOKEN_FUNCTION_URL) {
-                    throw new Error("Firebase FunctionsのURLが設定されていません。");
+            /**
+             * Google Identity Services (GIS) の初期化 (リダイレクト用)
+             */
+            const initGisClient = () => {
+                console.log("initGisClient() called.");
+                try {
+                    // リダイレクトフロー用の認証コードクライアントを初期化
+                    codeClient = google.accounts.oauth2.initCodeClient({
+                        client_id: GOOGLE_CLIENT_ID,
+                        scope: GOOGLE_SCOPES,
+                        ux_mode: 'redirect', // リダイレクトモードを指定
+                        redirect_uri: window.location.origin + window.location.pathname, // 現在のページに戻る
+                        callback: handleCodeResponse, // 認証コードを受け取った後のコールバック
+                    });
+                    gisInited = true;
+                    console.log("GIS code client initialized. gisInited:", gisInited, "codeClient:", codeClient);
+                    maybeEnableCalendarFeatures();
+                } catch (error) {
+                    console.error("Error initializing GIS code client:", error);
+                    showStatus("Google Identity Servicesの初期化に失敗しました。", true, 'gcal-auth-status');
                 }
+            };
 
-                const firebaseIdToken = await auth.currentUser.getIdToken();
-                if (!firebaseIdToken) {
-                    throw new Error("Firebase認証トークンが取得できません。");
-                }
+            /**
+             * gapiとGISの初期化が両方完了し、かつFirebase認証が完了したら、カレンダー機能を有効にする
+             * ここで認証コードの処理も行う
+             */
+            function maybeEnableCalendarFeatures() {
+                console.log("maybeEnableCalendarFeatures called. gapiInited:", gapiInited, "gisInited:", gisInited, "currentUser:", currentUser ? true : false);
+                if (gapiInited && gisInited && currentUser) {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const code = urlParams.get('code');
+                    const error = urlParams.get('error');
 
-                const response = await fetch(EXCHANGE_TOKEN_FUNCTION_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${firebaseIdToken}` // Firebase認証トークンを渡す
-                    },
-                    body: JSON.stringify({ code: code, redirectUri: window.location.origin + window.location.pathname })
-                });
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
-                }
-
-                const data = await response.json();
-                if (data.accessToken) {
-                    // 取得したアクセストークンをgapiクライアントに設定
-                    gapi.client.setToken({ access_token: data.accessToken });
-                    // オプション: リフレッシュトークンをFirestoreに保存するなどして永続化
-                    // data.refreshToken が返された場合、サーバーサイドで安全に保存する
-                    updateSignInStatus(true);
-                } else {
-                    throw new Error("Failed to get access token from server.");
-                }
-            } catch (error) {
-                console.error("Error exchanging auth code for token:", error);
-                showStatus(`認証情報の交換に失敗しました: ${error.message}`, true, 'gcal-auth-status');
-                updateSignInStatus(false);
-            }
-        };
-
-        /**
-         * 保存されたリフレッシュトークンを使用してGoogleアクセストークンを更新しようと試みる
-         */
-        async function attemptTokenRefresh() {
-            showStatus("既存のGoogle連携を確認中...", false, 'gcal-auth-status');
-            try {
-                const firebaseIdToken = await auth.currentUser.getIdToken();
-                if (!firebaseIdToken) {
-                    throw new Error("Firebase認証トークンが取得できません。");
-                }
-
-                const response = await fetch(REFRESH_TOKEN_FUNCTION_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${firebaseIdToken}`
-                    }
-                });
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    // 404 (Not Found) はリフレッシュトークンがないことを意味する可能性が高い
-                    if (response.status === 404 || response.status === 401) {
-                        console.warn("Refresh token not found or invalid. User needs to re-authorize.");
-                        showStatus("Google連携の自動更新に失敗しました。再度連携してください。", true, 'gcal-auth-status');
+                    if (code) {
+                        // Case 1: 新しい認証コードがGoogleリダイレクトから受信された場合
+                        showStatus("Google認証を完了しています...", false, 'gcal-auth-status');
+                        handleAuthCodeExchange(code);
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                    } else if (error) {
+                        // Case 2: Google認証エラーがリダイレクト中に発生した場合
+                        showStatus(`Google認証エラー: ${error}`, true, 'gcal-auth-status');
+                        console.error("Google authentication error:", error);
                         updateSignInStatus(false);
-                        return;
+                    } else {
+                        // Case 3: 通常のページロード時、保存されたリフレッシュトークンを使用してトークンを更新しようと試みる
+                        attemptTokenRefresh(); // 新しい関数で更新を処理
                     }
-                    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
-                }
+                    
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('app-container').style.display = 'block';
 
-                const data = await response.json();
-                if (data.accessToken) {
-                    gapi.client.setToken({ access_token: data.accessToken });
-                    updateSignInStatus(true); // 認証成功
-                } else {
-                    throw new Error("Failed to get access token from refresh.");
+                } else if (currentUser) {
+                    authStatusElement.textContent = 'ステータス：Google APIを読み込み中...';
                 }
-            } catch (error) {
-                console.error("Error refreshing token:", error);
-                showStatus(`Google連携の自動更新に失敗しました: ${error.message} 再度連携してください。`, true, 'gcal-auth-status');
-                updateSignInStatus(false); // 認証ボタンを表示
             }
-        };
 
-
-        /**
-         * Firebase認証完了後に呼び出されるメインのセットアップ関数
-         * @param {object} user - Firebase認証ユーザーオブジェクト
-         */
-        async function setupCalendarPage(user) {
-            currentUser = user; // ユーザー情報を設定
-            // 月の入力フィールドの初期値を今月に設定
-            const now = new Date();
-            calendarMonthInput.value = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
-
-            // Google APIの初期化状態をチェックし、準備ができていればUIを有効化
-            maybeEnableCalendarFeatures();
-
-            // イベントリスナーの設定
-            authorizeButton.addEventListener('click', handleAuthClick);
-            signoutButton.addEventListener('click', handleSignoutClick);
-            loadEventsBtn.addEventListener('click', loadCalendarEvents);
-            reflectEventsBtn.addEventListener('click', reflectSelectedEvents);
-            addEventButton.addEventListener('click', handleCreateEventClick); // 予定作成ボタンのイベントリスナーを追加
-            
-            // 予定作成モーダルのキャンセルボタン
-            cancelCreateEventButton.addEventListener('click', () => {
-                createEventModal.classList.add('hidden');
-                createEventForm.reset(); // フォームをリセット
-                showStatus('', false, 'create-event-status'); // ステータスをクリア
-            });
-
-            // 予定作成フォームの送信イベント
-            createEventForm.addEventListener('submit', handleCreateEventSubmit);
-
-            // プロジェクトリストをFirestoreから読み込み、カレンダーイベント反映時のプロジェクト選択に利用
-            listenToUserProjects();
-
-            // Google APIライブラリが利用可能になったら初期化を開始
-            const checkGoogleApiReady = setInterval(() => {
-                if (typeof window.gapi !== 'undefined' && typeof window.google !== 'undefined' && typeof window.google.accounts !== 'undefined') {
-                    clearInterval(checkGoogleApiReady); // ポーリング停止
-                    gapi.load('client', initGapiClient);
-                    initGisClient(); // GISクライアントはリダイレクト用を初期化
-                }
-            }, 100); // 100msごとにチェック
-        }
-
-        /**
-         * ユーザーのプロジェクトリストをFirestoreから購読し、マップに保存する
-         */
-        let userProjects = new Map();
-        function listenToUserProjects() {
-            if (!currentUser) return;
-            const q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid));
-            onSnapshot(q, (snapshot) => {
-                userProjects.clear();
-                snapshot.forEach(doc => {
-                    userProjects.set(doc.data().code, { id: doc.id, ...doc.data() });
-                });
-                updateCalendarProjectDropdown();
-            }, (error) => {
-                console.error("Error listening to projects:", error);
-                showStatus("プロジェクトの読み込みに失敗しました。", true, 'reflect-status');
-            });
-        }
-
-        /**
-         * カレンダーイベント反映時に使用するプロジェクト選択ドロップダウンを更新
-         */
-        function updateCalendarProjectDropdown() {
-            // イベントレンダリング時に動的に生成されるため、ここでは何もしない
-        }
-
-        /**
-         * Google認証ボタンがクリックされたときのハンドラー (リダイレクトを開始)
-         */
-        async function handleAuthClick() {
-            if (!codeClient) {
-                console.error("codeClientがまだ初期化されていません。");
-                showStatus("Google認証ライブラリの準備ができていません。しばらくお待ちください。", true, 'gcal-auth-status');
-                return;
-            }
-            // 認証コードリクエストを開始し、Google認証ページにリダイレクト
-            codeClient.requestCode();
-        }
-
-        /**
-         * Google連携解除ボタンがクリックされたときのハンドラー
-         */
-        function handleSignoutClick() {
-            const token = gapi.client.getToken();
-            if (token !== null) {
-                google.accounts.oauth2.revoke(token.access_token, () => {
-                    gapi.client.setToken(''); // gapiクライアントからトークンをクリア
-                    // オプション: Firestoreに保存されたリフレッシュトークンも削除するAPI呼び出し
+            /**
+             * Googleから認証コードが返された後のコールバック関数
+             * @param {object} response - 認証コードを含むレスポンスオブジェクト
+             */
+            async function handleCodeResponse(response) {
+                if (response.error) {
+                    showStatus(`Google認証エラー: ${response.error}`, true, 'gcal-auth-status');
+                    console.error("Google authentication error:", response.error);
                     updateSignInStatus(false);
-                    authStatusElement.textContent = 'ステータス：連携解除済み';
-                    calendarSelect.innerHTML = ''; // カレンダー選択肢をクリア
-                    calendarEventsContainer.innerHTML = '<p class="text-gray-500 text-center py-4">カレンダーと月を選択して「予定を読み込む」を押してください。</p>';
-                    gcalControls.classList.add('hidden'); // コントロールを非表示
-                    addEventButton.classList.add('hidden'); // 予定作成ボタンも非表示
+                    return;
+                }
+                // 認証コードをサーバーサイドで交換
+                await handleAuthCodeExchange(response.code);
+            }
+
+            /**
+             * 認証コードをサーバーサイドのFirebase Functionsでアクセストークンに交換する
+             * @param {string} code - Googleから受け取った認証コード
+             */
+            async function handleAuthCodeExchange(code) {
+                try {
+                    showStatus("認証情報を交換中...", false, 'gcal-auth-status');
+                    if (!EXCHANGE_TOKEN_FUNCTION_URL) {
+                        throw new Error("Firebase FunctionsのURLが設定されていません。");
+                    }
+
+                    const firebaseIdToken = await auth.currentUser.getIdToken();
+                    if (!firebaseIdToken) {
+                        throw new Error("Firebase認証トークンが取得できません。");
+                    }
+
+                    const response = await fetch(EXCHANGE_TOKEN_FUNCTION_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${firebaseIdToken}` // Firebase認証トークンを渡す
+                        },
+                        body: JSON.stringify({ code: code, redirectUri: window.location.origin + window.location.pathname })
+                    });
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+                    }
+
+                    const data = await response.json();
+                    if (data.accessToken) {
+                        // 取得したアクセストークンをgapiクライアントに設定
+                        gapi.client.setToken({ access_token: data.accessToken });
+                        // オプション: リフレッシュトークンをFirestoreに保存するなどして永続化
+                        // data.refreshToken が返された場合、サーバーサイドで安全に保存する
+                        updateSignInStatus(true);
+                    } else {
+                        throw new Error("Failed to get access token from server.");
+                    }
+                } catch (error) {
+                    console.error("Error exchanging auth code for token:", error);
+                    showStatus(`認証情報の交換に失敗しました: ${error.message}`, true, 'gcal-auth-status');
+                    updateSignInStatus(false);
+                }
+            };
+
+            /**
+             * 保存されたリフレッシュトークンを使用してGoogleアクセストークンを更新しようと試みる
+             */
+            async function attemptTokenRefresh() {
+                showStatus("既存のGoogle連携を確認中...", false, 'gcal-auth-status');
+                try {
+                    const firebaseIdToken = await auth.currentUser.getIdToken();
+                    if (!firebaseIdToken) {
+                        throw new Error("Firebase認証トークンが取得できません。");
+                    }
+
+                    const response = await fetch(REFRESH_TOKEN_FUNCTION_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${firebaseIdToken}`
+                        }
+                    });
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        // 404 (Not Found) はリフレッシュトークンがないことを意味する可能性が高い
+                        if (response.status === 404 || response.status === 401) {
+                            console.warn("Refresh token not found or invalid. User needs to re-authorize.");
+                            showStatus("Google連携の自動更新に失敗しました。再度連携してください。", true, 'gcal-auth-status');
+                            updateSignInStatus(false);
+                            return;
+                        }
+                        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+                    }
+
+                    const data = await response.json();
+                    if (data.accessToken) {
+                        gapi.client.setToken({ access_token: data.accessToken });
+                        updateSignInStatus(true); // 認証成功
+                    } else {
+                        throw new Error("Failed to get access token from refresh.");
+                    }
+                } catch (error) {
+                    console.error("Error refreshing token:", error);
+                    showStatus(`Google連携の自動更新に失敗しました: ${error.message} 再度連携してください。`, true, 'gcal-auth-status');
+                    updateSignInStatus(false); // 認証ボタンを表示
+                }
+            };
+
+
+            /**
+             * Firebase認証完了後に呼び出されるメインのセットアップ関数
+             * @param {object} user - Firebase認証ユーザーオブジェクト
+             */
+            async function setupCalendarPage(user) {
+                currentUser = user; // ユーザー情報を設定
+                // 月の入力フィールドの初期値を今月に設定
+                const now = new Date();
+                calendarMonthInput.value = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+
+                // Google APIの初期化状態をチェックし、準備ができていればUIを有効化
+                maybeEnableCalendarFeatures();
+
+                // イベントリスナーの設定
+                authorizeButton.addEventListener('click', handleAuthClick);
+                signoutButton.addEventListener('click', handleSignoutClick);
+                loadEventsBtn.addEventListener('click', loadCalendarEvents);
+                reflectEventsBtn.addEventListener('click', reflectSelectedEvents);
+                addEventButton.addEventListener('click', handleCreateEventClick); // 予定作成ボタンのイベントリスナーを追加
+                
+                // 予定作成モーダルのキャンセルボタン
+                cancelCreateEventButton.addEventListener('click', () => {
+                    createEventModal.classList.add('hidden');
+                    createEventForm.reset(); // フォームをリセット
+                    showStatus('', false, 'create-event-status'); // ステータスをクリア
+                });
+
+                // 予定作成フォームの送信イベント
+                createEventForm.addEventListener('submit', handleCreateEventSubmit);
+
+                // プロジェクトリストをFirestoreから読み込み、カレンダーイベント反映時のプロジェクト選択に利用
+                listenToUserProjects();
+
+                // Google APIライブラリが利用可能になったら初期化を開始
+                const checkGoogleApiReady = setInterval(() => {
+                    if (typeof window.gapi !== 'undefined' && typeof window.google !== 'undefined' && typeof window.google.accounts !== 'undefined') {
+                        clearInterval(checkGoogleApiReady); // ポーリング停止
+                        gapi.load('client', initGapiClient);
+                        initGisClient(); // GISクライアントはリダイレクト用を初期化
+                    }
+                }, 100); // 100msごとにチェック
+            }
+
+            /**
+             * ユーザーのプロジェクトリストをFirestoreから購読し、マップに保存する
+             */
+            let userProjects = new Map();
+            function listenToUserProjects() {
+                if (!currentUser) return;
+                const q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid));
+                onSnapshot(q, (snapshot) => {
+                    userProjects.clear();
+                    snapshot.forEach(doc => {
+                        userProjects.set(doc.data().code, { id: doc.id, ...doc.data() });
+                    });
+                    updateCalendarProjectDropdown();
+                }, (error) => {
+                    console.error("Error listening to projects:", error);
+                    showStatus("プロジェクトの読み込みに失敗しました。", true, 'reflect-status');
                 });
             }
-        }
 
-        /**
-         * 認証状態に基づいてUIを更新する
-         * @param {boolean} isSignedIn - 現在Googleに認証済みかどうかのフラグ
-         */
-        function updateSignInStatus(isSignedIn) {
-            if (isSignedIn) {
-                authStatusElement.textContent = 'ステータス：Googleアカウントと連携済み';
-                authorizeButton.classList.add('hidden');
-                signoutButton.classList.remove('hidden');
-                gcalControls.classList.remove('hidden');
-                addEventButton.classList.remove('hidden');
-                listCalendars(); // 認証済みならカレンダーリストをロード
-            } else {
-                authStatusElement.textContent = 'ステータス：Googleアカウントと未連携';
-                authorizeButton.classList.remove('hidden');
-                signoutButton.classList.add('hidden');
-                gcalControls.classList.add('hidden'); // 未連携ならコントロールを非表示
-                addEventButton.classList.add('hidden'); // 予定作成ボタンも非表示
+            /**
+             * カレンダーイベント反映時に使用するプロジェクト選択ドロップダウンを更新
+             */
+            function updateCalendarProjectDropdown() {
+                // イベントレンダリング時に動的に生成されるため、ここでは何もしない
             }
-        }
 
-        /**
-         * Googleカレンダーリストを取得し、ドロップダウンに表示する
-         */
-        async function listCalendars() {
-            try {
-                const response = await gapi.client.calendar.calendarList.list();
-                userCalendars = response.result.items; // カレンダーリストを保存
-                calendarSelect.innerHTML = ''; // 既存のオプションをクリア
-                eventCalendarSelect.innerHTML = ''; // 予定作成モーダル内のカレンダー選択もクリア
+            /**
+             * Google認証ボタンがクリックされたときのハンドラー (リダイレクトを開始)
+             */
+            async function handleAuthClick() {
+                if (!codeClient) {
+                    console.error("codeClientがまだ初期化されていません。");
+                    showStatus("Google認証ライブラリの準備ができていません。しばらくお待ちください。", true, 'gcal-auth-status');
+                    return;
+                }
+                // 認証コードリクエストを開始し、Google認証ページにリダイレクト
+                codeClient.requestCode();
+            }
 
-                if (userCalendars.length > 0) {
-                    userCalendars.forEach(calendar => {
+            /**
+             * Google連携解除ボタンがクリックされたときのハンドラー
+             */
+            function handleSignoutClick() {
+                const token = gapi.client.getToken();
+                if (token !== null) {
+                    google.accounts.oauth2.revoke(token.access_token, () => {
+                        gapi.client.setToken(''); // gapiクライアントからトークンをクリア
+                        // オプション: Firestoreに保存されたリフレッシュトークンも削除するAPI呼び出し
+                        updateSignInStatus(false);
+                        authStatusElement.textContent = 'ステータス：連携解除済み';
+                        calendarSelect.innerHTML = ''; // カレンダー選択肢をクリア
+                        calendarEventsContainer.innerHTML = '<p class="text-gray-500 text-center py-4">カレンダーと月を選択して「予定を読み込む」を押してください。</p>';
+                        gcalControls.classList.add('hidden'); // コントロールを非表示
+                        addEventButton.classList.add('hidden'); // 予定作成ボタンも非表示
+                    });
+                }
+            }
+
+            /**
+             * 認証状態に基づいてUIを更新する
+             * @param {boolean} isSignedIn - 現在Googleに認証済みかどうかのフラグ
+             */
+            function updateSignInStatus(isSignedIn) {
+                if (isSignedIn) {
+                    authStatusElement.textContent = 'ステータス：Googleアカウントと連携済み';
+                    authorizeButton.classList.add('hidden');
+                    signoutButton.classList.remove('hidden');
+                    gcalControls.classList.remove('hidden');
+                    addEventButton.classList.remove('hidden');
+                    listCalendars(); // 認証済みならカレンダーリストをロード
+                } else {
+                    authStatusElement.textContent = 'ステータス：Googleアカウントと未連携';
+                    authorizeButton.classList.remove('hidden');
+                    signoutButton.classList.add('hidden');
+                    gcalControls.classList.add('hidden'); // 未連携ならコントロールを非表示
+                    addEventButton.classList.add('hidden'); // 予定作成ボタンも非表示
+                }
+            }
+
+            /**
+             * Googleカレンダーリストを取得し、ドロップダウンに表示する
+             */
+            async function listCalendars() {
+                try {
+                    const response = await gapi.client.calendar.calendarList.list();
+                    userCalendars = response.result.items; // カレンダーリストを保存
+                    calendarSelect.innerHTML = ''; // 既存のオプションをクリア
+                    eventCalendarSelect.innerHTML = ''; // 予定作成モーダル内のカレンダー選択もクリア
+
+                    if (userCalendars.length > 0) {
+                        userCalendars.forEach(calendar => {
+                            const option = document.createElement('option');
+                            option.value = calendar.id;
+                            option.textContent = calendar.summary;
+                            calendarSelect.appendChild(option);
+                        });
+                        // メインのカレンダー選択の初期値を設定
+                        // ユーザーのプライマリカレンダーがあればそれを選択、なければリストの最初のカレンダー
+                        const primaryCalendar = userCalendars.find(cal => cal.primary);
+                        if (primaryCalendar) {
+                            calendarSelect.value = primaryCalendar.id;
+                        } else if (userCalendars.length > 0) {
+                            calendarSelect.value = userCalendars[0].id;
+                        }
+                        loadCalendarEvents();
+                    } else {
+                        calendarSelect.innerHTML = '<option value="">カレンダーが見つかりません</option>';
+                        showStatus("Googleカレンダーが見つかりませんでした。", true, 'reflect-status');
+                    }
+                } catch (error) {
+                    console.error("Error listing calendars:", error);
+                    showStatus("カレンダーリストの取得に失敗しました。", true, 'reflect-status');
+                    if (error.result && error.result.error && error.result.error.code === 401) {
+                        authStatusElement.textContent = 'ステータス：認証が無効です。再連携してください。';
+                        updateSignInStatus(false); // 未連携状態に更新
+                    }
+                }
+            }
+
+            /**
+             * 選択されたカレンダーと月のイベントを読み込む
+             * および、既に稼働実績に反映されたイベントのIDを取得する
+             */
+            async function loadCalendarEvents() {
+                const calendarId = calendarSelect.value;
+                const selectedMonth = calendarMonthInput.value;
+
+                if (!calendarId || !selectedMonth) {
+                    showStatus("カレンダーと月を選択してください。", true, 'reflect-status');
+                    return;
+                }
+
+                showStatus("カレンダーイベントを読み込み中...", false, 'reflect-status');
+                calendarEventsContainer.innerHTML = '<p class="text-gray-500 text-center py-4">読み込み中...</p>';
+                calendarActionBar.classList.add('hidden'); // アクションバーを一時的に隠す
+
+                try {
+                    const response = await gapi.client.calendar.events.list({
+                        'calendarId': calendarId,
+                        'timeMin': new Date(selectedMonth + '-01T00:00:00').toISOString(),
+                        'timeMax': new Date(new Date(selectedMonth + '-01T00:00:00').getFullYear(), new Date(selectedMonth + '-01T00:00:00').getMonth() + 1, 0, 23, 59, 59).toISOString(),
+                        'showDeleted': false,
+                        'singleEvents': true,
+                        'maxResults': 100,
+                        'orderBy': 'startTime'
+                    });
+                    const events = response.result.items;
+
+                    // Firestoreから既に反映済みのイベントIDを取得
+                    const startOfMonth = new Date(selectedMonth + '-01T00:00:00');
+                    const endOfMonth = new Date(startOfMonth.getFullYear(), startOfMonth.getMonth() + 1, 0, 23, 59, 59);
+                    const reflectedEventIds = await getReflectedEventIds(startOfMonth, endOfMonth);
+                    
+                    renderCalendarEvents(events, reflectedEventIds); // reflectedEventIdsを渡す
+                    showStatus("イベントを読み込みました。", false, 'reflect-status');
+                    if (events.length > 0) {
+                        calendarActionBar.classList.remove('hidden');
+                    } else {
+                        calendarActionBar.classList.add('hidden');
+                    }
+
+                } catch (error) {
+                    console.error("Error loading calendar events:", error);
+                    showStatus(`イベントの読み込みに失敗しました: ${error.message}`, true, 'reflect-status');
+                    calendarEventsContainer.innerHTML = '<p class="text-red-500 text-center py-4">イベントの読み込み中にエラーが発生しました。</p>';
+                    if (error.result && error.result.error && error.result.error.code === 401) {
+                        authStatusElement.textContent = 'ステータス：認証が無効です。再連携してください。';
+                        updateSignInStatus(false); // 未連携状態に更新
+                    }
+                }
+            }
+
+            /**
+             * Firestoreから指定期間内に既に稼働実績として反映されたGoogleカレンダーイベントのIDを取得する
+             * @param {Date} startDate - 期間の開始日
+             * @param {Date} endDate - 期間の終了日
+             * @returns {Set<string>} 既に反映済みのイベントIDのセット
+             */
+            async function getReflectedEventIds(startDate, endDate) {
+                if (!currentUser) return new Set();
+
+                const q = query(
+                    collection(db, "timestamps"),
+                    where("userId", "==", currentUser.uid),
+                    where("source", "==", "Google Calendar"), // Google Calendarからのものに限定
+                    where("clockInTime", ">=", Timestamp.fromDate(startDate)),
+                    where("clockInTime", "<=", Timestamp.fromDate(endDate))
+                );
+
+                try {
+                    const querySnapshot = await getDocs(q);
+                    const reflectedIds = new Set();
+                    querySnapshot.forEach(doc => {
+                        const data = doc.data();
+                        if (data.calendarEventId) {
+                            reflectedIds.add(data.calendarEventId);
+                        }
+                    });
+                    return reflectedIds;
+                } catch (error) {
+                    console.error("Error fetching reflected event IDs:", error);
+                    showStatus("反映済みイベントの確認に失敗しました。", true, 'reflect-status');
+                    return new Set();
+                }
+            }
+
+
+            /**
+             * 読み込んだカレンダーイベントをHTMLにレンダリングする
+             * @param {Array} events - Googleカレンダーイベントの配列
+             * @param {Set<string>} reflectedEventIds - 既に反映済みのイベントIDのセット
+             */
+            function renderCalendarEvents(events, reflectedEventIds) {
+                calendarEventsContainer.innerHTML = '';
+                if (events.length === 0) {
+                    calendarEventsContainer.innerHTML = '<p class="text-gray-500 text-center py-4">この月には予定がありません。</p>';
+                    return;
+                }
+
+                events.forEach(event => {
+                    const start = event.start.dateTime ? new Date(event.start.dateTime) : new Date(event.start.date + 'T00:00:00');
+                    const end = event.end.dateTime ? new Date(event.end.dateTime) : new Date(event.end.date + 'T23:59:59');
+                    const isAllDay = !event.start.dateTime;
+                    const isReflected = reflectedEventIds.has(event.id); // 反映済みかチェック
+
+                    // UIの調整：よりコンパクトな表示
+                    const eventHtml = `
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center p-2 border-b last:border-b-0 bg-white rounded-lg shadow-sm ${isReflected ? 'opacity-60 bg-green-50' : ''}">
+                            <div class="flex items-center w-full sm:w-auto mb-2 sm:mb-0 sm:mr-3">
+                                <input type="checkbox" class="event-checkbox mt-1 mr-2 h-4 w-4 text-main rounded" data-event-id="${event.id}" ${isReflected ? 'disabled checked' : ''}>
+                                ${isReflected ? '<span class="text-green-600 text-xs font-semibold mr-2">反映済</span>' : ''}
+                                <h4 class="font-semibold text-gray-800 flex-grow">${event.summary || 'タイトルなし'}</h4>
+                            </div>
+                            <div class="flex-grow grid grid-cols-1 sm:grid-cols-2 gap-1 sm:gap-2 w-full">
+                                <p class="text-xs text-gray-600">
+                                    ${start.toLocaleDateString('ja-JP')} ${isAllDay ? '終日' : start.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })} 
+                                    ${!isAllDay ? ` - ${end.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}` : ''}
+                                </p>
+                                <div class="flex items-center">
+                                    <label for="project-select-${event.id}" class="block text-xs font-medium text-gray-700 mr-1 whitespace-nowrap">PJ:</label>
+                                    <select id="project-select-${event.id}" class="block w-full text-xs p-1 border border-gray-300 rounded-md project-select" ${isReflected ? 'disabled' : ''}>
+                                        <option value="">プロジェクトを選択</option>
+                                        ${Array.from(userProjects.values()).map(p => `<option value="${p.code}" data-project-name="${p.name}">${p.code}: ${p.name}</option>`).join('')}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    calendarEventsContainer.insertAdjacentHTML('beforeend', eventHtml);
+                });
+            }
+
+            /**
+             * 選択されたカレンダーイベントを稼働実績としてFirestoreに反映する
+             */
+            async function reflectSelectedEvents() {
+                const selectedCheckboxes = document.querySelectorAll('.event-checkbox:checked');
+                if (selectedCheckboxes.length === 0) {
+                    showStatus("反映する予定を選択してください。", true, 'reflect-status');
+                    return;
+                }
+
+                showStatus("稼働実績を反映中...", false, 'reflect-status');
+                const reflectPromises = [];
+
+                for (const checkbox of selectedCheckboxes) {
+                    // 既に無効化されている（＝反映済みの）チェックボックスはスキップ
+                    // ここでdisabledのチェックも行い、nullアクセスを防ぐ
+                    if (checkbox.disabled) {
+                        continue;
+                    }
+
+                    const eventId = checkbox.dataset.eventId;
+                    const eventElement = checkbox.closest('.flex');
+                    const projectSelect = eventElement.querySelector(`.project-select`);
+                    
+                    // projectSelectがnullでないことを確認
+                    if (!projectSelect) {
+                        console.error(`プロジェクト選択ドロップダウンが見つかりません。Event ID: ${eventId}`);
+                        showStatus("プロジェクト選択ドロップダウンが見つからない予定があります。", true, 'reflect-status');
+                        continue; // このイベントはスキップして次のイベントへ
+                    }
+
+                    const projectCode = projectSelect.value;
+                    const projectName = projectSelect.options[projectSelect.selectedIndex]?.dataset.projectName; // ?. で安全にアクセス
+
+                    if (!projectCode) {
+                        showStatus("選択されたすべての予定にプロジェクトを選択してください。", true, 'reflect-status');
+                        return; // プロジェクトが選択されていない場合は処理を中断
+                    }
+
+                    // Google Calendar APIからイベント詳細を再取得（確実な時間情報のため）
+                    try {
+                        const calendarId = calendarSelect.value;
+                        const eventResponse = await gapi.client.calendar.events.get({
+                            'calendarId': calendarId,
+                            'eventId': eventId
+                        });
+                        const event = eventResponse.result;
+
+                        const start = event.start.dateTime ? new Date(event.start.dateTime) : new Date(event.start.date + 'T00:00:00');
+                        const end = event.end.dateTime ? new Date(event.end.dateTime) : new Date(event.end.date + 'T23:59:59');
+                        
+                        // 終日イベントの場合、期間を24時間として計算（またはビジネスロジックに応じて調整）
+                        let durationHours;
+                        if (!event.start.dateTime) { // 終日イベント
+                            // 終日イベントの期間計算はビジネスロジックによる。ここでは単純に1日8時間とする例
+                            durationHours = 8; 
+                        } else {
+                            durationHours = (end.getTime() - start.getTime()) / 3600000;
+                        }
+                        
+                        reflectPromises.push(addDoc(collection(db, "timestamps"), {
+                            userId: currentUser.uid,
+                            userEmail: currentUser.email,
+                            projectCode: projectCode,
+                            projectName: projectName,
+                            clockInTime: Timestamp.fromDate(start),
+                            clockOutTime: Timestamp.fromDate(end),
+                            durationHours: parseFloat(durationHours.toFixed(2)),
+                            source: 'Google Calendar',
+                            calendarEventId: event.id
+                        }));
+                    } catch (error) {
+                        console.error(`イベント ${eventId} の詳細取得または反映に失敗しました:`, error);
+                        showStatus(`一部の予定の反映に失敗しました: ${error.message}`, true, 'reflect-status');
+                        return; // エラーが発生したら中断
+                    }
+                }
+
+                try {
+                    await Promise.all(reflectPromises);
+                    showStatus("選択した予定を稼働実績に反映しました！", false, 'reflect-status');
+                    // 反映後、チェックボックスをクリアし、アクションバーを隠す
+                    // 既に反映済みのものはdisabledになっているため、チェックボックスの状態は維持される
+                    // 新たに反映されたものもdisabledにするため、再度イベントを読み込むのが確実
+                    loadCalendarEvents(); 
+                } catch (error) {
+                    console.error("Error reflecting events:", error);
+                    showStatus(`稼働実績の反映中にエラーが発生しました: ${error.message}`, true, 'reflect-status');
+                }
+            }
+
+            /**
+             * 「予定を作成」ボタンがクリックされたときのハンドラー
+             */
+            function handleCreateEventClick() {
+                // モーダルを表示
+                createEventModal.classList.remove('hidden');
+                // 現在時刻をデフォルト値に設定
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = (now.getMonth() + 1).toString().padStart(2, '0');
+                const day = now.getDate().toString().padStart(2, '0');
+                const hours = now.getHours().toString().padStart(2, '0');
+                const minutes = now.getMinutes().toString().padStart(2, '0');
+                const currentDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
+                eventStartDatetimeInput.value = currentDateTime;
+                eventEndDatetimeInput.value = currentDateTime; // 終了時刻も初期値は同じに
+                showStatus('', false, 'create-event-status'); // ステータスをクリア
+
+                // 予定作成モーダル内のカレンダー選択ドロップダウンを更新
+                eventCalendarSelect.innerHTML = '';
+                // 書き込み権限のあるカレンダーのみをフィルタリング
+                const writableCalendars = userCalendars.filter(cal => 
+                    cal.accessRole === 'owner' || cal.accessRole === 'writer'
+                );
+
+                if (writableCalendars.length > 0) {
+                    writableCalendars.forEach(calendar => {
                         const option = document.createElement('option');
                         option.value = calendar.id;
                         option.textContent = calendar.summary;
-                        calendarSelect.appendChild(option);
+                        eventCalendarSelect.appendChild(option);
                     });
-                    // メインのカレンダー選択の初期値を設定
-                    // ユーザーのプライマリカレンダーがあればそれを選択、なければリストの最初のカレンダー
-                    const primaryCalendar = userCalendars.find(cal => cal.primary);
-                    if (primaryCalendar) {
-                        calendarSelect.value = primaryCalendar.id;
-                    } else if (userCalendars.length > 0) {
-                        calendarSelect.value = userCalendars[0].id;
-                    }
-                    loadCalendarEvents();
-                } else {
-                    calendarSelect.innerHTML = '<option value="">カレンダーが見つかりません</option>';
-                    showStatus("Googleカレンダーが見つかりませんでした。", true, 'reflect-status');
-                }
-            } catch (error) {
-                console.error("Error listing calendars:", error);
-                showStatus("カレンダーリストの取得に失敗しました。", true, 'reflect-status');
-                if (error.result && error.result.error && error.result.error.code === 401) {
-                    authStatusElement.textContent = 'ステータス：認証が無効です。再連携してください。';
-                    updateSignInStatus(false); // 未連携状態に更新
-                }
-            }
-        }
+                    // メインのカレンダー選択と同じカレンダーを初期選択（書き込み可能であれば）
+                    const currentMainCalendarId = calendarSelect.value;
+                    const isMainCalendarWritable = writableCalendars.some(cal => cal.id === currentMainCalendarId);
 
-        /**
-         * 選択されたカレンダーと月のイベントを読み込む
-         * および、既に稼働実績に反映されたイベントのIDを取得する
-         */
-        async function loadCalendarEvents() {
-            const calendarId = calendarSelect.value;
-            const selectedMonth = calendarMonthInput.value;
-
-            if (!calendarId || !selectedMonth) {
-                showStatus("カレンダーと月を選択してください。", true, 'reflect-status');
-                return;
-            }
-
-            showStatus("カレンダーイベントを読み込み中...", false, 'reflect-status');
-            calendarEventsContainer.innerHTML = '<p class="text-gray-500 text-center py-4">読み込み中...</p>';
-            calendarActionBar.classList.add('hidden'); // アクションバーを一時的に隠す
-
-            try {
-                const response = await gapi.client.calendar.events.list({
-                    'calendarId': calendarId,
-                    'timeMin': new Date(selectedMonth + '-01T00:00:00').toISOString(),
-                    'timeMax': new Date(new Date(selectedMonth + '-01T00:00:00').getFullYear(), new Date(selectedMonth + '-01T00:00:00').getMonth() + 1, 0, 23, 59, 59).toISOString(),
-                    'showDeleted': false,
-                    'singleEvents': true,
-                    'maxResults': 100,
-                    'orderBy': 'startTime'
-                });
-                const events = response.result.items;
-
-                // Firestoreから既に反映済みのイベントIDを取得
-                const startOfMonth = new Date(selectedMonth + '-01T00:00:00');
-                const endOfMonth = new Date(startOfMonth.getFullYear(), startOfMonth.getMonth() + 1, 0, 23, 59, 59);
-                const reflectedEventIds = await getReflectedEventIds(startOfMonth, endOfMonth);
-                
-                renderCalendarEvents(events, reflectedEventIds); // reflectedEventIdsを渡す
-                showStatus("イベントを読み込みました。", false, 'reflect-status');
-                if (events.length > 0) {
-                    calendarActionBar.classList.remove('hidden');
-                } else {
-                    calendarActionBar.classList.add('hidden');
-                }
-
-            } catch (error) {
-                console.error("Error loading calendar events:", error);
-                showStatus(`イベントの読み込みに失敗しました: ${error.message}`, true, 'reflect-status');
-                calendarEventsContainer.innerHTML = '<p class="text-red-500 text-center py-4">イベントの読み込み中にエラーが発生しました。</p>';
-                if (error.result && error.result.error && error.result.error.code === 401) {
-                    authStatusElement.textContent = 'ステータス：認証が無効です。再連携してください。';
-                    updateSignInStatus(false); // 未連携状態に更新
-                }
-            }
-        }
-
-        /**
-         * Firestoreから指定期間内に既に稼働実績として反映されたGoogleカレンダーイベントのIDを取得する
-         * @param {Date} startDate - 期間の開始日
-         * @param {Date} endDate - 期間の終了日
-         * @returns {Set<string>} 既に反映済みのイベントIDのセット
-         */
-        async function getReflectedEventIds(startDate, endDate) {
-            if (!currentUser) return new Set();
-
-            const q = query(
-                collection(db, "timestamps"),
-                where("userId", "==", currentUser.uid),
-                where("source", "==", "Google Calendar"), // Google Calendarからのものに限定
-                where("clockInTime", ">=", Timestamp.fromDate(startDate)),
-                where("clockInTime", "<=", Timestamp.fromDate(endDate))
-            );
-
-            try {
-                const querySnapshot = await getDocs(q);
-                const reflectedIds = new Set();
-                querySnapshot.forEach(doc => {
-                    const data = doc.data();
-                    if (data.calendarEventId) {
-                        reflectedIds.add(data.calendarEventId);
-                    }
-                });
-                return reflectedIds;
-            } catch (error) {
-                console.error("Error fetching reflected event IDs:", error);
-                showStatus("反映済みイベントの確認に失敗しました。", true, 'reflect-status');
-                return new Set();
-            }
-        }
-
-
-        /**
-         * 読み込んだカレンダーイベントをHTMLにレンダリングする
-         * @param {Array} events - Googleカレンダーイベントの配列
-         * @param {Set<string>} reflectedEventIds - 既に反映済みのイベントIDのセット
-         */
-        function renderCalendarEvents(events, reflectedEventIds) {
-            calendarEventsContainer.innerHTML = '';
-            if (events.length === 0) {
-                calendarEventsContainer.innerHTML = '<p class="text-gray-500 text-center py-4">この月には予定がありません。</p>';
-                return;
-            }
-
-            events.forEach(event => {
-                const start = event.start.dateTime ? new Date(event.start.dateTime) : new Date(event.start.date + 'T00:00:00');
-                const end = event.end.dateTime ? new Date(event.end.dateTime) : new Date(event.end.date + 'T23:59:59');
-                const isAllDay = !event.start.dateTime;
-                const isReflected = reflectedEventIds.has(event.id); // 反映済みかチェック
-
-                // UIの調整：よりコンパクトな表示
-                const eventHtml = `
-                    <div class="flex flex-col sm:flex-row items-start sm:items-center p-2 border-b last:border-b-0 bg-white rounded-lg shadow-sm ${isReflected ? 'opacity-60 bg-green-50' : ''}">
-                        <div class="flex items-center w-full sm:w-auto mb-2 sm:mb-0 sm:mr-3">
-                            <input type="checkbox" class="event-checkbox mt-1 mr-2 h-4 w-4 text-main rounded" data-event-id="${event.id}" ${isReflected ? 'disabled checked' : ''}>
-                            ${isReflected ? '<span class="text-green-600 text-xs font-semibold mr-2">反映済</span>' : ''}
-                            <h4 class="font-semibold text-gray-800 flex-grow-0 flex-shrink-0 w-40 truncate">${event.summary || 'タイトルなし'}</h4>
-                        </div>
-                        <div class="flex-grow grid grid-cols-1 sm:grid-cols-2 gap-1 sm:gap-2 w-full">
-                            <p class="text-xs text-gray-600 flex-grow-0 flex-shrink-0 w-40 truncate">
-                                ${start.toLocaleDateString('ja-JP')} ${isAllDay ? '終日' : start.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })} 
-                                ${!isAllDay ? ` - ${end.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}` : ''}
-                            </p>
-                            <div class="flex items-center flex-grow">
-                                <label for="project-select-${event.id}" class="block text-xs font-medium text-gray-700 mr-1 whitespace-nowrap">PJ:</label>
-                                <select id="project-select-${event.id}" class="block w-full text-xs p-1 border border-gray-300 rounded-md project-select flex-grow" ${isReflected ? 'disabled' : ''}>
-                                    <option value="">プロジェクトを選択</option>
-                                    ${Array.from(userProjects.values()).map(p => `<option value="${p.code}" data-project-name="${p.name}">${p.code}: ${p.name}</option>`).join('')}
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                calendarEventsContainer.insertAdjacentHTML('beforeend', eventHtml);
-            });
-        }
-
-        /**
-         * 選択されたカレンダーイベントを稼働実績としてFirestoreに反映する
-         */
-        async function reflectSelectedEvents() {
-            const selectedCheckboxes = document.querySelectorAll('.event-checkbox:checked');
-            if (selectedCheckboxes.length === 0) {
-                showStatus("反映する予定を選択してください。", true, 'reflect-status');
-                return;
-            }
-
-            showStatus("稼働実績を反映中...", false, 'reflect-status');
-            const reflectPromises = [];
-
-            for (const checkbox of selectedCheckboxes) {
-                // 既に無効化されている（＝反映済みの）チェックボックスはスキップ
-                // ここでdisabledのチェックも行い、nullアクセスを防ぐ
-                if (checkbox.disabled) {
-                    continue;
-                }
-
-                const eventId = checkbox.dataset.eventId;
-                console.log(`Processing eventId: ${eventId}`); // デバッグ用ログを追加
-
-                // プロジェクト選択ドロップダウンをIDで直接取得するように修正
-                const projectSelect = document.getElementById(`project-select-${eventId}`);
-                
-                // projectSelectがnullでないことを確認
-                if (!projectSelect) {
-                    console.error(`プロジェクト選択ドロップダウンが見つかりません。Event ID: ${eventId}`);
-                    // デバッグのために、親要素のHTML内容をログに出力
-                    const eventElement = checkbox.closest('.flex');
-                    if (eventElement) {
-                        console.error("Parent event element HTML:", eventElement.innerHTML);
+                    if (isMainCalendarWritable) {
+                        eventCalendarSelect.value = currentMainCalendarId;
                     } else {
-                        console.error("Parent event element (.flex) not found for checkbox.");
+                        // メインカレンダーが書き込み不可の場合、最初の書き込み可能カレンダーを選択
+                        eventCalendarSelect.value = writableCalendars[0].id;
                     }
-                    showStatus("プロジェクト選択ドロップダウンが見つからない予定があります。", true, 'reflect-status');
-                    continue; // プロジェクト選択ドロップダウンが見つからない場合は処理を中断
+                } else {
+                    eventCalendarSelect.innerHTML = '<option value="">作成可能なカレンダーがありません</option>';
+                    showStatus("予定を作成できるカレンダーが見つかりませんでした。Googleカレンダーの権限を確認してください。", true, 'create-event-status');
+                }
+            }
+
+            /**
+             * 予定作成フォームが送信されたときのハンドラー
+             * Google Calendar APIを使用して新しい予定を作成します。
+             */
+            async function handleCreateEventSubmit(event) {
+                event.preventDefault(); // フォームのデフォルト送信を防ぐ
+
+                showStatus("予定を作成中...", false, 'create-event-status');
+
+                const summary = eventSummaryInput.value.trim();
+                const selectedCalendarId = eventCalendarSelect.value; // モーダル内のカレンダー選択からIDを取得
+                const startDateTime = eventStartDatetimeInput.value;
+                const endDateTime = eventEndDatetimeInput.value;
+                const description = eventDescriptionInput.value.trim();
+                
+                if (!summary || !selectedCalendarId || !startDateTime || !endDateTime) {
+                    showStatus("タイトル、カレンダー、開始日時、終了日時は必須です。", true, 'create-event-status');
+                    return;
                 }
 
-                const projectCode = projectSelect.value;
-                const projectName = projectSelect.options[projectSelect.selectedIndex]?.dataset.projectName; // ?. で安全にアクセス
+                // 日時が有効かチェック
+                const startDate = new Date(startDateTime);
+                const endDate = new Date(endDateTime);
 
-                if (!projectCode) {
-                    showStatus("選択されたすべての予定にプロジェクトを選択してください。", true, 'reflect-status');
-                    return; // プロジェクトが選択されていない場合は処理を中断
+                if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+                    showStatus("有効な開始日時と終了日時を入力してください。", true, 'create-event-status');
+                    return;
                 }
 
-                // Google Calendar APIからイベント詳細を再取得（確実な時間情報のため）
+                if (startDate >= endDate) {
+                    showStatus("終了日時は開始日時より後に設定してください。", true, 'create-event-status');
+                    return;
+                }
+
+                const eventBody = {
+                    summary: summary,
+                    description: description,
+                    start: {
+                        dateTime: startDate.toISOString(),
+                        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, // ユーザーのタイムゾーンを使用
+                    },
+                    end: {
+                        dateTime: endDate.toISOString(),
+                        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, // ユーザーのタイムゾーンを使用
+                    },
+                };
+
                 try {
-                    const calendarId = calendarSelect.value;
-                    const eventResponse = await gapi.client.calendar.events.get({
-                        'calendarId': calendarId,
-                        'eventId': eventId
+                    const response = await gapi.client.calendar.events.insert({
+                        'calendarId': selectedCalendarId, // モーダルで選択されたカレンダーIDを使用
+                        'resource': eventBody,
                     });
-                    const event = eventResponse.result;
 
-                    const start = event.start.dateTime ? new Date(event.start.dateTime) : new Date(event.start.date + 'T00:00:00');
-                    const end = event.end.dateTime ? new Date(event.end.dateTime) : new Date(event.end.date + 'T23:59:59');
-                    
-                    // 終日イベントの場合、期間を24時間として計算（またはビジネスロジックに応じて調整）
-                    let durationHours;
-                    if (!event.start.dateTime) { // 終日イベント
-                        // 終日イベントの期間計算はビジネスロジックによる。ここでは単純に1日8時間とする例
-                        durationHours = 8; 
+                    if (response.status === 200) {
+                        showStatus("予定が正常に作成されました！", false, 'create-event-status');
+                        createEventForm.reset(); // フォームをリセット
+                        createEventModal.classList.add('hidden'); // モーダルを閉じる
+                        loadCalendarEvents(); // カレンダーイベントを再読み込みして、新しく作成された予定を表示
                     } else {
-                        durationHours = (end.getTime() - start.getTime()) / 3600000;
+                        // Google APIからのエラーメッセージを直接表示
+                        const errorMessage = response.result?.error?.message || '不明なエラーが発生しました。';
+                        throw new Error(`Google Calendar API Error: ${errorMessage}`);
                     }
-                    
-                    reflectPromises.push(addDoc(collection(db, "timestamps"), {
-                        userId: currentUser.uid,
-                        userEmail: currentUser.email,
-                        projectCode: projectCode,
-                        projectName: projectName,
-                        clockInTime: Timestamp.fromDate(start),
-                        clockOutTime: Timestamp.fromDate(end),
-                        durationHours: parseFloat(durationHours.toFixed(2)),
-                        source: 'Google Calendar',
-                        calendarEventId: event.id
-                    }));
                 } catch (error) {
-                    console.error(`イベント ${eventId} の詳細取得または反映に失敗しました:`, error);
-                    showStatus(`一部の予定の反映に失敗しました: ${error.message}`, true, 'reflect-status');
-                    return; // エラーが発生したら中断
-                }
-            }
-
-            try {
-                await Promise.all(reflectPromises);
-                showStatus("選択した予定を稼働実績に反映しました！", false, 'reflect-status');
-                // 反映後、チェックボックスをクリアし、アクションバーを隠す
-                // 既に反映済みのものはdisabledになっているため、チェックボックスの状態は維持される
-                // 新たに反映されたものもdisabledにするため、再度イベントを読み込むのが確実
-                loadCalendarEvents(); 
-            } catch (error) {
-                console.error("Error reflecting events:", error);
-                showStatus(`稼働実績の反映中にエラーが発生しました: ${error.message}`, true, 'reflect-status');
-            }
-        }
-
-        /**
-         * 「予定を作成」ボタンがクリックされたときのハンドラー
-         */
-        function handleCreateEventClick() {
-            // モーダルを表示
-            createEventModal.classList.remove('hidden');
-            // 現在時刻をデフォルト値に設定
-            const now = new Date();
-            const year = now.getFullYear();
-            const month = (now.getMonth() + 1).toString().padStart(2, '0');
-            const day = now.getDate().toString().padStart(2, '0');
-            const hours = now.getHours().toString().padStart(2, '0');
-            const minutes = now.getMinutes().toString().padStart(2, '0');
-            const currentDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
-            eventStartDatetimeInput.value = currentDateTime;
-            eventEndDatetimeInput.value = currentDateTime; // 終了時刻も初期値は同じに
-            showStatus('', false, 'create-event-status'); // ステータスをクリア
-
-            // 予定作成モーダル内のカレンダー選択ドロップダウンを更新
-            eventCalendarSelect.innerHTML = '';
-            // 書き込み権限のあるカレンダーのみをフィルタリング
-            const writableCalendars = userCalendars.filter(cal => 
-                cal.accessRole === 'owner' || cal.accessRole === 'writer'
-            );
-
-            if (writableCalendars.length > 0) {
-                writableCalendars.forEach(calendar => {
-                    const option = document.createElement('option');
-                    option.value = calendar.id;
-                    option.textContent = calendar.summary;
-                    eventCalendarSelect.appendChild(option);
-                });
-                // メインのカレンダー選択と同じカレンダーを初期選択（書き込み可能であれば）
-                const currentMainCalendarId = calendarSelect.value;
-                const isMainCalendarWritable = writableCalendars.some(cal => cal.id === currentMainCalendarId);
-
-                if (isMainCalendarWritable) {
-                    eventCalendarSelect.value = currentMainCalendarId;
-                } else {
-                    // メインカレンダーが書き込み不可の場合、最初の書き込み可能カレンダーを選択
-                    eventCalendarSelect.value = writableCalendars[0].id;
-                }
-            } else {
-                eventCalendarSelect.innerHTML = '<option value="">作成可能なカレンダーがありません</option>';
-                showStatus("予定を作成できるカレンダーが見つかりませんでした。Googleカレンダーの権限を確認してください。", true, 'create-event-status');
-            }
-        }
-
-        /**
-         * 予定作成フォームが送信されたときのハンドラー
-         * Google Calendar APIを使用して新しい予定を作成します。
-         */
-        async function handleCreateEventSubmit(event) {
-            event.preventDefault(); // フォームのデフォルト送信を防ぐ
-
-            showStatus("予定を作成中...", false, 'create-event-status');
-
-            const summary = eventSummaryInput.value.trim();
-            const selectedCalendarId = eventCalendarSelect.value; // モーダル内のカレンダー選択からIDを取得
-            const startDateTime = eventStartDatetimeInput.value;
-            const endDateTime = eventEndDatetimeInput.value;
-            const description = eventDescriptionInput.value.trim();
-            
-            if (!summary || !selectedCalendarId || !startDateTime || !endDateTime) {
-                showStatus("タイトル、カレンダー、開始日時、終了日時は必須です。", true, 'create-event-status');
-                return;
-            }
-
-            // 日時が有効かチェック
-            const startDate = new Date(startDateTime);
-            const endDate = new Date(endDateTime);
-
-            if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-                showStatus("有効な開始日時と終了日時を入力してください。", true, 'create-event-status');
-                return;
-            }
-
-            if (startDate >= endDate) {
-                showStatus("終了日時は開始日時より後に設定してください。", true, 'create-event-status');
-                return;
-            }
-
-            const eventBody = {
-                summary: summary,
-                description: description,
-                start: {
-                    dateTime: startDate.toISOString(),
-                    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, // ユーザーのタイムゾーンを使用
-                },
-                end: {
-                    dateTime: endDate.toISOString(),
-                    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, // ユーザーのタイムゾーンを使用
-                },
-            };
-
-            try {
-                const response = await gapi.client.calendar.events.insert({
-                    'calendarId': selectedCalendarId, // モーダルで選択されたカレンダーIDを使用
-                    'resource': eventBody,
-                });
-
-                if (response.status === 200) {
-                    showStatus("予定が正常に作成されました！", false, 'create-event-status');
-                    createEventForm.reset(); // フォームをリセット
-                    createEventModal.classList.add('hidden'); // モーダルを閉じる
-                    loadCalendarEvents(); // カレンダーイベントを再読み込みして、新しく作成された予定を表示
-                } else {
-                    // Google APIからのエラーメッセージを直接表示
-                    const errorMessage = response.result?.error?.message || '不明なエラーが発生しました。';
-                    throw new Error(`Google Calendar API Error: ${errorMessage}`);
-                }
-            } catch (error) {
-                console.error("Error creating calendar event:", error);
-                let displayMessage = "不明なエラーが発生しました。";
-                if (error.message && error.message.startsWith('Google Calendar API Error: ')) {
-                    displayMessage = error.message.replace('Google Calendar API Error: ', '');
-                } else if (error.result?.error?.message) {
-                    displayMessage = error.result.error.message;
-                } else if (error.body) {
-                    try {
-                        const errorBody = JSON.parse(error.body);
-                        if (errorBody.error?.message) {
-                            displayMessage = errorBody.error.message;
+                    console.error("Error creating calendar event:", error);
+                    let displayMessage = "不明なエラーが発生しました。";
+                    if (error.message && error.message.startsWith('Google Calendar API Error: ')) {
+                        displayMessage = error.message.replace('Google Calendar API Error: ', '');
+                    } else if (error.result?.error?.message) {
+                        displayMessage = error.result.error.message;
+                    } else if (error.body) {
+                        try {
+                            const errorBody = JSON.parse(error.body);
+                            if (errorBody.error?.message) {
+                                displayMessage = errorBody.error.message;
+                            }
+                        } catch (parseError) {
+                            // JSONパースエラーは無視
                         }
-                    } catch (parseError) {
-                        // JSONパースエラーは無視
                     }
+                    showStatus(`予定の作成に失敗しました: ${displayMessage}`, true, 'create-event-status');
                 }
-                showStatus(`予定の作成に失敗しました: ${displayMessage}`, true, 'create-event-status');
             }
-        }
 
-        // 共通の初期化処理を呼び出し、認証完了後にカレンダーページの処理を実行
-        initializePage(setupCalendarPage);
-    </script>
-</body>
-</html>
+            // 共通の初期化処理を呼び出し、認証完了後にカレンダーページの処理を実行
+            initializePage(setupCalendarPage);
+        </script>
+    </body>
+    </html>
+    
