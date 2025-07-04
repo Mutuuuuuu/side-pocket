@@ -780,12 +780,14 @@
          */
         async function generateSummaryPdf(projectCode) {
             showStatus("PDFを生成中...", false, 'summary-status');
+            console.log("generateSummaryPdf: PDF生成開始");
 
             const projectDetails = userProjects.get(projectCode);
             const activeProjectName = projectDetails?.name || projectCode;
 
             if (!loadedTimestamps || loadedTimestamps.length === 0) {
                 showStatus("PDFにする稼働実績がありません。", true, 'summary-status');
+                console.log("generateSummaryPdf: 稼働実績データなし");
                 return;
             }
 
@@ -800,6 +802,7 @@
 
             if (projectTimestamps.length === 0) {
                 showStatus(`選択されたプロジェクト (${activeProjectName}) に稼働実績がありません。`, true, 'summary-status');
+                console.log("generateSummaryPdf: 選択されたプロジェクトの稼働実績データなし");
                 return;
             }
 
@@ -812,7 +815,7 @@
                 totalProjectHours += duration;
             });
 
-            const selectedMonth = summaryMonthInput.value; //儼-MM
+            const selectedMonth = summaryMonthInput.value; // YYYY-MM
 
             // PDFに含めるコンテンツを構築
             const pdfContentHtml = `
@@ -900,6 +903,7 @@
             iframe.style.backgroundColor = 'white';
             iframe.style.zIndex = '-1'; // Ensure it doesn't interfere with user interaction
             document.body.appendChild(iframe);
+            console.log("generateSummaryPdf: iframe作成・DOM追加完了");
 
             // Get the iframe's document
             const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
@@ -910,40 +914,62 @@
                 filename: `稼働報告書_${selectedMonth}_${projectCode}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { 
-                    scale: 2, // レンダリングスケールを上げる (解像度向上)
+                    scale: 4, // レンダリングスケールを上げる (解像度向上)
                     logging: true, // html2canvasのログを有効化
                     useCORS: true, // クロスオリジン画像を許可
                     allowTaint: true // キャンバスの汚染を許可
                 },
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
+            console.log("generateSummaryPdf: pdfOptions定義完了");
 
             try {
-                // Write the HTML content into the iframe
-                iframeDoc.open();
-                iframeDoc.write('<!DOCTYPE html><html><head><title>PDF Content</title></head><body>' + pdfContentHtml + '</body></html>');
-                iframeDoc.close();
+                // Write the HTML content into the iframe's body
+                // iframeDoc.open() と iframeDoc.close() は不要
+                iframeDoc.body.innerHTML = pdfContentHtml;
+                console.log("generateSummaryPdf: iframe内にHTMLコンテンツ注入完了");
 
                 // Wait for the iframe content to load and render
                 await new Promise(resolve => {
                     // Use iframe load event for initial content load
                     iframe.onload = () => {
+                        console.log("generateSummaryPdf: iframe onloadイベント発生");
                         // Then use requestAnimationFrame twice to ensure rendering is complete
                         requestAnimationFrame(() => {
-                            requestAnimationFrame(resolve);
+                            console.log("generateSummaryPdf: requestAnimationFrame 1回目");
+                            requestAnimationFrame(() => {
+                                console.log("generateSummaryPdf: requestAnimationFrame 2回目");
+                                setTimeout(() => {
+                                    console.log("generateSummaryPdf: setTimeout 50ms 経過");
+                                    resolve();
+                                }, 50); // 短いsetTimeoutを追加
+                            });
                         });
                     };
                     // If iframe is already loaded (e.g., due to quick execution), resolve immediately
                     if (iframe.contentWindow.document.readyState === 'complete') {
+                        console.log("generateSummaryPdf: iframe readyStateがcomplete");
                         requestAnimationFrame(() => {
-                            requestAnimationFrame(resolve);
+                            requestAnimationFrame(() => {
+                                setTimeout(() => {
+                                    resolve();
+                                }, 50);
+                            });
                         });
                     }
                 });
+                console.log("generateSummaryPdf: iframeコンテンツのレンダリング待ち完了");
 
                 // Now, capture the content from within the iframe
-                await html2pdf().from(iframeDoc.querySelector('.pdf-container')).set(pdfOptions).save();
+                const pdfContainer = iframeDoc.querySelector('.pdf-container');
+                if (!pdfContainer) {
+                    throw new Error("iframe内に.pdf-containerが見つかりませんでした。");
+                }
+                console.log("generateSummaryPdf: .pdf-container要素取得完了", pdfContainer);
+
+                await html2pdf().from(pdfContainer).set(pdfOptions).save();
                 showStatus("PDFを正常に生成しました。", false, 'summary-status');
+                console.log("generateSummaryPdf: PDF生成・保存完了");
 
             } catch (error) {
                 console.error("PDF生成中にエラーが発生しました:", error);
@@ -952,6 +978,7 @@
                 // Clean up: remove the iframe from the DOM
                 if (iframe.parentNode) {
                     iframe.parentNode.removeChild(iframe);
+                    console.log("generateSummaryPdf: iframe削除完了");
                 }
             }
         }
