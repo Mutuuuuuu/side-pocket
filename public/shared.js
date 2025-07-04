@@ -28,31 +28,34 @@ export const db = getFirestore(app);
  * @param {Function} onUserAuthenticated - ユーザー認証後に実行されるコールバック関数
  */
 export async function initializePage(onUserAuthenticated) {
-    // DOMContentLoadedイベント内でFirebase認証状態を監視し、
-    // ヘッダーがロードされた後にsetupHeaderMenuを呼び出すように変更
     document.addEventListener('DOMContentLoaded', () => {
         auth.onAuthStateChanged(async (user) => {
+            // Firebase認証状態が判明したら、常にローディング画面を非表示にし、アプリコンテナを表示
+            const loadingElement = document.getElementById('loading');
+            const appContainerElement = document.getElementById('app-container');
+            if (loadingElement) loadingElement.style.display = 'none';
+            if (appContainerElement) appContainerElement.style.display = 'block';
+
             if (user) {
-                // ヘッダーのHTMLがDOMに挿入されたことを確認してからsetupHeaderMenuを呼び出す
                 const headerPlaceholder = document.getElementById('header-placeholder');
-                if (headerPlaceholder && headerPlaceholder.innerHTML !== '') {
-                    setupHeaderMenu(user);
-                } else {
-                    // header-placeholderがまだ空の場合、MutationObserverで変更を監視
+                if (headerPlaceholder) {
+                    // MutationObserverを使用して、ヘッダーのHTMLがDOMに挿入されたことを監視
                     const observer = new MutationObserver((mutationsList, observer) => {
-                        for (const mutation of mutationsList) {
-                            if (mutation.type === 'childList' && headerPlaceholder.innerHTML !== '') {
-                                setupHeaderMenu(user);
-                                observer.disconnect(); // 一度実行したら監視を停止
-                                break;
-                            }
+                        if (headerPlaceholder.innerHTML !== '') {
+                            setupHeaderMenu(user);
+                            observer.disconnect(); // 一度実行したら監視を停止
                         }
                     });
                     observer.observe(headerPlaceholder, { childList: true });
-                }
 
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('app-container').style.display = 'block';
+                    // ヘッダーが既にロードされている場合（例: 直接ページロード時、動的フェッチではない場合）
+                    if (headerPlaceholder.innerHTML !== '') {
+                        setupHeaderMenu(user);
+                    }
+                } else {
+                    // header-placeholderがない場合、ヘッダーが静的にDOMに存在すると仮定
+                    setupHeaderMenu(user);
+                }
 
                 if (onUserAuthenticated) {
                     onUserAuthenticated(user);
@@ -63,17 +66,14 @@ export async function initializePage(onUserAuthenticated) {
                 try {
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                         await signInWithCustomToken(auth, __initial_auth_token);
-                        console.log("Signed in with custom token via __initial_auth_token.");
                     } else {
-                        // 匿名認証は、__initial_auth_tokenがない場合にのみ実行
                         await signInAnonymously(auth);
-                        console.log("Signed in anonymously.");
                     }
                 } catch (error) {
                     console.error("Authentication failed in initializePage:", error);
-                    // 認証失敗時はログインページへリダイレクト
                     window.location.href = 'index.html';
                 }
+                // 匿名認証が成功した場合、onAuthStateChangedが再度fireされ、userオブジェクトが渡される
             }
         });
     });
@@ -121,8 +121,6 @@ export function setupHeaderMenu(user) {
         });
     }
 
-    let isSidebarExpanded = false; // サイドバーの展開状態を管理するフラグ (デスクトップ用)
-
     /**
      * デスクトップとモバイルでサイドバーの表示状態を切り替える関数
      */
@@ -134,7 +132,7 @@ export function setupHeaderMenu(user) {
         }
 
         if (window.innerWidth >= 768) { // デスクトップ (md breakpoint)
-            // デスクトップではサイドバーを常に表示し、初期はアイコンのみ、クリックで展開
+            // デスクトップではサイドバーを常に表示し、初期はアイコンのみ、ホバーで展開
             sidebarMenu.classList.remove('-translate-x-full'); // モバイルの非表示状態を解除
             sidebarMenu.classList.add('translate-x-0'); // 常に表示位置に
 
@@ -146,30 +144,11 @@ export function setupHeaderMenu(user) {
             if (closeMenuButton) closeMenuButton.classList.add('hidden');
             if (mobileMenuOverlay) mobileMenuOverlay.classList.add('hidden');
 
-            // デスクトップのサイドバー状態に基づいて幅とテキスト表示を調整
-            if (isSidebarExpanded) {
-                sidebarMenu.classList.remove('w-16');
-                sidebarMenu.classList.add('w-64');
-                appContainer.classList.remove('md:ml-16');
-                appContainer.classList.add('md:ml-64');
-                // テキストを常に表示にする（デスクトップ展開時）
-                menuTexts.forEach(span => {
-                    span.classList.remove('hidden');
-                    span.classList.add('inline-block');
-                });
-            } else {
-                sidebarMenu.classList.remove('w-64');
-                sidebarMenu.classList.add('w-16');
-                appContainer.classList.remove('md:ml-64');
-                appContainer.classList.add('md:ml-16');
-                // テキストを非表示にする（デスクトップ折りたたみ時）
-                menuTexts.forEach(span => {
-                    span.classList.add('hidden');
-                    span.classList.remove('inline-block');
-                });
-            }
+            // コンテンツの左マージンを調整 (サイドバーの幅に応じて)
+            appContainer.classList.remove('md:ml-64'); // 展開時のマージンを削除
+            appContainer.classList.add('md:ml-16'); // 初期は折りたたみ時のマージン
 
-            // デスクトップではホバーイベントリスナーを削除（クリックで制御するため）
+            // デスクトップではホバーイベントリスナーを削除（CSSのgroup-hoverで制御するため）
             sidebarMenu.onmouseenter = null;
             sidebarMenu.onmouseleave = null;
 
@@ -182,12 +161,6 @@ export function setupHeaderMenu(user) {
 
             appContainer.classList.remove('md:ml-16'); // デスクトップのマージンを解除
             appContainer.classList.remove('md:ml-64');
-
-            // メニューテキストをモバイルでは常に表示
-            menuTexts.forEach(span => {
-                span.classList.remove('hidden');
-                span.classList.add('inline-block');
-            });
 
             // モバイルではハンバーガーメニュー、閉じるボタン、オーバーレイを表示
             if (menuToggle) menuToggle.classList.remove('hidden');
@@ -205,11 +178,21 @@ export function setupHeaderMenu(user) {
     applySidebarState();
     window.addEventListener('resize', applySidebarState);
 
-    // デスクトップ用ハンバーガーメニューのクリックイベント
-    if (desktopMenuToggle) {
+    // デスクトップ用ハンバーガーメニューのクリックイベント (サイドバーの展開/収納)
+    if (desktopMenuToggle && sidebarMenu && appContainer) {
         desktopMenuToggle.addEventListener('click', () => {
-            isSidebarExpanded = !isSidebarExpanded; // 状態を反転
-            applySidebarState(); // 状態を適用
+            // 現在の幅に基づいて展開/収納を切り替える
+            if (sidebarMenu.classList.contains('w-16')) {
+                sidebarMenu.classList.remove('w-16');
+                sidebarMenu.classList.add('w-64');
+                appContainer.classList.remove('md:ml-16');
+                appContainer.classList.add('md:ml-64');
+            } else {
+                sidebarMenu.classList.remove('w-64');
+                sidebarMenu.classList.add('w-16');
+                appContainer.classList.remove('md:ml-64');
+                appContainer.classList.add('md:ml-16');
+            }
         });
     }
 
