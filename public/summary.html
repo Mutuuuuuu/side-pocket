@@ -34,19 +34,13 @@
                 </header>
 
                 <div class="space-y-4">
-                    <!-- 期間選択 -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label for="summary-start-month" class="block text-sm font-medium text-gray-700">開始月を選択:</label>
-                            <input type="month" id="summary-start-month" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
-                        </div>
-                        <div>
-                            <label for="summary-end-month" class="block text-sm font-medium text-gray-700">終了月を選択:</label>
-                            <input type="month" id="summary-end-month" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
-                        </div>
+                    <!-- レポート期間選択 (単月) -->
+                    <div>
+                        <label for="report-month" class="block text-sm font-medium text-gray-700">レポート対象月:</label>
+                        <input type="month" id="report-month" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
                     </div>
 
-                    <!-- プロジェクト選択フィルター -->
+                    <!-- プロジェクト選択フィルター (共通) -->
                     <div>
                         <label for="summary-project-filter" class="block text-sm font-medium text-gray-700">プロジェクトでフィルタ:</label>
                         <select id="summary-project-filter" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
@@ -72,6 +66,17 @@
                     <!-- 月別稼働時間グラフ -->
                     <div class="bg-gray-50 p-4 rounded-lg shadow-sm">
                         <h3 class="text-lg font-semibold text-gray-800 mb-2">月別稼働時間 (プロジェクト別積み上げ)</h3>
+                        <!-- グラフ期間選択 -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label for="chart-start-month" class="block text-sm font-medium text-gray-700">グラフ開始月:</label>
+                                <input type="month" id="chart-start-month" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                            </div>
+                            <div>
+                                <label for="chart-end-month" class="block text-sm font-medium text-gray-700">グラフ終了月:</label>
+                                <input type="month" id="chart-end-month" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                            </div>
+                        </div>
                         <div class="flex justify-end mb-2">
                             <button id="toggle-monthly-hours-chart-btn" class="btn bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-1 px-3 rounded-md text-sm">表示/非表示</button>
                         </div>
@@ -91,16 +96,12 @@
                         </div>
                     </div>
 
-                    <!-- 稼働実績リスト (タブ表示) -->
+                    <!-- 稼働実績リスト -->
                     <div class="bg-gray-50 p-4 rounded-lg shadow-sm">
                         <h3 class="text-lg font-semibold text-gray-800 mb-2">稼働実績詳細</h3>
-                        <!-- プロジェクトタブ -->
-                        <div id="project-tabs" class="flex flex-wrap border-b border-gray-200 mb-4">
-                            <!-- タブボタンがここに動的に挿入されます -->
-                        </div>
-                        <!-- タブコンテンツ -->
+                        <!-- タブを削除し、メインのフィルターに依存させる -->
                         <div id="timestamps-content" class="space-y-2 max-h-80 overflow-y-auto">
-                            <p class="text-gray-500">プロジェクトを選択するか、データがありません。</p>
+                            <p class="text-gray-500">データがありません。</p>
                         </div>
                     </div>
                 </div>
@@ -131,17 +132,16 @@
         let timestampsData = []; // 稼働実績データを保存するための配列
         let monthlyHoursChart = null; // Chart.jsインスタンス (稼働時間)
         let monthlyBillingChart = null; // Chart.jsインスタンス (収支)
-        let activeProjectCode = 'all'; // 現在アクティブなプロジェクトのコード (デフォルトは'all')
-
+        
         // DOM要素
-        const summaryStartMonthInput = document.getElementById('summary-start-month');
-        const summaryEndMonthInput = document.getElementById('summary-end-month');
+        const reportMonthInput = document.getElementById('report-month'); // レポート対象月
+        const chartStartMonthInput = document.getElementById('chart-start-month'); // グラフ開始月
+        const chartEndMonthInput = document.getElementById('chart-end-month'); // グラフ終了月
         const summaryProjectFilter = document.getElementById('summary-project-filter');
         const totalWorkingHoursElement = document.getElementById('total-working-hours');
         const totalBillingAmountElement = document.getElementById('total-billing-amount');
         const projectHoursListElement = document.getElementById('project-hours-list');
         const timestampsContentElement = document.getElementById('timestamps-content'); // タブコンテンツエリア
-        const projectTabsContainer = document.getElementById('project-tabs'); // タブボタンコンテナ
         const downloadPdfBtn = document.getElementById('download-pdf-btn'); // PDFダウンロードボタン
         
         // 稼働時間グラフ関連
@@ -171,13 +171,15 @@
             // 月の入力フィールドの初期値を今月に設定
             const now = new Date();
             const currentMonth = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
-            summaryStartMonthInput.value = currentMonth;
-            summaryEndMonthInput.value = currentMonth;
+            reportMonthInput.value = currentMonth;
+            chartStartMonthInput.value = currentMonth;
+            chartEndMonthInput.value = currentMonth;
 
             // イベントリスナー
-            summaryStartMonthInput.addEventListener('change', fetchSummaryData);
-            summaryEndMonthInput.addEventListener('change', fetchSummaryData);
-            summaryProjectFilter.addEventListener('change', renderSummary);
+            reportMonthInput.addEventListener('change', fetchSummaryData);
+            chartStartMonthInput.addEventListener('change', fetchSummaryData); // グラフ期間変更で再描画
+            chartEndMonthInput.addEventListener('change', fetchSummaryData);   // グラフ期間変更で再描画
+            summaryProjectFilter.addEventListener('change', fetchSummaryData); // プロジェクトフィルター変更で再描画
             toggleMonthlyHoursChartBtn.addEventListener('click', () => toggleChartVisibility(monthlyHoursChartContainer, monthlyHoursChartCanvas, 'monthlyHoursChart', isMonthlyHoursChartVisible));
             toggleMonthlyBillingChartBtn.addEventListener('click', () => toggleChartVisibility(monthlyBillingChartContainer, monthlyBillingChartCanvas, 'monthlyBillingChart', isMonthlyBillingChartVisible));
             downloadPdfBtn.addEventListener('click', generatePdfReport);
@@ -211,14 +213,21 @@
             } else {
                 container.classList.remove('hidden');
                 // グラフを再描画
+                // isMonthlyHoursChartVisible/isMonthlyBillingChartVisible の状態が更新されてから renderSummary を呼ぶ
+                if (chartVarName === 'monthlyHoursChart') {
+                    isMonthlyHoursChartVisible = true;
+                } else if (chartVarName === 'monthlyBillingChart') {
+                    isMonthlyBillingChartVisible = true;
+                }
                 renderSummary(); 
             }
 
-            // 状態を更新
+            // 状態を更新 (toggleChartVisibilityの呼び出し元で状態が更新されるため、ここでは反転しない)
+            // ここでの状態更新は、renderSummaryが参照するisMonthlyHoursChartVisible/isMonthlyBillingChartVisibleを正しく設定するため
             if (chartVarName === 'monthlyHoursChart') {
-                isMonthlyHoursChartVisible = !isVisible;
+                isMonthlyHoursChartVisible = !isVisible; // ここで状態を反転させる
             } else if (chartVarName === 'monthlyBillingChart') {
-                isMonthlyBillingChartVisible = !isVisible;
+                isMonthlyBillingChartVisible = !isVisible; // ここで状態を反転させる
             }
         }
 
@@ -241,7 +250,7 @@
                     option.textContent = `${project.code}: ${project.name}`;
                     summaryProjectFilter.appendChild(option);
                 });
-                renderProjectTabs(); // プロジェクトデータが更新されたらタブを再描画
+                // タブは廃止されたため、renderProjectTabsは不要
                 fetchSummaryData(); // サマリーを再計算
             }, (error) => {
                 console.error("Error listening to projects:", error);
@@ -249,43 +258,7 @@
             });
         }
 
-        /**
-         * プロジェクトタブをレンダリングする
-         */
-        function renderProjectTabs() {
-            projectTabsContainer.innerHTML = '';
-            // 「すべてのプロジェクト」タブを追加
-            const allTab = createTabButton('all', 'すべてのプロジェクト', activeProjectCode === 'all');
-            projectTabsContainer.appendChild(allTab);
-
-            // 各プロジェクトのタブを追加
-            Array.from(projectsData.values()).sort((a, b) => a.code.localeCompare(b.code)).forEach(project => {
-                const tab = createTabButton(project.code, `${project.code}: ${project.name}`, activeProjectCode === project.code);
-                projectTabsContainer.appendChild(tab);
-            });
-        }
-
-        /**
-         * タブボタンを作成するヘルパー関数
-         * @param {string} code - プロジェクトコードまたは 'all'
-         * @param {string} text - ボタンに表示するテキスト
-         * @param {boolean} isActive - 現在アクティブなタブかどうか
-         * @returns {HTMLButtonElement} 作成されたボタン要素
-         */
-        function createTabButton(code, text, isActive) {
-            const button = document.createElement('button');
-            button.dataset.projectCode = code;
-            button.textContent = text;
-            button.className = `py-2 px-4 text-sm font-medium border-b-2 ${
-                isActive ? 'border-main text-main' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            } focus:outline-none`;
-            button.addEventListener('click', () => {
-                activeProjectCode = code;
-                renderProjectTabs(); // アクティブ状態を更新するためにタブを再描画
-                renderTimestampsList(timestampsData, activeProjectCode); // タイムスタンプリストをフィルタリングして再描画
-            });
-            return button;
-        }
+        // renderProjectTabs と createTabButton は廃止
 
 
         /**
@@ -301,7 +274,6 @@
             onSnapshot(q, (snapshot) => {
                 timestampsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 fetchSummaryData(); // 稼働実績データが更新されたらサマリーを再計算
-                renderTimestampsList(timestampsData, activeProjectCode); // タブ表示の稼働実績も更新
             }, (error) => {
                 console.error("Error listening to timestamps:", error);
                 showStatus("稼働実績の読み込みに失敗しました。", true, 'summary-status');
@@ -325,57 +297,36 @@
          * サマリーデータを計算し、UIにレンダリングする
          */
         function renderSummary() {
-            const startMonthValue = summaryStartMonthInput.value;
-            const endMonthValue = summaryEndMonthInput.value;
+            const reportMonthValue = reportMonthInput.value; // レポート対象月
+            const chartStartMonthValue = chartStartMonthInput.value; // グラフ開始月
+            const chartEndMonthValue = chartEndMonthInput.value;     // グラフ終了月
             const selectedProjectCodeFilter = summaryProjectFilter.value; // 全体フィルター用
 
-            const startPeriod = moment(startMonthValue).startOf('month');
-            const endPeriod = moment(endMonthValue).endOf('month');
+            // --- レポート/サマリーセクション用のデータ ---
+            const reportStartPeriod = moment(reportMonthValue).startOf('month');
+            const reportEndPeriod = moment(reportMonthValue).endOf('month');
 
-            let filteredTimestamps = timestampsData.filter(ts => {
+            let filteredTimestampsForReport = timestampsData.filter(ts => {
                 const clockInMoment = moment(ts.clockInTime.toDate());
-                return clockInMoment.isBetween(startPeriod, endPeriod, null, '[]'); // 期間内かどうか
+                return clockInMoment.isBetween(reportStartPeriod, reportEndPeriod, null, '[]');
             });
 
             if (selectedProjectCodeFilter !== 'all') {
-                filteredTimestamps = filteredTimestamps.filter(ts => ts.projectCode === selectedProjectCodeFilter);
+                filteredTimestampsForReport = filteredTimestampsForReport.filter(ts => ts.projectCode === selectedProjectCodeFilter);
             }
 
-            // 総稼働時間と総請求額の計算
             let totalHours = 0;
             let totalBillingAmount = 0;
-            const projectHours = new Map(); // プロジェクトごとの稼働時間と請求額
-            const monthlyHoursData = {}; // 月別稼働時間データ (プロジェクト別積み上げ用)
-            const monthlyBillingAmountData = {}; // 月別収支データ (プロジェクト別積み上げ用)
+            const projectHours = new Map(); // プロジェクトごとの稼働時間と請求額 (レポート用)
 
-            // 月ラベルを生成 (指定された期間の全月)
-            const monthLabels = [];
-            let currentMonth = moment(startPeriod);
-            while (currentMonth.isSameOrBefore(endPeriod, 'month')) {
-                monthLabels.push(currentMonth.format('YYYY-MM'));
-                currentMonth.add(1, 'month');
-            }
-
-            // monthlyHoursDataとmonthlyBillingAmountDataを初期化
-            monthLabels.forEach(month => {
-                monthlyHoursData[month] = {};
-                monthlyBillingAmountData[month] = {};
-                projectsData.forEach(project => {
-                    monthlyHoursData[month][project.code] = 0;
-                    monthlyBillingAmountData[month][project.code] = 0;
-                });
-            });
-
-
-            filteredTimestamps.forEach(ts => {
+            filteredTimestampsForReport.forEach(ts => {
                 const project = projectsData.get(ts.projectCode);
-                if (!project) return; // プロジェクトが見つからない場合はスキップ
+                if (!project) return;
 
                 const duration = ts.durationHours || 0;
                 totalHours += duration;
 
-                // 作業時間単位で丸める
-                const workTimeUnitMinutes = project.workTimeUnit || 60; // デフォルトは60分
+                const workTimeUnitMinutes = project.workTimeUnit || 60;
                 const roundedDurationHours = Math.floor((duration * 60) / workTimeUnitMinutes) * workTimeUnitMinutes / 60;
 
                 let billingAmount = 0;
@@ -387,41 +338,26 @@
                     const billingRangeEnd = project.billingRangeEnd || 0;
 
                     if (roundedDurationHours < billingRangeStart) {
-                        // 不足時間
-                        billingAmount = baseWorkingHours * project.baseHourlyRate; // 基本は固定額
-                        // ここで不足時間に対する減額ロジックを追加することも可能
+                        billingAmount = baseWorkingHours * project.baseHourlyRate;
                     } else if (roundedDurationHours > billingRangeEnd) {
-                        // 超過時間
                         billingAmount = baseWorkingHours * project.baseHourlyRate + (roundedDurationHours - billingRangeEnd) * project.baseHourlyRate;
                     } else {
-                        // 範囲内
                         billingAmount = baseWorkingHours * project.baseHourlyRate;
                     }
                 }
                 totalBillingAmount += billingAmount;
 
-                // プロジェクトごとの集計
                 if (!projectHours.has(project.code)) {
-                    projectHours.set(project.code, { hours: 0, amount: 0, name: project.name, color: project.color, code: project.code }); // codeも保存
+                    projectHours.set(project.code, { hours: 0, amount: 0, name: project.name, color: project.color, code: project.code });
                 }
                 const currentProjectSummary = projectHours.get(project.code);
                 currentProjectSummary.hours += duration;
                 currentProjectSummary.amount += billingAmount;
-
-                // 月別データの集計 (積み上げ用)
-                const month = moment(ts.clockInTime.toDate()).format('YYYY-MM');
-                if (monthlyHoursData[month] && monthlyHoursData[month][project.code] !== undefined) {
-                    monthlyHoursData[month][project.code] += duration;
-                }
-                if (monthlyBillingAmountData[month] && monthlyBillingAmountData[month][project.code] !== undefined) {
-                    monthlyBillingAmountData[month][project.code] += billingAmount;
-                }
             });
 
             totalWorkingHoursElement.textContent = `${totalHours.toFixed(2)} 時間`;
             totalBillingAmountElement.textContent = `${Math.round(totalBillingAmount).toLocaleString()} 円`;
 
-            // プロジェクト別稼働時間リストのレンダリング
             projectHoursListElement.innerHTML = '';
             if (projectHours.size === 0) {
                 projectHoursListElement.innerHTML = '<p class="text-gray-500">データがありません。</p>';
@@ -440,6 +376,74 @@
                 });
             }
 
+            renderTimestampsList(filteredTimestampsForReport); // レポート用のフィルタリング済みデータを渡す
+
+            // --- グラフセクション用のデータ ---
+            const chartStartPeriod = moment(chartStartMonthValue).startOf('month');
+            const chartEndPeriod = moment(chartEndMonthValue).endOf('month');
+
+            let filteredTimestampsForCharts = timestampsData.filter(ts => {
+                const clockInMoment = moment(ts.clockInTime.toDate());
+                return clockInMoment.isBetween(chartStartPeriod, chartEndPeriod, null, '[]');
+            });
+
+            if (selectedProjectCodeFilter !== 'all') {
+                filteredTimestampsForCharts = filteredTimestampsForCharts.filter(ts => ts.projectCode === selectedProjectCodeFilter);
+            }
+
+            const monthlyHoursData = {};
+            const monthlyBillingAmountData = {};
+
+            const monthLabels = [];
+            let currentMonthForCharts = moment(chartStartPeriod);
+            while (currentMonthForCharts.isSameOrBefore(chartEndPeriod, 'month')) {
+                monthLabels.push(currentMonthForCharts.format('YYYY-MM'));
+                currentMonthForCharts.add(1, 'month');
+            }
+
+            monthLabels.forEach(month => {
+                monthlyHoursData[month] = {};
+                monthlyBillingAmountData[month] = {};
+                projectsData.forEach(project => {
+                    monthlyHoursData[month][project.code] = 0;
+                    monthlyBillingAmountData[month][project.code] = 0;
+                });
+            });
+
+            filteredTimestampsForCharts.forEach(ts => {
+                const project = projectsData.get(ts.projectCode);
+                if (!project) return;
+
+                const duration = ts.durationHours || 0;
+                const workTimeUnitMinutes = project.workTimeUnit || 60;
+                const roundedDurationHours = Math.floor((duration * 60) / workTimeUnitMinutes) * workTimeUnitMinutes / 60;
+
+                let billingAmount = 0;
+                if (project.contractType === 'hourly') {
+                    billingAmount = roundedDurationHours * project.baseHourlyRate;
+                } else if (project.contractType === 'fixed') {
+                    const baseWorkingHours = project.baseWorkingHours || 0;
+                    const billingRangeStart = project.billingRangeStart || 0;
+                    const billingRangeEnd = project.billingRangeEnd || 0;
+
+                    if (roundedDurationHours < billingRangeStart) {
+                        billingAmount = baseWorkingHours * project.baseHourlyRate;
+                    } else if (roundedDurationHours > billingRangeEnd) {
+                        billingAmount = baseWorkingHours * project.baseHourlyRate + (roundedDurationHours - billingRangeEnd) * project.baseHourlyRate;
+                    } else {
+                        billingAmount = baseWorkingHours * project.baseHourlyRate;
+                    }
+                }
+
+                const month = moment(ts.clockInTime.toDate()).format('YYYY-MM');
+                if (monthlyHoursData[month] && monthlyHoursData[month][project.code] !== undefined) {
+                    monthlyHoursData[month][project.code] += duration;
+                }
+                if (monthlyBillingAmountData[month] && monthlyBillingAmountData[month][project.code] !== undefined) {
+                    monthlyBillingAmountData[month][project.code] += billingAmount;
+                }
+            });
+
             // 月別稼働時間グラフのレンダリング (表示されている場合のみ)
             if (isMonthlyHoursChartVisible) {
                 renderMonthlyHoursChart(monthLabels, monthlyHoursData);
@@ -455,9 +459,6 @@
                 monthlyBillingChart.destroy();
                 monthlyBillingChart = null;
             }
-
-            // 稼働実績詳細リストのレンダリング (タブで制御されるため、ここではフィルタリング済みデータを渡す)
-            // renderTimestampsListはfetchSummaryDataの後に呼ばれるlistenToTimestampsのonSnapshot内で呼び出す
         }
 
         /**
@@ -572,23 +573,17 @@
 
         /**
          * 稼働実績リストをレンダリングする (タブフィルター適用)
-         * @param {Array} timestamps - 全稼働実績データ
-         * @param {string} filterCode - フィルタリングするプロジェクトコード ('all'の場合は全て表示)
+         * @param {Array} timestamps - フィルタリング済みの稼働実績データ
          */
-        function renderTimestampsList(timestamps, filterCode) {
+        function renderTimestampsList(timestamps) { // filterCodeは不要になった
             timestampsContentElement.innerHTML = '';
-            let filteredList = timestamps;
-
-            if (filterCode !== 'all') {
-                filteredList = timestamps.filter(ts => ts.projectCode === filterCode);
-            }
-
-            if (filteredList.length === 0) {
+            
+            if (timestamps.length === 0) {
                 timestampsContentElement.innerHTML = '<p class="text-gray-500">データがありません。</p>';
                 return;
             }
 
-            filteredList.forEach(ts => {
+            timestamps.forEach(ts => {
                 const project = projectsData.get(ts.projectCode);
                 const projectName = project ? project.name : '不明なプロジェクト';
                 const projectColor = project ? project.color : '#cccccc';
@@ -632,7 +627,7 @@
             yPos += lineHeight * 2;
 
             doc.setFontSize(12);
-            doc.text(`対象期間: ${summaryStartMonthInput.value} ~ ${summaryEndMonthInput.value}`, margin, yPos);
+            doc.text(`対象月: ${reportMonthInput.value}`, margin, yPos); // レポート対象月を使用
             yPos += lineHeight;
             doc.text(`総稼働時間: ${totalWorkingHoursElement.textContent}`, margin, yPos);
             yPos += lineHeight;
@@ -644,14 +639,35 @@
 
             // プロジェクト別稼働時間リストをテーブルで追加 (収支列なし)
             const projectHoursTableData = [];
-            Array.from(projectsData.values()).sort((a, b) => b.hours - a.hours).forEach(p => {
-                const totalHours = timestampsData
-                    .filter(ts => ts.projectCode === p.code && moment(ts.clockInTime.toDate()).isBetween(moment(summaryStartMonthInput.value).startOf('month'), moment(summaryEndMonthInput.value).endOf('month'), null, '[]'))
-                    .reduce((sum, ts) => sum + (ts.durationHours || 0), 0);
-                
+            // レポート対象月とプロジェクトフィルターでフィルタリングされたデータを使用
+            const reportStartPeriod = moment(reportMonthInput.value).startOf('month');
+            const reportEndPeriod = moment(reportMonthInput.value).endOf('month');
+            const selectedProjectCodeFilter = summaryProjectFilter.value;
+
+            let filteredTimestampsForPdf = timestampsData.filter(ts => {
+                const clockInMoment = moment(ts.clockInTime.toDate());
+                return clockInMoment.isBetween(reportStartPeriod, reportEndPeriod, null, '[]');
+            });
+
+            if (selectedProjectCodeFilter !== 'all') {
+                filteredTimestampsForPdf = filteredTimestampsForPdf.filter(ts => ts.projectCode === selectedProjectCodeFilter);
+            }
+
+            const projectHoursForPdf = new Map();
+            filteredTimestampsForPdf.forEach(ts => {
+                const project = projectsData.get(ts.projectCode);
+                if (!project) return;
+                const duration = ts.durationHours || 0;
+                if (!projectHoursForPdf.has(project.code)) {
+                    projectHoursForPdf.set(project.code, { hours: 0, name: project.name, code: project.code });
+                }
+                projectHoursForPdf.get(project.code).hours += duration;
+            });
+
+            Array.from(projectHoursForPdf.values()).sort((a, b) => b.hours - a.hours).forEach(p => {
                 projectHoursTableData.push([
                     `${p.name} (${p.code || 'コードなし'})`,
-                    `${totalHours.toFixed(2)} 時間`
+                    `${p.hours.toFixed(2)} 時間`
                 ]);
             });
 
@@ -672,21 +688,19 @@
 
             // 稼働実績詳細をテーブルで追加
             const timestampsTableData = [];
-            timestampsData
-                .filter(ts => moment(ts.clockInTime.toDate()).isBetween(moment(summaryStartMonthInput.value).startOf('month'), moment(summaryEndMonthInput.value).endOf('month'), null, '[]'))
-                .forEach(ts => {
-                    const project = projectsData.get(ts.projectCode);
-                    const projectName = project ? project.name : '不明なプロジェクト';
-                    const clockIn = ts.clockInTime.toDate().toLocaleString('ja-JP');
-                    const clockOut = ts.clockOutTime ? ts.clockOutTime.toDate().toLocaleString('ja-JP') : '---';
-                    const duration = ts.durationHours ? `${ts.durationHours.toFixed(2)} 時間` : '---';
-                    timestampsTableData.push([
-                        `${projectName} (${ts.projectCode || 'コードなし'})`,
-                        clockIn,
-                        clockOut,
-                        duration
-                    ]);
-                });
+            filteredTimestampsForPdf.forEach(ts => { // PDF用にフィルタリングされたデータを使用
+                const project = projectsData.get(ts.projectCode);
+                const projectName = project ? project.name : '不明なプロジェクト';
+                const clockIn = ts.clockInTime.toDate().toLocaleString('ja-JP');
+                const clockOut = ts.clockOutTime ? ts.clockOutTime.toDate().toLocaleString('ja-JP') : '---';
+                const duration = ts.durationHours ? `${ts.durationHours.toFixed(2)} 時間` : '---';
+                timestampsTableData.push([
+                    `${projectName} (${ts.projectCode || 'コードなし'})`,
+                    clockIn,
+                    clockOut,
+                    duration
+                ]);
+            });
 
             doc.autoTable({
                 startY: yPos,
@@ -698,7 +712,7 @@
                 margin: { left: margin, right: margin }
             });
 
-            doc.save(`稼働実績報告書_${summaryStartMonthInput.value}_${summaryEndMonthInput.value}.pdf`);
+            doc.save(`稼働実績報告書_${reportMonthInput.value}_${selectedProjectCodeFilter}.pdf`);
             showStatus("PDF生成が完了しました。", false, 'summary-status');
         }
 
