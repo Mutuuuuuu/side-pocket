@@ -34,48 +34,52 @@ export async function initializePage(onUserAuthenticated) {
         const appContainerElement = document.getElementById('app-container');
         const headerPlaceholder = document.getElementById('header-placeholder');
 
+        let headerLoadedPromise = Promise.resolve(); // デフォルトで解決済み（ヘッダープレースホルダーがない場合）
+
         // ヘッダーを動的に読み込む
         if (headerPlaceholder) {
-            try {
-                console.log("Attempting to fetch _header.html...");
-                const response = await fetch('_header.html');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+            headerLoadedPromise = new Promise(async (resolve) => {
+                try {
+                    console.log("Attempting to fetch _header.html...");
+                    const response = await fetch('_header.html');
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const data = await response.text();
+                    headerPlaceholder.innerHTML = data;
+                    console.log("_header.html loaded successfully.");
+                    resolve(); // ヘッダーがロードされたらPromiseを解決
+                } catch (error) {
+                    console.error('Error loading header:', error);
+                    showStatus("ヘッダーの読み込みに失敗しました。", true, 'header-status-message');
+                    resolve(); // ヘッダーの読み込みが失敗しても、認証プロセスは続行させる
                 }
-                const data = await response.text();
-                headerPlaceholder.innerHTML = data;
-                console.log("_header.html loaded successfully.");
-            } catch (error) {
-                console.error('Error loading header:', error);
-                // ヘッダーの読み込みに失敗しても、アプリの動作を停止させない
-                if (loadingElement) loadingElement.style.display = 'none';
-                if (appContainerElement) appContainerElement.style.display = 'block';
-                showStatus("ヘッダーの読み込みに失敗しました。", true, 'header-status-message');
-                // ここでreturnしないことで、Firebase認証プロセスが続行されるようにする
-            }
+            });
         } else {
-            console.warn("Header placeholder not found. Assuming header is statically loaded.");
+            console.warn("Header placeholder not found. Assuming header is statically loaded or not needed.");
         }
+
+        // ヘッダーがロードされるまで待機（または失敗しても続行）
+        await headerLoadedPromise;
 
         console.log("Attaching onAuthStateChanged listener...");
         auth.onAuthStateChanged(async (user) => {
             console.log("onAuthStateChanged fired. User:", user ? user.uid : "null");
-            // Firebase認証状態が判明したら、常にローディング画面を非表示にし、アプリコンテナを表示
-            if (loadingElement) loadingElement.style.display = 'none';
-            if (appContainerElement) appContainerElement.style.display = 'block';
-
+            
             if (user) {
                 console.log("User authenticated. Setting up header menu.");
                 // ユーザーが認証されたら、ヘッダーメニューをセットアップ
                 setupHeaderMenu(user);
+
+                // ローディング画面を非表示にし、アプリコンテナを表示
+                if (loadingElement) loadingElement.style.display = 'none';
+                if (appContainerElement) appContainerElement.style.display = 'block';
 
                 if (onUserAuthenticated) {
                     onUserAuthenticated(user);
                 }
             } else {
                 console.log("User not authenticated. Attempting sign-in.");
-                // ユーザーが認証されていない場合、Canvas環境のトークンがあればそれを使用
-                // なければ匿名認証を試みる
                 try {
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                         await signInWithCustomToken(auth, __initial_auth_token);
@@ -86,10 +90,12 @@ export async function initializePage(onUserAuthenticated) {
                     }
                 } catch (error) {
                     console.error("Authentication failed in initializePage:", error);
-                    // 認証失敗時はログインページへリダイレクト
-                    window.location.href = 'index.html';
+                    // ここでリダイレクトしない。認証失敗は現在のページで処理されるべき。
+                    showStatus("認証に失敗しました。ログインしてください。", true, 'header-status-message');
+                    // ローディング画面を非表示にし、アプリコンテナを表示 (認証失敗時も表示は行う)
+                    if (loadingElement) loadingElement.style.display = 'none';
+                    if (appContainerElement) appContainerElement.style.display = 'block';
                 }
-                // 匿名認証が成功した場合、onAuthStateChangedが再度fireされ、userオブジェクトが渡される
             }
         });
     });
@@ -110,7 +116,7 @@ export function setupHeaderMenu(user) {
     // const menuTexts = document.querySelectorAll('#sidebar-menu .menu-text'); // CSSで制御するためJSからは削除
     const appContainer = document.getElementById('app-container'); // メインコンテンツコンテナ
     const logoutButtonMobile = document.getElementById('logout-button-mobile'); // サイドバー内のログアウトボタン
-    // const desktopMenuToggle = document.getElementById('desktop-menu-toggle'); // デスクトップ用ハンバーガーメニュー (削除)
+    // const desktopMenuToggle = document.getElementById('desktop-menu-toggle'); // デスクトップ用ハンバーガーメニュー (削除済み)
 
     // ユーザー情報の表示
     if (userInfoSpan) {
