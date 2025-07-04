@@ -7,12 +7,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="style.css">
-    <!-- Chart.jsを読み込む -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Chart.jsのDate Adapter (Moment.js) を読み込む -->
     <script src="https://cdn.jsdelivr.net/npm/moment@2.29.1/moment.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@1.0.0/dist/chartjs-adapter-moment.min.js"></script>
-    <!-- jsPDFとjsPDF-AutoTableを読み込む -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://unpkg.com/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.js"></script>
 </head>
@@ -23,24 +20,20 @@
     </div>
 
     <div id="app-container" class="w-full" style="display: none;">
-        <!-- ヘッダーを読み込むためのプレースホルダー -->
         <div id="header-placeholder"></div>
 
         <main class="w-full max-w-4xl mx-auto">
             <div class="p-6 sm:p-8 space-y-6 bg-white rounded-2xl shadow-lg">
                 <header class="flex flex-col sm:flex-row justify-between items-center mb-4">
                     <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 text-center sm:text-left flex-grow">稼働管理</h2>
-                    <!-- PDFダウンロードボタンは稼働実績詳細セクションに移動 -->
-                </header>
+                    </header>
 
                 <div class="space-y-4">
-                    <!-- レポート期間選択 (単月) -->
                     <div>
                         <label for="report-month" class="block text-sm font-medium text-gray-700">レポート対象月:</label>
                         <input type="month" id="report-month" class="mt-1 block w-full max-w-xs p-2 border border-gray-300 rounded-md">
                     </div>
 
-                    <!-- 調整方法選択 -->
                     <div>
                         <label for="adjustment-method-select" class="block text-sm font-medium text-gray-700">稼働時間の調整方法:</label>
                         <select id="adjustment-method-select" class="mt-1 block w-full max-w-xs p-2 border border-gray-300 rounded-md">
@@ -49,7 +42,6 @@
                         </select>
                     </div>
 
-                    <!-- 稼働時間サマリー -->
                     <div class="bg-gray-50 p-4 rounded-lg shadow-sm">
                         <h3 class="text-lg font-semibold text-gray-800 mb-2">総稼働時間</h3>
                         <p id="total-working-hours-container" class="text-3xl font-bold text-main-dark flex items-baseline">
@@ -59,7 +51,6 @@
                         <p id="total-billing-amount" class="text-xl font-semibold text-gray-700 mt-2">0 円</p>
                     </div>
 
-                    <!-- プロジェクトごとの稼働時間 -->
                     <div class="bg-gray-50 p-4 rounded-lg shadow-sm">
                         <h3 class="text-lg font-semibold text-gray-800 mb-2">プロジェクト別稼働時間</h3>
                         <div id="project-hours-list" class="space-y-2">
@@ -67,7 +58,6 @@
                         </div>
                     </div>
 
-                    <!-- グラフ期間選択 (共通ブロック) -->
                     <div class="bg-gray-50 p-4 rounded-lg shadow-sm">
                         <h3 class="text-lg font-semibold text-gray-800 mb-2">グラフ表示期間</h3>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -82,38 +72,31 @@
                         </div>
                     </div>
 
-                    <!-- グラフコンテナを横並びにするためのラッパー -->
                     <div class="flex flex-col md:flex-row md:space-x-4 space-y-4 md:space-y-0">
-                        <!-- 月別稼働時間グラフ -->
                         <div class="bg-gray-50 p-4 rounded-lg shadow-sm md:w-1/2">
                             <h3 class="text-lg font-semibold text-gray-800 mb-2">月別稼働時間 (プロジェクト別積み上げ)</h3>
                             <div class="flex justify-end mb-2">
                                 <button id="toggle-monthly-hours-chart-btn" class="btn bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-1 px-3 rounded-md text-sm">表示/非表示</button>
                             </div>
-                            <div id="monthly-hours-chart-container" class="relative h-64 hidden"> <!-- 固定高さのコンテナ -->
-                                <canvas id="monthly-hours-chart" class="w-full h-full"></canvas>
+                            <div id="monthly-hours-chart-container" class="relative h-64 hidden"> <canvas id="monthly-hours-chart" class="w-full h-full"></canvas>
                             </div>
                         </div>
 
-                        <!-- 月別収支グラフ -->
                         <div class="bg-gray-50 p-4 rounded-lg shadow-sm md:w-1/2">
                             <h3 class="text-lg font-semibold text-gray-800 mb-2">月別収支 (プロジェクト別積み上げ)</h3>
                             <div class="flex justify-end mb-2">
                                 <button id="toggle-monthly-billing-chart-btn" class="btn bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-1 px-3 rounded-md text-sm">表示/非表示</button>
                             </div>
-                            <div id="monthly-billing-chart-container" class="relative h-64 hidden"> <!-- 固定高さのコンテナ -->
-                                <canvas id="monthly-billing-chart" class="w-full h-full"></canvas>
+                            <div id="monthly-billing-chart-container" class="relative h-64 hidden"> <canvas id="monthly-billing-chart" class="w-full h-full"></canvas>
                             </div>
                         </div>
                     </div>
 
-                    <!-- 稼働実績リスト -->
                     <div class="bg-gray-50 p-4 rounded-lg shadow-sm">
                         <header class="flex justify-between items-center mb-2">
                             <h3 class="text-lg font-semibold text-gray-800">稼働実績詳細</h3>
                             <button id="download-pdf-btn" class="btn bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-md text-sm ml-4">PDFダウンロード</button>
                         </header>
-                        <!-- 稼働実績詳細フィルター -->
                         <div>
                             <label for="timestamps-project-filter" class="block text-sm font-medium text-gray-700">プロジェクトでフィルタ:</label>
                             <select id="timestamps-project-filter" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
@@ -124,8 +107,7 @@
                             <p>稼働時間合計: 0時間0分</p>
                             <p>調整後稼働時間合計: 0時間0分</p>
                         </div>
-                        <div id="timestamps-content" class="space-y-1 max-h-80 overflow-y-auto text-xs"> <!-- 行の高さを調整 -->
-                            <p class="text-gray-500">データがありません。</p>
+                        <div id="timestamps-content" class="space-y-1 max-h-80 overflow-y-auto text-xs"> <p class="text-gray-500">データがありません。</p>
                         </div>
                     </div>
                 </div>
@@ -133,7 +115,6 @@
         </main>
     </div>
 
-    <!-- 稼働実績編集モーダル -->
     <div id="timestamp-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
             <h3 id="timestamp-modal-title" class="text-xl font-bold mb-4">稼働実績を編集</h3>
@@ -142,8 +123,7 @@
                 <div>
                     <label for="edit-project-code" class="block text-sm font-medium text-gray-700">プロジェクト:</label>
                     <select id="edit-project-code" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
-                        <!-- プロジェクトオプションがここに動的に挿入されます -->
-                    </select>
+                        </select>
                 </div>
                 <div>
                     <label for="edit-clock-in-time" class="block text-sm font-medium text-gray-700">出勤時間:</label>
@@ -162,7 +142,6 @@
         </div>
     </div>
 
-    <!-- 稼働実績削除確認モーダル -->
     <div id="delete-timestamp-confirm-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm">
             <h3 class="text-xl font-bold mb-4">稼働実績を削除</h3>
@@ -189,6 +168,7 @@
         import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { initializePage, auth, db, showStatus } from './shared.js';
         import { Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { IPAEXG_FONT_B64 } from './fonts.js'; // fonts.jsからフォントデータをインポート
 
         // jsPDFのUMDモジュールをwindowから取得
         const { jsPDF } = window.jspdf;
@@ -205,7 +185,7 @@
         const reportMonthInput = document.getElementById('report-month'); // レポート対象月
         const adjustmentMethodSelect = document.getElementById('adjustment-method-select'); // 調整方法選択
         const chartStartMonthInput = document.getElementById('chart-start-month'); // グラフ開始月
-        const chartEndMonthInput = document.getElementById('chart-end-month'); // グラフ終了月
+        const chartEndMonthInput = document.getElementById('chart-end-month');     // グラフ終了月
         const totalWorkingHoursElement = document.getElementById('total-working-hours');
         const totalAdjustedHoursElement = document.getElementById('total-adjusted-hours'); // 調整後稼働時間
         const totalBillingAmountElement = document.getElementById('total-billing-amount');
@@ -460,20 +440,22 @@
 
                 // 収支計算ロジック
                 if (project.contractType === 'hourly') {
-                    billingAmount = adjustedHours * project.baseHourlyRate;
+                    billingAmount = adjustedHours * (project.baseHourlyRate || 0);
                 } else if (project.contractType === 'fixed') {
                     const baseWorkingHours = project.baseWorkingHours || 0;
                     const billingRangeStart = project.billingRangeStart || 0;
                     const billingRangeEnd = project.billingRangeEnd || 0;
+                    const baseHourlyRate = project.baseHourlyRate || 0;
 
                     if (adjustedHours < billingRangeStart) {
-                        billingAmount = baseWorkingHours * project.baseHourlyRate;
+                        // 清算幅より少ない場合
+                        billingAmount = baseWorkingHours * baseHourlyRate;
                     } else if (adjustedHours > billingRangeEnd) {
-                        // 採算枠の外の場合、基本時給×調整後稼働時間
-                        billingAmount = adjustedHours * project.baseHourlyRate;
+                        // 採算枠の外の場合 (清算幅より多い場合)
+                        billingAmount = adjustedHours * baseHourlyRate;
                     } else {
-                        // 清算枠内の場合、基本時給×基本稼働時間
-                        billingAmount = baseWorkingHours * project.baseHourlyRate;
+                        // 清算枠内の場合
+                        billingAmount = baseWorkingHours * baseHourlyRate;
                     }
                 }
                 overallTotalBillingAmount += billingAmount;
@@ -523,18 +505,19 @@
 
                         let billingAmount = 0;
                         if (project.contractType === 'hourly') {
-                            billingAmount = adjustedDuration * project.baseHourlyRate;
+                            billingAmount = adjustedDuration * (project.baseHourlyRate || 0);
                         } else if (project.contractType === 'fixed') {
                             const baseWorkingHours = project.baseWorkingHours || 0;
                             const billingRangeStart = project.billingRangeStart || 0;
                             const billingRangeEnd = project.billingRangeEnd || 0;
+                            const baseHourlyRate = project.baseHourlyRate || 0;
 
                             if (adjustedDuration < billingRangeStart) {
-                                billingAmount = baseWorkingHours * project.baseHourlyRate;
+                                billingAmount = baseWorkingHours * baseHourlyRate;
                             } else if (adjustedDuration > billingRangeEnd) {
-                                billingAmount = adjustedDuration * project.baseHourlyRate;
+                                billingAmount = adjustedDuration * baseHourlyRate;
                             } else {
-                                billingAmount = baseWorkingHours * project.baseHourlyRate;
+                                billingAmount = baseWorkingHours * baseHourlyRate;
                             }
                         }
                         currentProjectBillingAmount += billingAmount;
@@ -547,18 +530,19 @@
 
                     let billingAmount = 0;
                     if (project.contractType === 'hourly') {
-                        billingAmount = currentProjectAdjustedHours * project.baseHourlyRate;
+                        billingAmount = currentProjectAdjustedHours * (project.baseHourlyRate || 0);
                     } else if (project.contractType === 'fixed') {
                         const baseWorkingHours = project.baseWorkingHours || 0;
                         const billingRangeStart = project.billingRangeStart || 0;
                         const billingRangeEnd = project.billingRangeEnd || 0;
+                        const baseHourlyRate = project.baseHourlyRate || 0;
 
                         if (currentProjectAdjustedHours < billingRangeStart) {
-                            billingAmount = baseWorkingHours * project.baseHourlyRate;
+                            billingAmount = baseWorkingHours * baseHourlyRate;
                         } else if (currentProjectAdjustedHours > billingRangeEnd) {
-                            billingAmount = currentProjectAdjustedHours * project.baseHourlyRate;
+                            billingAmount = currentProjectAdjustedHours * baseHourlyRate;
                         } else {
-                            billingAmount = baseWorkingHours * project.baseHourlyRate;
+                            billingAmount = baseWorkingHours * baseHourlyRate;
                         }
                     }
                     currentProjectBillingAmount = billingAmount;
@@ -662,18 +646,19 @@
 
                     let billingAmountForMonth = 0;
                     if (project.contractType === 'hourly') {
-                        billingAmountForMonth = adjustedHoursForMonth * project.baseHourlyRate;
+                        billingAmountForMonth = adjustedHoursForMonth * (project.baseHourlyRate || 0);
                     } else if (project.contractType === 'fixed') {
                         const baseWorkingHours = project.baseWorkingHours || 0;
                         const billingRangeStart = project.billingRangeStart || 0;
                         const billingRangeEnd = project.billingRangeEnd || 0;
+                        const baseHourlyRate = project.baseHourlyRate || 0;
 
                         if (adjustedHoursForMonth < billingRangeStart) {
-                            billingAmountForMonth = baseWorkingHours * project.baseHourlyRate;
+                            billingAmountForMonth = baseWorkingHours * baseHourlyRate;
                         } else if (adjustedHoursForMonth > billingRangeEnd) {
-                            billingAmountForMonth = adjustedHoursForMonth * project.baseHourlyRate;
+                            billingAmountForMonth = adjustedHoursForMonth * baseHourlyRate;
                         } else {
-                            billingAmountForMonth = baseWorkingHours * project.baseHourlyRate;
+                            billingAmountForMonth = baseWorkingHours * baseHourlyRate;
                         }
                     }
                     monthlyBillingAmountData[month][project.code] = billingAmountForMonth;
@@ -911,14 +896,16 @@
                 const div = document.createElement('div');
                 div.className = 'bg-white p-1 rounded-md shadow-sm border-l-4 flex justify-between items-center'; // paddingを減らし、flexで横並びに
                 div.style.borderColor = projectColor;
+                
+                const clockInFormatted = clockIn.toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+                const clockOutFormatted = clockOut ? clockOut.toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '---';
+
                 div.innerHTML = `
                     <div class="flex-grow">
                         <p class="font-semibold text-gray-800">
                             ${projectName} (${ts.projectCode || 'コードなし'})
                             <span class="text-xs text-gray-600 ml-2">
-                                IN: ${clockIn.toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} /
-                                OUT: ${clockOut ? clockOut.toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '---'} /
-                                稼働時間: ${formatHoursToMinutes(duration)}
+                                ${clockInFormatted} - ${clockOutFormatted} / 稼働時間: ${formatHoursToMinutes(duration)}
                             </span>
                         </p>
                     </div>
@@ -1071,12 +1058,11 @@
             showStatus("PDFを生成中...", false, 'summary-status');
             const doc = new jsPDF();
 
-            // 日本語対応のためのフォント設定 (例: Noto Sans JPを埋め込む)
-            // この例では、標準フォントで日本語が正しく表示されない可能性があることをご了承ください。
-            // 実際の運用では、別途日本語フォントファイルをbase64エンコードして埋め込む必要があります。
-            // 例: doc.addFont('NotoSansJP-Regular.ttf', 'NotoSansJP', 'normal');
-            // doc.setFont('NotoSansJP');
-            // doc.setFontSize(12);
+            // 日本語フォントの埋め込み
+            doc.addFileToVFS('IPAexGothic.ttf', IPAEXG_FONT_B64);
+            doc.addFont('IPAexGothic.ttf', 'IPAexGothic', 'normal');
+            doc.setFont('IPAexGothic');
+            doc.setFontSize(12);
 
             let yPos = 10;
             const margin = 10;
@@ -1151,7 +1137,7 @@
                 head: [['プロジェクト', '稼働時間', '調整後稼働時間']],
                 body: projectHoursTableData,
                 theme: 'grid',
-                styles: { font: 'helvetica', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
+                styles: { font: 'IPAexGothic', fontSize: 10, cellPadding: 2, overflow: 'linebreak' }, // フォントを設定
                 headStyles: { fillColor: [200, 200, 200], textColor: [0, 0, 0] },
                 margin: { left: margin, right: margin }
             });
@@ -1183,7 +1169,7 @@
                 head: [['プロジェクト', '出勤時間', '退勤時間', '稼働時間']],
                 body: timestampsTableData,
                 theme: 'grid',
-                styles: { font: 'helvetica', fontSize: 8, cellPadding: 1, overflow: 'linebreak' },
+                styles: { font: 'IPAexGothic', fontSize: 8, cellPadding: 1, overflow: 'linebreak' }, // フォントを設定
                 headStyles: { fillColor: [200, 200, 200], textColor: [0, 0, 0] },
                 margin: { left: margin, right: margin }
             });
