@@ -507,7 +507,11 @@
             // 稼働実績の有無をチェック
             showStatus("稼働実績の確認中...", false, 'delete-status');
             try {
-                const q = query(collection(db, "timestamps"), where("projectCode", "==", projectCode));
+                // ここでユーザーIDによるフィルタリングを追加
+                const q = query(collection(db, "timestamps"), 
+                                where("projectCode", "==", projectCode),
+                                where("userId", "==", currentUser.uid) // ★追加: ユーザーIDでフィルタリング
+                               );
                 const querySnapshot = await getDocs(q);
 
                 if (!querySnapshot.empty) {
@@ -551,7 +555,11 @@
             showStatus("削除中...", false, 'delete-status');
             try {
                 // 最終チェック (念のため)
-                const q = query(collection(db, "timestamps"), where("projectCode", "==", currentProjectCodeToDelete));
+                // ここでユーザーIDによるフィルタリングを追加
+                const q = query(collection(db, "timestamps"), 
+                                where("projectCode", "==", currentProjectCodeToDelete),
+                                where("userId", "==", currentUser.uid) // ★追加: ユーザーIDでフィルタリング
+                               );
                 const querySnapshot = await getDocs(q);
                 if (!querySnapshot.empty) {
                     showStatus("このプロジェクトには稼働実績が紐付いているため、削除できません。", true, 'delete-status');
