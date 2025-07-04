@@ -48,11 +48,13 @@
                 </div>
                 <div>
                     <label for="projectCode" class="block text-sm font-medium text-gray-700">プロジェクトコード:</label>
+                    <!-- 編集時にはreadonly属性を追加し、背景色で区別 -->
                     <input type="text" id="projectCode" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
                 </div>
                 <div>
                     <label for="projectColor" class="block text-sm font-medium text-gray-700">色:</label>
-                    <input type="color" id="projectColor" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" value="#4F46E5">
+                    <!-- widthとheightを固定し、パディングを削除して見た目を改善 -->
+                    <input type="color" id="projectColor" class="mt-1 block w-10 h-10 border border-gray-300 rounded-md" value="#4F46E5">
                 </div>
 
                 <!-- 新しい契約管理フィールド -->
@@ -282,6 +284,8 @@
             toggleFixedContractFields(); // 固定清算フィールドを非表示に
             projectModal.classList.remove('hidden');
             showStatus('', false, 'modal-status');
+            projectCodeInput.removeAttribute('readonly'); // 新規追加時は編集可能にする
+            projectCodeInput.classList.remove('bg-gray-100'); // 背景色を元に戻す
         }
 
         /**
@@ -304,6 +308,10 @@
                 projectNameInput.value = project.name || '';
                 projectCodeInput.value = project.code || '';
                 projectColorInput.value = project.color || '#4F46E5';
+
+                // 既存プロジェクト編集時はプロジェクトコードを読み取り専用にする
+                projectCodeInput.setAttribute('readonly', 'true');
+                projectCodeInput.classList.add('bg-gray-100'); // 読み取り専用の背景色
 
                 // 新しい契約管理フィールドの値を設定
                 contractTypeSelect.value = project.contractType || '';
@@ -332,6 +340,8 @@
             projectModal.classList.add('hidden');
             projectForm.reset();
             showStatus('', false, 'modal-status');
+            projectCodeInput.removeAttribute('readonly'); // モーダルを閉じる際にreadonlyを解除
+            projectCodeInput.classList.remove('bg-gray-100'); // 背景色を元に戻す
         }
 
         /**
@@ -344,7 +354,7 @@
 
             const projectId = projectIdInput.value;
             const name = projectNameInput.value.trim();
-            const code = projectCodeInput.value.trim();
+            const code = projectCodeInput.value.trim(); // 編集不可でも値は取得
             const color = projectColorInput.value;
 
             // 新しい契約管理フィールドの値を取得
