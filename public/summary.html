@@ -110,7 +110,7 @@
     </div>
 
     <!-- 削除確認モーダル -->
-    <div id="delete-confirm-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 hidden">
+    <div id="delete-confirm-modal" class="fixed inset-0 bg-gray-600 bg-opacity50 flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm">
             <h3 class="text-xl font-bold mb-4">稼働実績を削除</h3>
             <p class="mb-6 text-gray-700">この稼働実績を本当に削除しますか？</p>
@@ -903,6 +903,20 @@
 
             // Get the iframe's document
             const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+
+            // PDF生成オプションを定義
+            const pdfOptions = {
+                margin: [10, 10, 10, 10], // 上、左、下、右の余白 (mm)
+                filename: `稼働報告書_${selectedMonth}_${projectCode}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { 
+                    scale: 2, // レンダリングスケールを上げる (解像度向上)
+                    logging: true, // html2canvasのログを有効化
+                    useCORS: true, // クロスオリジン画像を許可
+                    allowTaint: true // キャンバスの汚染を許可
+                },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
 
             try {
                 // Write the HTML content into the iframe
