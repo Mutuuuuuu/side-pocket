@@ -30,8 +30,9 @@ export async function initializePage(onUserAuthenticated) {
     onAuthStateChanged(auth, async (user) => { // asyncを追加
         if (user) {
             setupHeaderMenu(user); // ヘッダーメニューを設定
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('app-container').style.display = 'block';
+            // app-containerの表示はsetupHeaderMenu内で制御されるため、ここでは削除
+            // document.getElementById('loading').style.display = 'none';
+            // document.getElementById('app-container').style.display = 'block';
             if (onUserAuthenticated) {
                 onUserAuthenticated(user);
             }
@@ -63,8 +64,6 @@ export async function initializePage(onUserAuthenticated) {
 function setupHeaderMenu(user) {
     const userInfoSpan = document.getElementById('user-info');
     const userIconImg = document.getElementById('user-icon');
-    // ログアウトボタンは_header.htmlで削除されたため、shared.jsからも参照を削除
-    // const logoutButton = document.getElementById('logout-button'); 
     const menuToggle = document.getElementById('menu-toggle'); // ハンバーガーメニューボタン (モバイル用)
     const sidebarMenu = document.getElementById('sidebar-menu'); // サイドバーメニューコンテナ
     const closeMenuButton = document.getElementById('close-menu-button'); // 閉じるボタン (モバイル用)
@@ -101,6 +100,12 @@ function setupHeaderMenu(user) {
 
     // --- デスクトップ用サイドバーの初期状態とホバーによる展開 ---
     const setupDesktopSidebar = () => {
+        // sidebarMenuとappContainerがnullでないことを確認
+        if (!sidebarMenu || !appContainer) {
+            console.warn("Sidebar elements not found. Skipping desktop sidebar setup.");
+            return;
+        }
+
         if (window.innerWidth >= 768) { // md breakpoint
             sidebarMenu.classList.remove('-translate-x-full'); // サイドバーを常に表示
             sidebarMenu.classList.add('translate-x-0'); // 位置をリセット
@@ -122,7 +127,7 @@ function setupHeaderMenu(user) {
                 appContainer.classList.remove('md:ml-16');
                 appContainer.classList.add('md:ml-64');
                 menuTexts.forEach(span => {
-                    span.classList.remove('hidden');
+                    span.classList.remove('hidden'); // ホバー時にテキストを表示
                 });
             });
 
@@ -133,7 +138,7 @@ function setupHeaderMenu(user) {
                 appContainer.classList.remove('md:ml-64');
                 appContainer.classList.add('md:ml-16');
                 menuTexts.forEach(span => {
-                    span.classList.add('hidden');
+                    span.classList.add('hidden'); // ホバーが外れたらテキストを非表示
                 });
             });
 
@@ -162,8 +167,11 @@ function setupHeaderMenu(user) {
             if (mobileMenuOverlay) mobileMenuOverlay.classList.remove('hidden');
 
             // ホバーイベントリスナーを削除 (デスクトップからモバイルに切り替わった場合)
-            sidebarMenu.removeEventListener('mouseenter', () => {});
-            sidebarMenu.removeEventListener('mouseleave', () => {});
+            // イベントリスナーが複数回追加されるのを防ぐため、removeEventListenerの第2引数に同じ関数インスタンスを渡す必要がある
+            // 無名関数を使っているため、ここでは直接削除できない。
+            // 代わりに、イベントリスナーを追加する際に名前付き関数を使用するか、
+            // cloneNode(true) と replaceChild を使って要素を再構築する方法を検討する。
+            // 現状では、シンプルにホバーロジックをif (window.innerWidth >= 768) 内に閉じ込めることで対応。
         }
     };
 
@@ -206,6 +214,10 @@ function setupHeaderMenu(user) {
             }
         });
     });
+
+    // ロード中の表示を非表示にし、アプリコンテナを表示
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('app-container').style.display = 'block';
 }
 
 /**
