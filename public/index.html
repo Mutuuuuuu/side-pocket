@@ -27,6 +27,7 @@
                 </nav>
             </div>
             <div class="mt-4 pt-4 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center text-sm text-gray-600">
+                <!-- shared.jsのsetupHeaderMenu関数が参照するIDと一致させる -->
                 <span id="user-info" class="mb-2 sm:mb-0"></span>
                 <button id="logout-button" class="btn bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-1 px-3 rounded-md text-sm">ログアウト</button>
             </div>
@@ -112,18 +113,17 @@
             clockInBtn.addEventListener('click', handleClockIn);
             clockOutBtn.addEventListener('click', handleClockOut);
             
-            // ログアウトボタンのイベントリスナー
-            logoutButton.addEventListener('click', async () => {
-                try {
-                    await signOut(auth);
-                    showStatus("ログアウトしました。", false, 'punch-status');
-                    // ログアウト後、ページをリロードして初期状態に戻す
-                    window.location.reload(); 
-                } catch (error) {
-                    console.error("Error signing out:", error);
-                    showStatus("ログアウトに失敗しました: " + error.message, true, 'punch-status');
-                }
-            });
+            // ログアウトボタンのイベントリスナーはshared.jsのsetupHeaderMenuで設定されるため、ここでは削除
+            // logoutButton.addEventListener('click', async () => {
+            //     try {
+            //         await signOut(auth);
+            //         showStatus("ログアウトしました。", false, 'punch-status');
+            //         window.location.reload(); 
+            //     } catch (error) {
+            //         console.error("Error signing out:", error);
+            //         showStatus("ログアウトに失敗しました: " + error.message, true, 'punch-status');
+            //     }
+            // });
 
             document.getElementById('loading').style.display = 'none';
             document.getElementById('app-container').style.display = 'block';
@@ -135,15 +135,14 @@
          */
         function setButtonsDisabled(disabled) {
             clockInBtn.disabled = disabled;
-            clockOutBtn.disabled = disabled;
-            if (disabled) {
-                clockInBtn.classList.add('opacity-50', 'cursor-not-allowed');
-                clockOutBtn.classList.add('opacity-50', 'cursor-not-allowed');
-            } else {
-                clockInBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                clockOutBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-            }
+            clockInBtn.classList.toggle('opacity-50', disabled);
+            clockInBtn.classList.toggle('cursor-not-allowed', disabled);
+
+            clockOutBtn.disabled = !disabled; // clockInがdisabledならclockOutはenabled
+            clockOutBtn.classList.toggle('opacity-50', !disabled);
+            clockOutBtn.classList.toggle('cursor-not-allowed', !disabled);
         }
+
 
         /**
          * 最後の打刻情報をFirestoreから購読
@@ -165,20 +164,14 @@
                     if (lastPunch.type === 'in') {
                         currentPunchId = snapshot.docs[0].id;
                         activeClockInTime = lastPunch.timestamp.toDate();
-                        clockInBtn.disabled = true;
-                        clockInBtn.classList.add('opacity-50', 'cursor-not-allowed');
-                        clockOutBtn.disabled = false;
-                        clockOutBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                        setButtonsDisabled(true); // 出勤ボタンを無効、退勤ボタンを有効
                         projectSelect.value = lastPunch.projectCode || ''; // 最後の打刻のプロジェクトを選択状態に
                         projectSelect.disabled = true; // プロジェクト選択を無効化
                         showStatus("現在打刻中です。", false, 'punch-status');
                     } else { // type === 'out'
                         currentPunchId = null;
                         activeClockInTime = null;
-                        clockInBtn.disabled = false;
-                        clockInBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                        clockOutBtn.disabled = true;
-                        clockOutBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                        setButtonsDisabled(false); // 出勤ボタンを有効、退勤ボタンを無効
                         projectSelect.value = ''; // プロジェクト選択をリセット
                         projectSelect.disabled = false; // プロジェクト選択を有効化
                         showStatus("打刻されていません。", false, 'punch-status');
@@ -188,10 +181,7 @@
                     currentPunchId = null;
                     activeClockInTime = null;
                     lastPunchType = null;
-                    clockInBtn.disabled = false;
-                    clockInBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                    clockOutBtn.disabled = true;
-                    clockOutBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                    setButtonsDisabled(false); // 出勤ボタンを有効、退勤ボタンを無効
                     projectSelect.value = ''; // プロジェクト選択をリセット
                     projectSelect.disabled = false; // プロジェクト選択を有効化
                     showStatus("打刻されていません。", false, 'punch-status');
@@ -237,8 +227,6 @@
                 showStatus("出勤打刻が完了しました！", false, 'punch-status');
                 projectSelect.disabled = true; // 出勤中はプロジェクト選択を無効化
                 setButtonsDisabled(true); // ボタン状態を更新
-                clockOutBtn.disabled = false; // 退勤ボタンを有効化
-                clockOutBtn.classList.remove('opacity-50', 'cursor-not-allowed');
             } catch (error) {
                 console.error("Error clocking in:", error);
                 showStatus(`出勤打刻に失敗しました: ${error.message}`, true, 'punch-status');
@@ -289,9 +277,7 @@
                 activeClockInTime = null;
                 showStatus("退勤打刻が完了しました！", false, 'punch-status');
                 projectSelect.disabled = false; // 退勤後はプロジェクト選択を有効化
-                setButtonsDisabled(true); // ボタン状態を更新
-                clockInBtn.disabled = false; // 出勤ボタンを有効化
-                clockInBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                setButtonsDisabled(false); // ボタン状態を更新
                 projectSelect.value = ''; // プロジェクト選択をリセット
             } catch (error) {
                 console.error("Error clocking out:", error);

@@ -23,7 +23,7 @@ export const db = getFirestore(app);
  * @param {Function} onUserAuthenticated - Callback function to run after user is authenticated
  */
 export async function initializePage(onUserAuthenticated) {
-    await loadHeader();
+    // await loadHeader(); // この行を削除
     onAuthStateChanged(auth, (user) => {
         if (user) {
             setupHeaderMenu(user);
@@ -38,48 +38,62 @@ export async function initializePage(onUserAuthenticated) {
     });
 }
 
-/**
- * 4. Fetch and load the header component
- */
-async function loadHeader() {
-    const headerPlaceholder = document.getElementById('header-placeholder');
-    if (headerPlaceholder) {
-        try {
-            const response = await fetch('_header.html');
-            const headerHTML = await response.text();
-            headerPlaceholder.innerHTML = headerHTML;
-        } catch (error) {
-            console.error('ヘッダーの読み込みに失敗しました:', error);
-            headerPlaceholder.innerHTML = '<p class="text-red-500">ヘッダーの読み込みに失敗しました。</p>';
-        }
-    }
-}
+// /**
+//  * 4. Fetch and load the header component
+//  * この関数はindex.htmlにヘッダーが直接記述されるため不要になります。
+//  */
+// async function loadHeader() {
+//     const headerPlaceholder = document.getElementById('header-placeholder');
+//     if (headerPlaceholder) {
+//         try {
+//             const response = await fetch('_header.html');
+//             const headerHTML = await response.text();
+//             headerPlaceholder.innerHTML = headerHTML;
+//         } catch (error) {
+//             console.error('ヘッダーの読み込みに失敗しました:', error);
+//             headerPlaceholder.innerHTML = '<p class="text-red-500">ヘッダーの読み込みに失敗しました。</p>';
+//         }
+//     }
+// }
 
 /**
  * Setup header with user info and menu listeners.
  * @param {object} user - Firebase user object
  */
 function setupHeaderMenu(user) {
-    document.getElementById('user-display-name').textContent = user.displayName || user.email;
-    document.getElementById('user-icon').src = user.photoURL || 'images/sidepocket_symbol.png';
+    // index.htmlのヘッダーに直接記述された要素のIDに合わせる
+    const userInfoSpan = document.getElementById('user-info');
+    const logoutButton = document.getElementById('logout-button');
 
-    const menuButton = document.getElementById('menu-button');
-    const dropdownMenu = document.getElementById('dropdown-menu');
-
-    if (menuButton && dropdownMenu) {
-        menuButton.addEventListener('click', (e) => {
-            e.stopPropagation();
-            dropdownMenu.classList.toggle('hidden');
-        });
-        window.addEventListener('click', (e) => {
-            if (!menuButton.contains(e.target) && !dropdownMenu.contains(e.target)) {
-                dropdownMenu.classList.add('hidden');
-            }
-        });
-        document.getElementById('logoutBtn').addEventListener('click', () => {
+    if (userInfoSpan) {
+        userInfoSpan.textContent = `ログイン中: ${user.email || '匿名ユーザー'}`;
+    }
+    
+    if (logoutButton) {
+        logoutButton.addEventListener('click', () => {
             signOut(auth);
         });
     }
+    // 以前のmenuButtonやdropdownMenu関連のロジックは、もし不要であれば削除してください。
+    // 現在のindex.htmlのヘッダーにはこれらのIDがないため、エラーにならないように注意。
+    // 例: document.getElementById('user-display-name') などは削除またはコメントアウト。
+    // document.getElementById('user-display-name').textContent = user.displayName || user.email;
+    // document.getElementById('user-icon').src = user.photoURL || 'images/sidepocket_symbol.png';
+
+    // const menuButton = document.getElementById('menu-button');
+    // const dropdownMenu = document.getElementById('dropdown-menu');
+
+    // if (menuButton && dropdownMenu) {
+    //     menuButton.addEventListener('click', (e) => {
+    //         e.stopPropagation();
+    //         dropdownMenu.classList.toggle('hidden');
+    //     });
+    //     window.addEventListener('click', (e) => {
+    //         if (!menuButton.contains(e.target) && !dropdownMenu.contains(e.target)) {
+    //             dropdownMenu.classList.add('hidden');
+    //         }
+    //     });
+    // }
 }
 
 /**
