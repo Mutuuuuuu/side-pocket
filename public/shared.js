@@ -29,6 +29,7 @@ export const db = getFirestore(app);
  */
 export async function initializePage(onUserAuthenticated) {
     document.addEventListener('DOMContentLoaded', async () => {
+        console.log("DOMContentLoaded fired.");
         const loadingElement = document.getElementById('loading');
         const appContainerElement = document.getElementById('app-container');
         const headerPlaceholder = document.getElementById('header-placeholder');
@@ -36,28 +37,35 @@ export async function initializePage(onUserAuthenticated) {
         // ヘッダーを動的に読み込む
         if (headerPlaceholder) {
             try {
+                console.log("Attempting to fetch _header.html...");
                 const response = await fetch('_header.html');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
                 const data = await response.text();
                 headerPlaceholder.innerHTML = data;
+                console.log("_header.html loaded successfully.");
             } catch (error) {
                 console.error('Error loading header:', error);
-                // エラーが発生しても、アプリの動作を停止させない
+                // ヘッダーの読み込みに失敗しても、アプリの動作を停止させない
                 if (loadingElement) loadingElement.style.display = 'none';
                 if (appContainerElement) appContainerElement.style.display = 'block';
                 showStatus("ヘッダーの読み込みに失敗しました。", true, 'header-status-message');
-                return; // ヘッダーがないとメニューが設定できないため、ここで中断
+                // ここでreturnしないことで、Firebase認証プロセスが続行されるようにする
             }
         } else {
             console.warn("Header placeholder not found. Assuming header is statically loaded.");
         }
 
-        // Firebase認証状態が判明したら、常にローディング画面を非表示にし、アプリコンテナを表示
-        // この部分はヘッダー読み込み後、かつ認証状態判明後に実行される
+        console.log("Attaching onAuthStateChanged listener...");
         auth.onAuthStateChanged(async (user) => {
+            console.log("onAuthStateChanged fired. User:", user ? user.uid : "null");
+            // Firebase認証状態が判明したら、常にローディング画面を非表示にし、アプリコンテナを表示
             if (loadingElement) loadingElement.style.display = 'none';
             if (appContainerElement) appContainerElement.style.display = 'block';
 
             if (user) {
+                console.log("User authenticated. Setting up header menu.");
                 // ユーザーが認証されたら、ヘッダーメニューをセットアップ
                 setupHeaderMenu(user);
 
@@ -65,6 +73,7 @@ export async function initializePage(onUserAuthenticated) {
                     onUserAuthenticated(user);
                 }
             } else {
+                console.log("User not authenticated. Attempting sign-in.");
                 // ユーザーが認証されていない場合、Canvas環境のトークンがあればそれを使用
                 // なければ匿名認証を試みる
                 try {
