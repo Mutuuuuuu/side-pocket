@@ -22,10 +22,10 @@
                 <header class="flex flex-col sm:flex-row justify-between items-center gap-4">
                     <h2 class="text-2xl sm:text-3xl font-bold text-gray-800">稼働実績サマリー</h2>
                     <div class="flex flex-wrap gap-2">
-                        <!-- PDF出力ボタンの色を統一 -->
-                        <button id="generate-pdf-btn" class="btn bg-main hover:bg-main-dark text-white font-bold py-2 px-4 rounded">PDF出力</button>
-                        <!-- グラフ表示/非表示ボタンを追加 -->
-                        <button id="toggle-chart-btn" class="btn bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded">グラフを表示</button>
+                        <!-- グラフ表示/非表示ボタン -->
+                        <button id="toggle-chart-btn" class="btn bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded">稼働グラフを表示</button>
+                        <!-- 収支グラフ表示/非表示ボタンを追加 -->
+                        <button id="toggle-revenue-chart-btn" class="btn bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded">収支グラフを表示</button>
                     </div>
                 </header>
 
@@ -47,11 +47,16 @@
                     <button id="load-summary-btn" class="btn bg-main hover:bg-main-dark text-white font-bold py-2 px-4 rounded md:col-span-2">サマリーを読み込む</button>
                 </div>
 
-                <!-- グラフ表示エリア -->
-                <!-- h-80 クラスを追加して高さを固定 -->
+                <!-- 稼働グラフ表示エリア -->
                 <div id="chart-container" class="hidden bg-gray-50 p-4 rounded-lg shadow-inner mb-6 h-80">
                     <h3 class="text-xl font-bold text-gray-800 mb-4">月次プロジェクト別稼働推移</h3>
                     <canvas id="time-chart"></canvas>
+                </div>
+
+                <!-- 収支グラフ表示エリア -->
+                <div id="revenue-chart-container" class="hidden bg-gray-50 p-4 rounded-lg shadow-inner mb-6 h-80">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">月次プロジェクト別収支推移</h3>
+                    <canvas id="revenue-chart"></canvas>
                 </div>
 
                 <!-- 全プロジェクト収支サマリーセクション -->
@@ -129,20 +134,25 @@
         let currentUser = null;
         let userProjects = new Map(); // プロジェクトコードをキーとするMap
         let loadedTimestamps = []; // 読み込んだ稼働実績データを保持するグローバル変数
-        let chartInstance = null; // Chart.jsのインスタンスを保持
+        let chartInstance = null; // Chart.jsの稼働グラフインスタンスを保持
+        let revenueChartInstance = null; // Chart.jsの収支グラフインスタンスを保持
 
         const summaryMonthInput = document.getElementById('summary-month');
-        const chartStartMonthInput = document.getElementById('chart-start-month'); // 追加
-        const chartEndMonthInput = document.getElementById('chart-end-month');   // 追加
+        const chartStartMonthInput = document.getElementById('chart-start-month');
+        const chartEndMonthInput = document.getElementById('chart-end-month');
         const loadSummaryBtn = document.getElementById('load-summary-btn');
-        const summaryTabsContainer = document.getElementById('summary-tabs-container'); // 新しいコンテナ
-        const projectTabList = document.getElementById('project-tab-list'); // タブリスト
-        const projectTabContent = document.getElementById('project-tab-content'); // タブコンテンツ
+        const summaryTabsContainer = document.getElementById('summary-tabs-container');
+        const projectTabList = document.getElementById('project-tab-list');
+        const projectTabContent = document.getElementById('project-tab-content');
         const summaryStatusElement = document.getElementById('summary-status');
-        const generatePdfBtn = document.getElementById('generate-pdf-btn'); // PDF出力ボタン
-        const toggleChartBtn = document.getElementById('toggle-chart-btn'); // グラフ表示/非表示ボタン
-        const chartContainer = document.getElementById('chart-container'); // グラフコンテナ
-        const timeChartCanvas = document.getElementById('time-chart'); // Chart.jsのキャンバス
+        const toggleChartBtn = document.getElementById('toggle-chart-btn'); // 稼働グラフ表示/非表示ボタン
+        const chartContainer = document.getElementById('chart-container'); // 稼働グラフコンテナ
+        const timeChartCanvas = document.getElementById('time-chart'); // 稼働グラフキャンバス
+
+        // 収支グラフ関連要素
+        const toggleRevenueChartBtn = document.getElementById('toggle-revenue-chart-btn'); // 収支グラフ表示/非表示ボタン
+        const revenueChartContainer = document.getElementById('revenue-chart-container'); // 収支グラフコンテナ
+        const revenueChartCanvas = document.getElementById('revenue-chart'); // 収支グラフキャンバス
 
         // 全プロジェクト収支サマリーセクション
         const globalRevenueSummaryContainer = document.getElementById('global-revenue-summary');
@@ -177,8 +187,8 @@
 
             // イベントリスナーの設定
             loadSummaryBtn.addEventListener('click', loadSummary);
-            generatePdfBtn.addEventListener('click', generateSummaryPdf); // PDF出力ボタンのイベントリスナー
-            toggleChartBtn.addEventListener('click', toggleChartVisibility); // グラフ表示/非表示ボタンのイベントリスナー
+            toggleChartBtn.addEventListener('click', toggleChartVisibility); // 稼働グラフ表示/非表示ボタンのイベントリスナー
+            toggleRevenueChartBtn.addEventListener('click', toggleRevenueChartVisibility); // 収支グラフ表示/非表示ボタンのイベントリスナー
             
             // 編集モーダルのイベントリスナー
             cancelEditTimestampButton.addEventListener('click', () => {
@@ -228,6 +238,11 @@
                     const tsDate = ts.clockInTime.toDate();
                     return tsDate.getFullYear() === selectedDateForTable.getFullYear() && tsDate.getMonth() === selectedDateForTable.getMonth();
                 }));
+                // グラフも再描画
+                const chartStartDate = chartStartMonthInput.value ? new Date(chartStartMonthInput.value + '-01T00:00:00') : new Date(selectedDateForTable.getFullYear(), selectedDateForTable.getMonth() - 5, 1, 0, 0, 0);
+                const chartEndDate = chartEndMonthInput.value ? new Date(chartEndMonthInput.value + '-01T00:00:00') : new Date(selectedDateForTable.getFullYear(), selectedDateForTable.getMonth() + 1, 0, 23, 59, 59);
+                updateChart(loadedTimestamps, chartStartDate, chartEndDate);
+                updateRevenueChart(loadedTimestamps, chartStartDate, chartEndDate);
             }, (error) => {
                 console.error("Error listening to projects:", error);
                 showStatus("プロジェクトの読み込みに失敗しました。", true, 'summary-status');
@@ -306,7 +321,8 @@
                     });
                     renderSummary(currentMonthTimestamps); // テーブル表示は選択された月のみ
                     renderGlobalRevenueSummary(currentMonthTimestamps); // グローバルサマリーも選択された月のみ
-                    updateChart(loadedTimestamps, startDate, endDate); // グラフは全期間のデータを使用
+                    updateChart(loadedTimestamps, startDate, endDate); // 稼働グラフは全期間のデータを使用
+                    updateRevenueChart(loadedTimestamps, startDate, endDate); // 収支グラフも全期間のデータを使用
                     showStatus("サマリーを更新しました。", false, 'summary-status');
                 }, (error) => {
                     console.error("Error fetching summary:", error);
@@ -493,6 +509,15 @@
                 projectTotalDiv.className = 'flex justify-end font-bold text-gray-800 text-lg mt-4 pr-3';
                 projectTotalDiv.textContent = `合計稼働時間: ${projectTotalHours.toFixed(2)} 時間`; // 元の合計稼働時間
                 tabPanel.appendChild(projectTotalDiv);
+
+                // PDF出力ボタンを各タブコンテンツに追加
+                const generatePdfBtn = document.createElement('button');
+                generatePdfBtn.id = `generate-pdf-btn-${projectCode}`; // ユニークなIDを設定
+                generatePdfBtn.className = 'btn bg-main hover:bg-main-dark text-white font-bold py-2 px-4 rounded mt-4';
+                generatePdfBtn.textContent = 'PDF出力';
+                generatePdfBtn.dataset.projectCode = projectCode; // プロジェクトコードをデータ属性に保存
+                generatePdfBtn.addEventListener('click', () => generateSummaryPdf(projectCode)); // クリックイベントを追加
+                tabPanel.appendChild(generatePdfBtn);
 
 
                 projectTabContent.appendChild(tabPanel);
@@ -751,18 +776,13 @@
 
         /**
          * 表示されているサマリー内容をPDFとして生成する
+         * @param {string} projectCode - PDF出力対象のプロジェクトコード
          */
-        async function generateSummaryPdf() {
+        async function generateSummaryPdf(projectCode) {
             showStatus("PDFを生成中...", false, 'summary-status');
 
-            // 現在アクティブなタブのプロジェクトコードを取得
-            const activeTabButton = projectTabList.querySelector('button[role="tab"][aria-selected="true"]');
-            if (!activeTabButton) {
-                showStatus("PDFにするプロジェクトタブを選択してください。", true, 'summary-status');
-                return;
-            }
-            const activeProjectCode = activeTabButton.dataset.projectCode;
-            const activeProjectName = activeTabButton.textContent; // プロジェクト名
+            const projectDetails = userProjects.get(projectCode);
+            const activeProjectName = projectDetails?.name || projectCode;
 
             if (!loadedTimestamps || loadedTimestamps.length === 0) {
                 showStatus("PDFにする稼働実績がありません。", true, 'summary-status');
@@ -773,7 +793,7 @@
             const projectTimestamps = loadedTimestamps.filter(ts => {
                 const selectedDateForTable = new Date(summaryMonthInput.value + '-01T00:00:00');
                 const tsDate = ts.clockInTime.toDate();
-                return (ts.projectCode || '未選択') === activeProjectCode &&
+                return (ts.projectCode || '未選択') === projectCode &&
                        tsDate.getFullYear() === selectedDateForTable.getFullYear() && 
                        tsDate.getMonth() === selectedDateForTable.getMonth();
             });
@@ -834,7 +854,7 @@
                 </style>
                 <div class="text-center">
                     <h2 class="header-title">${selectedMonth} 稼働時間報告書</h2>
-                    <p class="project-info">${activeProjectName} (${activeProjectCode})</p>
+                    <p class="project-info">${activeProjectName} (${projectCode})</p>
                     <p class="total-time">合計稼働時間: ${totalProjectHours.toFixed(2)} 時間</p>
                 </div>
 
@@ -864,28 +884,52 @@
             `;
 
             // PDFを生成
-            html2pdf().from(pdfContent).save(`稼働報告書_${selectedMonth}_${activeProjectCode}.pdf`);
+            html2pdf().from(pdfContent).save(`稼働報告書_${selectedMonth}_${projectCode}.pdf`);
             showStatus("PDFを生成しました。", false, 'summary-status');
         }
 
         /**
-         * グラフの表示/非表示を切り替える
+         * 稼働グラフの表示/非表示を切り替える
          */
         function toggleChartVisibility() {
             chartContainer.classList.toggle('hidden');
             if (!chartContainer.classList.contains('hidden')) {
-                toggleChartBtn.textContent = 'グラフを非表示';
+                toggleChartBtn.textContent = '稼働グラフを非表示';
+                // 稼働グラフが表示されるときに、収支グラフが非表示になっていれば、そのボタンのテキストを「収支グラフを表示」に設定
+                if (revenueChartContainer.classList.contains('hidden')) {
+                    toggleRevenueChartBtn.textContent = '収支グラフを表示';
+                }
                 updateChart(loadedTimestamps, 
                             new Date(summaryMonthInput.value + '-01T00:00:00'), // Start of selected month
                             new Date(new Date(summaryMonthInput.value + '-01T00:00:00').getFullYear(), new Date(summaryMonthInput.value + '-01T00:00:00').getMonth() + 1, 0, 23, 59, 59) // End of selected month
                             ); // 表示時にグラフを更新
             } else {
-                toggleChartBtn.textContent = 'グラフを表示';
+                toggleChartBtn.textContent = '稼働グラフを表示';
             }
         }
 
         /**
-         * 稼働実績データに基づいてグラフを更新する
+         * 収支グラフの表示/非表示を切り替える
+         */
+        function toggleRevenueChartVisibility() {
+            revenueChartContainer.classList.toggle('hidden');
+            if (!revenueChartContainer.classList.contains('hidden')) {
+                toggleRevenueChartBtn.textContent = '収支グラフを非表示';
+                // 収支グラフが表示されるときに、稼働グラフが非表示になっていれば、そのボタンのテキストを「稼働グラフを表示」に設定
+                if (chartContainer.classList.contains('hidden')) {
+                    toggleChartBtn.textContent = '稼働グラフを表示';
+                }
+                updateRevenueChart(loadedTimestamps, 
+                                   new Date(summaryMonthInput.value + '-01T00:00:00'), // Start of selected month
+                                   new Date(new Date(summaryMonthInput.value + '-01T00:00:00').getFullYear(), new Date(summaryMonthInput.value + '-01T00:00:00').getMonth() + 1, 0, 23, 59, 59) // End of selected month
+                                  ); // 表示時にグラフを更新
+            } else {
+                toggleRevenueChartBtn.textContent = '収支グラフを表示';
+            }
+        }
+
+        /**
+         * 稼働実績データに基づいて稼働グラフを更新する
          * @param {Array} timestamps - 稼働実績データの配列 (全期間)
          * @param {Date} chartStartDate - グラフの開始日付
          * @param {Date} chartEndDate - グラフの終了日付
@@ -1020,6 +1064,201 @@
                                 text: '稼働時間 (h)'
                             },
                             beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        /**
+         * 稼働実績データに基づいて収支グラフを更新する
+         * @param {Array} timestamps - 稼働実績データの配列 (全期間)
+         * @param {Date} chartStartDate - グラフの開始日付
+         * @param {Date} chartEndDate - グラフの終了日付
+         */
+        function updateRevenueChart(timestamps, chartStartDate, chartEndDate) {
+            // revenueChartContainerが非表示の場合は何もしない
+            if (revenueChartContainer.classList.contains('hidden')) {
+                return;
+            }
+
+            if (revenueChartInstance) {
+                revenueChartInstance.destroy(); // 既存のグラフがあれば破棄
+            }
+
+            if (!timestamps || timestamps.length === 0) {
+                // グラフコンテナ内にメッセージを表示
+                revenueChartCanvas.style.display = 'none';
+                const noDataMessage = document.createElement('p');
+                noDataMessage.className = 'text-gray-500 text-center py-4';
+                noDataMessage.textContent = '表示するデータがありません。';
+                revenueChartContainer.appendChild(noDataMessage);
+                return;
+            } else {
+                revenueChartCanvas.style.display = 'block'; // キャンバスを表示
+                const existingMessage = revenueChartContainer.querySelector('p.text-gray-500');
+                if (existingMessage) {
+                    existingMessage.remove(); // メッセージがあれば削除
+                }
+            }
+
+            const monthLabels = [];
+            const monthKeys = [];
+            
+            // Generate month labels and keys based on the actual chartStartDate and chartEndDate
+            let currentDate = new Date(chartStartDate.getFullYear(), chartStartDate.getMonth(), 1);
+            while (currentDate <= chartEndDate) {
+                monthLabels.push(`${currentDate.getMonth() + 1}月`);
+                monthKeys.push(`${currentDate.getFullYear()}-${(currentDate.getMonth() + 1).toString().padStart(2, '0')}`);
+                currentDate.setMonth(currentDate.getMonth() + 1);
+            }
+
+            // プロジェクトごとの月次収支を集計
+            const projectMonthlyRevenue = {}; // { 'P-001': { '2025-07': 500000, '2025-06': 450000 }, ... }
+            const projectMonthlyHoursRaw = {}; // 収支計算のために生の稼働時間も必要
+
+            timestamps.forEach(ts => {
+                const date = ts.clockInTime.toDate();
+                const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+                const projectCode = ts.projectCode || '未選択';
+                const duration = ts.durationHours || 0;
+
+                if (!projectMonthlyHoursRaw[projectCode]) {
+                    projectMonthlyHoursRaw[projectCode] = {};
+                }
+                projectMonthlyHoursRaw[projectCode][monthKey] = (projectMonthlyHoursRaw[projectCode][monthKey] || 0) + duration;
+            });
+
+            // 各プロジェクトの月次収支を計算
+            Object.keys(projectMonthlyHoursRaw).forEach(projectCode => {
+                projectMonthlyRevenue[projectCode] = {};
+                const projectDetails = userProjects.get(projectCode);
+
+                if (!projectDetails) {
+                    // プロジェクト詳細がない場合は収支計算をスキップ
+                    monthKeys.forEach(monthKey => {
+                        projectMonthlyRevenue[projectCode][monthKey] = 0;
+                    });
+                    return;
+                }
+
+                const baseHourlyRate = projectDetails.baseHourlyRate || 0;
+                const workTimeUnitMinutes = projectDetails.workTimeUnit || 1;
+                const baseWorkingHours = projectDetails.baseWorkingHours || 0;
+                const billingRangeStart = projectDetails.billingRangeStart || 0;
+                const billingRangeEnd = projectDetails.billingRangeEnd || 0;
+
+                monthKeys.forEach(monthKey => {
+                    const rawHours = projectMonthlyHoursRaw[projectCode][monthKey] || 0;
+                    const totalActualMinutes = rawHours * 60;
+                    const adjustedTotalMinutes = Math.floor(totalActualMinutes / workTimeUnitMinutes) * workTimeUnitMinutes;
+                    const adjustedTotalHours = adjustedTotalMinutes / 60;
+
+                    let monthlyRevenue = 0;
+                    if (projectDetails.contractType === 'fixed') {
+                        let baseRevenue = baseHourlyRate * baseWorkingHours;
+                        monthlyRevenue = baseRevenue;
+
+                        if (adjustedTotalHours > billingRangeEnd) {
+                            monthlyRevenue += (adjustedTotalHours - billingRangeEnd) * baseHourlyRate;
+                        } else if (adjustedTotalHours < billingRangeStart) {
+                            monthlyRevenue -= (billingRangeStart - adjustedTotalHours) * baseHourlyRate;
+                        }
+                    } else if (projectDetails.contractType === 'hourly') {
+                        monthlyRevenue = adjustedTotalHours * baseHourlyRate;
+                    }
+                    projectMonthlyRevenue[projectCode][monthKey] = monthlyRevenue;
+                });
+            });
+
+            // Chart.jsのデータセットを準備
+            const datasets = Object.keys(projectMonthlyRevenue).map((projectCode, index) => {
+                const data = monthKeys.map(monthKey => projectMonthlyRevenue[projectCode][monthKey] || 0);
+                const projectName = userProjects.get(projectCode)?.name || projectCode;
+                
+                let borderColor;
+                let backgroundColor;
+
+                const project = userProjects.get(projectCode);
+                if (project && project.color) {
+                    const hex = project.color.startsWith('#') ? project.color.slice(1) : project.color;
+                    const r = parseInt(hex.substring(0, 2), 16);
+                    const g = parseInt(hex.substring(2, 4), 16);
+                    const b = parseInt(hex.substring(4, 6), 16);
+
+                    borderColor = `rgb(${r}, ${g}, ${b})`;
+                    backgroundColor = `rgba(${r}, ${g}, ${b}, 0.6)`; // 棒グラフなので少し濃いめに
+                } else {
+                    const defaultColors = [
+                        'rgba(75, 192, 192, 0.8)', 'rgba(153, 102, 255, 0.8)', 'rgba(255, 159, 64, 0.8)',
+                        'rgba(255, 99, 132, 0.8)', 'rgba(54, 162, 235, 0.8)', 'rgba(255, 206, 86, 0.8)',
+                        'rgba(201, 203, 207, 0.8)'
+                    ];
+                    borderColor = defaultColors[index % defaultColors.length].replace('0.8', '1');
+                    backgroundColor = defaultColors[index % defaultColors.length];
+                }
+
+                return {
+                    label: projectName,
+                    data: data,
+                    borderColor: borderColor,
+                    backgroundColor: backgroundColor,
+                    borderWidth: 1,
+                    // 棒グラフなのでfillはtrue
+                };
+            });
+
+            // Chart.jsのグラフを描画
+            const ctx = revenueChartCanvas.getContext('2d');
+            revenueChartInstance = new Chart(ctx, {
+                type: 'bar', // 棒グラフ
+                data: {
+                    labels: monthLabels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: false,
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: '月'
+                            },
+                            stacked: false // 各プロジェクトの棒を並べて表示
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: '収支 (円)'
+                            },
+                            beginAtZero: true,
+                            stacked: false, // 各プロジェクトの棒を並べて表示
+                            ticks: {
+                                callback: function(value, index, values) {
+                                    return value.toLocaleString('ja-JP', { style: 'currency', currency: 'JPY', minimumFractionDigits: 0 });
+                                }
+                            }
+                        }
+                    },
+                    tooltips: {
+                        callbacks: {
+                            label: function(tooltipItem, data) {
+                                let label = data.datasets[tooltipItem.datasetIndex].label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                label += tooltipItem.yLabel.toLocaleString('ja-JP', { style: 'currency', currency: 'JPY', minimumFractionDigits: 0 });
+                                return label;
+                            }
                         }
                     }
                 }
