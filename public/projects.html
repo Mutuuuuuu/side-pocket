@@ -34,38 +34,49 @@
     </div>
 
     <div id="project-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 hidden">
-        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg max-h-screen overflow-y-auto">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl max-h-screen overflow-y-auto">
             <h3 id="project-modal-title" class="text-2xl font-bold mb-4">プロジェクトを追加</h3>
             <form id="project-form" class="space-y-4">
                 <input type="hidden" id="project-id">
-                <div>
-                    <label for="projectCode" class="block text-sm font-medium text-gray-700">プロジェクトコード:</label>
-                    <input type="text" id="projectCode" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" required>
-                </div>
-                <div>
-                    <label for="projectName" class="block text-sm font-medium text-gray-700">プロジェクト名:</label>
-                    <input type="text" id="projectName" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" required>
-                </div>
-                <div>
-                    <label for="projectColor" class="block text-sm font-medium text-gray-700">表示色:</label>
-                    <input type="color" id="projectColor" class="mt-1 block w-full h-10 border border-gray-300 rounded-md shadow-sm" value="#4F46E5">
-                </div>
-                <div>
-                    <label for="contractType" class="block text-sm font-medium text-gray-700">契約形態:</label>
-                    <select id="contractType" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" required>
-                        <option value="hourly">時給制</option>
-                        <option value="fixed">固定報酬制</option>
-                    </select>
-                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="projectCode" class="block text-sm font-medium text-gray-700">プロジェクトコード:</label>
+                        <input type="text" id="projectCode" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" required>
+                    </div>
+                    <div>
+                        <label for="projectName" class="block text-sm font-medium text-gray-700">プロジェクト名:</label>
+                        <input type="text" id="projectName" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" required>
+                    </div>
+                    <div>
+                        <label for="projectColor" class="block text-sm font-medium text-gray-700">表示色:</label>
+                        <input type="color" id="projectColor" class="mt-1 block w-full h-10 border border-gray-300 rounded-md shadow-sm" value="#4F46E5">
+                    </div>
+                    <div>
+                        <label for="contractType" class="block text-sm font-medium text-gray-700">契約形態:</label>
+                        <select id="contractType" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" required>
+                            <option value="hourly">時給制</option>
+                            <option value="fixed">固定報酬制</option>
+                        </select>
+                    </div>
 
-                <!-- 基本時給は契約形態に関わらず表示 -->
-                <div>
-                    <label for="baseHourlyRate" class="block text-sm font-medium text-gray-700">基本時給 (円):</label>
-                    <input type="number" id="baseHourlyRate" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" min="0">
+                    <!-- 基本時給は契約形態に関わらず表示 -->
+                    <div>
+                        <label for="baseHourlyRate" class="block text-sm font-medium text-gray-700">基本時給 (円):</label>
+                        <input type="number" id="baseHourlyRate" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" min="0">
+                    </div>
+                    
+                    <!-- 稼働時間の調整方法を追加 -->
+                    <div>
+                        <label for="adjustmentMethod" class="block text-sm font-medium text-gray-700">稼働時間の調整方法:</label>
+                        <select id="adjustmentMethod" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" required>
+                            <option value="per-detail">明細毎に調整</option>
+                            <option value="monthly-total">月次の合計時間で調整</option>
+                        </select>
+                    </div>
                 </div>
 
                 <!-- 固定報酬制の場合の追加フィールド -->
-                <div id="fixedFields" class="space-y-4 hidden">
+                <div id="fixedFields" class="grid grid-cols-1 md:grid-cols-2 gap-4 hidden">
                     <div>
                         <label for="baseWorkingHours" class="block text-sm font-medium text-gray-700">基本稼働時間 (時間):</label>
                         <input type="number" id="baseWorkingHours" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm" min="0" step="0.01">
@@ -81,13 +92,15 @@
                 </div>
 
                 <!-- 契約期間のフィールドを追加 -->
-                <div>
-                    <label for="contractPeriodStart" class="block text-sm font-medium text-gray-700">契約期間 開始日:</label>
-                    <input type="date" id="contractPeriodStart" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
-                </div>
-                <div>
-                    <label for="contractPeriodEnd" class="block text-sm font-medium text-gray-700">契約期間 終了日:</label>
-                    <input type="date" id="contractPeriodEnd" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="contractPeriodStart" class="block text-sm font-medium text-gray-700">契約期間 開始日:</label>
+                        <input type="date" id="contractPeriodStart" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                    </div>
+                    <div>
+                        <label for="contractPeriodEnd" class="block text-sm font-medium text-gray-700">契約期間 終了日:</label>
+                        <input type="date" id="contractPeriodEnd" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                    </div>
                 </div>
 
                 <!-- 作業時間単位フィールド -->
@@ -153,18 +166,19 @@
         const projectModalTitle = document.getElementById('project-modal-title');
         const projectForm = document.getElementById('project-form');
         const projectIdInput = document.getElementById('project-id');
-        const projectCodeInput = document.getElementById('projectCode'); // idをprojectCodeに修正
-        const projectNameInput = document.getElementById('projectName'); // idをprojectNameに修正
-        const projectColorInput = document.getElementById('projectColor'); // idをprojectColorに修正
-        const contractTypeSelect = document.getElementById('contractType'); // idをcontractTypeに修正
-        const baseHourlyRateInput = document.getElementById('baseHourlyRate'); // idをbaseHourlyRateに修正
-        const fixedFields = document.getElementById('fixedFields'); // idをfixedFieldsに修正
-        const baseWorkingHoursInput = document.getElementById('baseWorkingHours'); // idをbaseWorkingHoursに修正
-        const billingRangeStartInput = document.getElementById('billingRangeStart'); // idをbillingRangeStartに修正
-        const billingRangeEndInput = document.getElementById('billingRangeEnd'); // idをbillingRangeEndに修正
-        const contractPeriodStartInput = document.getElementById('contractPeriodStart'); // 新規追加
-        const contractPeriodEndInput = document.getElementById('contractPeriodEnd'); // 新規追加
-        const workTimeUnitSelect = document.getElementById('workTimeUnit'); // idをworkTimeUnitに修正 (select要素)
+        const projectCodeInput = document.getElementById('projectCode');
+        const projectNameInput = document.getElementById('projectName');
+        const projectColorInput = document.getElementById('projectColor');
+        const contractTypeSelect = document.getElementById('contractType');
+        const baseHourlyRateInput = document.getElementById('baseHourlyRate');
+        const fixedFields = document.getElementById('fixedFields');
+        const baseWorkingHoursInput = document.getElementById('baseWorkingHours');
+        const billingRangeStartInput = document.getElementById('billingRangeStart');
+        const billingRangeEndInput = document.getElementById('billingRangeEnd');
+        const contractPeriodStartInput = document.getElementById('contractPeriodStart');
+        const contractPeriodEndInput = document.getElementById('contractPeriodEnd');
+        const workTimeUnitSelect = document.getElementById('workTimeUnit');
+        const adjustmentMethodSelect = document.getElementById('adjustmentMethod'); // 新しく追加
         const cancelProjectBtn = document.getElementById('cancel-project-btn');
         const projectModalStatus = document.getElementById('project-modal-status');
         const projectListElement = document.getElementById('project-list');
@@ -236,6 +250,7 @@
                         <h3 class="text-lg font-semibold text-gray-800">${project.name} (${project.code})</h3>
                         <p class="text-gray-600 text-sm">契約形態: ${project.contractType === 'hourly' ? '時給制' : '固定報酬制'}</p>
                         <p class="text-gray-600 text-sm">作業時間単位: ${project.workTimeUnit}分</p>
+                        <p class="text-gray-600 text-sm">調整方法: ${project.adjustmentMethod === 'per-detail' ? '明細毎に調整' : '月次の合計時間で調整'}</p>
                     </div>
                     <div class="flex space-x-2">
                         <button class="btn bg-blue-500 hover:bg-blue-600 text-white py-1 px-3 rounded-md text-sm edit-btn" data-id="${project.id}">編集</button>
@@ -285,6 +300,7 @@
             contractTypeSelect.value = 'hourly'; // デフォルトで時給制
             baseHourlyRateInput.value = ''; // 基本時給をクリア
             workTimeUnitSelect.value = '60'; // デフォルトで60分単位
+            adjustmentMethodSelect.value = 'per-detail'; // デフォルトで明細毎に調整
             contractPeriodStartInput.value = ''; // 契約期間開始日をクリア
             contractPeriodEndInput.value = ''; // 契約期間終了日をクリア
             toggleContractFields(); // フィールド表示をリセット
@@ -320,6 +336,7 @@
             contractPeriodEndInput.value = currentProjectToEdit.contractPeriodEnd ? currentProjectToEdit.contractPeriodEnd.toDate().toISOString().substring(0, 10) : '';
 
             workTimeUnitSelect.value = currentProjectToEdit.workTimeUnit || '60'; // デフォルト値
+            adjustmentMethodSelect.value = currentProjectToEdit.adjustmentMethod || 'per-detail'; // 調整方法を設定
 
             toggleContractFields(); // 契約形態に応じたフィールド表示を切り替え
             projectModal.classList.remove('hidden');
@@ -351,6 +368,7 @@
             const contractType = contractTypeSelect.value;
             const baseHourlyRate = parseFloat(baseHourlyRateInput.value) || 0; // 時給制でも固定制でも基本時給は持つ
             const workTimeUnit = parseInt(workTimeUnitSelect.value, 10); // select要素から取得
+            const adjustmentMethod = adjustmentMethodSelect.value; // 調整方法を取得
 
             if (!projectCode || !projectName || !projectColor || !contractType || isNaN(workTimeUnit) || workTimeUnit <= 0) {
                 showStatus("すべての必須フィールドを入力してください。", true, 'project-modal-status');
@@ -391,6 +409,7 @@
                 ownerId: currentUser.uid, // 現在のユーザーのIDをオーナーIDとして保存
                 baseHourlyRate: baseHourlyRate, // 時給制でも固定制でも基本時給は持つ
                 workTimeUnit: workTimeUnit, // 作業時間単位を保存
+                adjustmentMethod: adjustmentMethod, // 調整方法を保存
                 updatedAt: Timestamp.now()
             };
 
