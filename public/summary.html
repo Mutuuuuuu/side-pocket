@@ -815,13 +815,16 @@
             const selectedMonth = summaryMonthInput.value; //儼-MM
 
             // PDFに含めるコンテンツを構築
-            const pdfContent = document.createElement('div');
-            pdfContent.className = 'p-6'; // TailwindクラスはPDFに影響しない可能性があるので最小限に
-
-            pdfContent.innerHTML = `
+            const pdfContentHtml = `
                 <style>
                     /* PDF用の最小限のスタイル */
                     body { font-family: sans-serif; margin: 0; padding: 0; }
+                    .pdf-container { 
+                        width: 100%; 
+                        box-sizing: border-box; 
+                        padding: 20px; /* 全体の余白を追加 */
+                        background-color: #fff; /* 明示的に白背景を設定 */
+                    }
                     h2, p { margin: 0; padding: 0; }
                     .header-title { font-size: 24px; font-weight: bold; margin-bottom: 10px; text-align: center; }
                     .project-info { font-size: 18px; font-weight: bold; margin-bottom: 5px; text-align: center; }
@@ -832,6 +835,7 @@
                         margin-top: 15px;
                         font-size: 14px;
                         page-break-inside: auto; /* テーブルがページをまたぐことを許可 */
+                        table-layout: fixed; /* テーブルレイアウトを固定 */
                     }
                     thead { display: table-header-group; }
                     tr { page-break-inside: avoid; page-break-after: auto; }
@@ -839,6 +843,7 @@
                         border: 1px solid #ccc; /* 薄いグレーの罫線 */
                         padding: 8px;
                         text-align: left;
+                        word-wrap: break-word; /* 長いテキストの折り返し */
                     }
                     th {
                         background-color: #f5f5f5; /* ヘッダーの背景色 */
@@ -846,7 +851,7 @@
                     }
                     .text-right { text-align: right; }
                 </style>
-                <div style="padding: 20px;"> <!-- 全体の余白を追加 -->
+                <div class="pdf-container">
                     <div class="text-center">
                         <h2 class="header-title">${selectedMonth} 稼働時間報告書</h2>
                         <p class="project-info">${activeProjectName} (${projectCode})</p>
@@ -879,10 +884,17 @@
                 </div>
             `;
 
-            console.log("PDF Content HTML:", pdfContent.innerHTML); // デバッグ用にHTML内容を出力
+            console.log("PDF Content HTML:", pdfContentHtml); // デバッグ用にHTML内容を出力
+
+            // 一時的なdivを作成し、その中にPDFコンテンツを挿入
+            const tempPdfDiv = document.createElement('div');
+            tempPdfDiv.style.position = 'absolute';
+            tempPdfDiv.style.left = '-9999px'; // 画面外に配置
+            tempPdfDiv.style.width = '210mm'; // A4幅に合わせる (jsPDFのformat: 'a4'と連携)
+            tempPdfDiv.innerHTML = pdfContentHtml;
+            document.body.appendChild(tempPdfDiv);
 
             // PDFを生成
-            // html2pdfオプションを調整
             const pdfOptions = {
                 margin: [10, 10, 10, 10], // 上、左、下、右の余白 (mm)
                 filename: `稼働報告書_${selectedMonth}_${projectCode}.pdf`,
@@ -896,10 +908,19 @@
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
 
-            setTimeout(() => {
-                html2pdf().from(pdfContent).set(pdfOptions).save();
+            try {
+                // html2pdfの処理をPromiseとして扱い、完了後にtempPdfDivを削除
+                await html2pdf().from(tempPdfDiv).set(pdfOptions).save();
                 showStatus("PDFを生成しました。", false, 'summary-status');
-            }, 100); // 100ミリ秒の遅延
+            } catch (error) {
+                console.error("Error generating PDF:", error);
+                showStatus(`PDFの生成中にエラーが発生しました: ${error.message}`, true, 'summary-status');
+            } finally {
+                // 処理が完了したら（成功/失敗にかかわらず）一時的なdivを削除
+                if (tempPdfDiv.parentNode) {
+                    tempPdfDiv.parentNode.removeChild(tempPdfDiv);
+                }
+            }
         }
 
         /**
