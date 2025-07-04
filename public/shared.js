@@ -67,6 +67,7 @@ function setupHeaderMenu(user) {
     const menuToggle = document.getElementById('menu-toggle'); // ハンバーガーメニューボタン
     const sidebarMenu = document.getElementById('sidebar-menu'); // サイドバーメニューコンテナ
     const closeMenuButton = document.getElementById('close-menu-button'); // 閉じるボタン
+    const menuTexts = document.querySelectorAll('#sidebar-menu .menu-text'); // メニューテキスト要素
 
     // ユーザー情報
     if (userInfoSpan) {
@@ -96,6 +97,14 @@ function setupHeaderMenu(user) {
         });
     }
 
+    // 初期状態: サイドバーを閉じた状態（アイコンのみ）
+    sidebarMenu.classList.add('-translate-x-full'); // 完全に隠す
+    sidebarMenu.style.width = '64px'; // 閉じた時の幅
+    menuTexts.forEach(span => {
+        span.classList.add('hidden'); // テキストを非表示
+    });
+
+
     // ハンバーガーメニューのトグル
     if (menuToggle && sidebarMenu) {
         menuToggle.addEventListener('click', (event) => {
@@ -104,7 +113,7 @@ function setupHeaderMenu(user) {
             sidebarMenu.classList.add('translate-x-0');
             sidebarMenu.style.width = '200px'; // メニューを開いたときの幅
             // メニューテキストを表示
-            document.querySelectorAll('#sidebar-menu .menu-text').forEach(span => {
+            menuTexts.forEach(span => {
                 span.classList.remove('hidden');
             });
         });
@@ -117,7 +126,7 @@ function setupHeaderMenu(user) {
             sidebarMenu.classList.add('-translate-x-full');
             sidebarMenu.style.width = '64px'; // メニューを閉じたときの幅 (アイコンのみの幅)
             // メニューテキストを非表示
-            document.querySelectorAll('#sidebar-menu .menu-text').forEach(span => {
+            menuTexts.forEach(span => {
                 span.classList.add('hidden');
             });
         });
@@ -129,7 +138,7 @@ function setupHeaderMenu(user) {
             sidebarMenu.classList.remove('translate-x-0');
             sidebarMenu.classList.add('-translate-x-full');
             sidebarMenu.style.width = '64px';
-            document.querySelectorAll('#sidebar-menu .menu-text').forEach(span => {
+            menuTexts.forEach(span => {
                 span.classList.add('hidden');
             });
         }
