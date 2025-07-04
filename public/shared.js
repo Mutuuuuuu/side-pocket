@@ -116,7 +116,7 @@ export function setupHeaderMenu(user) {
     // const menuTexts = document.querySelectorAll('#sidebar-menu .menu-text'); // CSSで制御するためJSからは削除
     const appContainer = document.getElementById('app-container'); // メインコンテンツコンテナ
     const logoutButtonMobile = document.getElementById('logout-button-mobile'); // サイドバー内のログアウトボタン
-    // const desktopMenuToggle = document.getElementById('desktop-menu-toggle'); // デスクトップ用ハンバーガーメニュー (削除済み)
+    // const desktopMenuToggle = document.getElementById('desktop-menu-toggle'); // デスクトップ用ハンバーガーメニュー (削除)
 
     // ユーザー情報の表示
     if (userInfoSpan) {
