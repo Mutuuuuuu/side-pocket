@@ -98,9 +98,13 @@ function setupHeaderMenu(user) {
     }
 
     // 初期状態: サイドバーを完全に隠し、閉じるボタンとテキストも非表示
-    sidebarMenu.classList.add('-translate-x-full'); 
-    sidebarMenu.style.width = '64px'; 
-    closeMenuButton.classList.add('hidden'); // 閉じるボタンを非表示
+    if (sidebarMenu) { // sidebarMenuが存在するかチェック
+        sidebarMenu.classList.add('-translate-x-full'); 
+        sidebarMenu.style.width = '64px'; 
+    }
+    if (closeMenuButton) { // closeMenuButtonが存在するかチェック
+        closeMenuButton.classList.add('hidden'); // 閉じるボタンを非表示
+    }
     menuTexts.forEach(span => {
         span.classList.add('hidden'); // テキストを非表示
     });
@@ -113,7 +117,9 @@ function setupHeaderMenu(user) {
             sidebarMenu.classList.remove('-translate-x-full'); // サイドバーを表示
             sidebarMenu.classList.add('translate-x-0');
             sidebarMenu.style.width = '200px'; // メニューを開いたときの幅
-            closeMenuButton.classList.remove('hidden'); // 閉じるボタンを表示
+            if (closeMenuButton) { // closeMenuButtonが存在するかチェック
+                closeMenuButton.classList.remove('hidden'); // 閉じるボタンを表示
+            }
             menuTexts.forEach(span => {
                 span.classList.remove('hidden'); // メニューテキストを表示
             });
@@ -126,7 +132,9 @@ function setupHeaderMenu(user) {
             sidebarMenu.classList.remove('translate-x-0'); // サイドバーを非表示
             sidebarMenu.classList.add('-translate-x-full'); // サイドバーを完全に隠す
             sidebarMenu.style.width = '64px'; // メニューを閉じたときの幅 (アイコンのみの幅)
-            closeMenuButton.classList.add('hidden'); // 閉じるボタンを非表示
+            if (closeMenuButton) { // closeMenuButtonが存在するかチェック
+                closeMenuButton.classList.add('hidden'); // 閉じるボタンを非表示
+            }
             menuTexts.forEach(span => {
                 span.classList.add('hidden'); // メニューテキストを非表示
             });
@@ -139,7 +147,9 @@ function setupHeaderMenu(user) {
             sidebarMenu.classList.remove('translate-x-0');
             sidebarMenu.classList.add('-translate-x-full'); // サイドバーを完全に隠す
             sidebarMenu.style.width = '64px';
-            closeMenuButton.classList.add('hidden'); // 閉じるボタンを非表示
+            if (closeMenuButton) { // closeMenuButtonが存在するかチェック
+                closeMenuButton.classList.add('hidden'); // 閉じるボタンを非表示
+            }
             menuTexts.forEach(span => {
                 span.classList.add('hidden');
             });
