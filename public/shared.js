@@ -65,33 +65,15 @@
     function setupHeaderMenu(user) {
         const userInfoSpan = document.getElementById('user-info');
         const logoutButton = document.getElementById('logout-button');
-        const userInfoSpanMobile = document.getElementById('user-info-mobile'); // モバイル用ユーザー情報
-        const logoutButtonMobile = document.getElementById('logout-button-mobile'); // モバイル用ログアウトボタン
         const menuToggle = document.getElementById('menu-toggle'); // ハンバーガーメニューボタン
         const mobileMenu = document.getElementById('mobile-menu'); // モバイルメニューコンテナ
 
-        // デスクトップ用ユーザー情報とログアウトボタン
+        // ユーザー情報とログアウトボタン
         if (userInfoSpan) {
             userInfoSpan.textContent = `${user.email || '匿名ユーザー'}`;
         }
         if (logoutButton) {
             logoutButton.addEventListener('click', async () => {
-                try {
-                    await signOut(auth);
-                    window.location.href = 'login.html';
-                } catch (error) {
-                    console.error("Error signing out:", error);
-                    alert("ログアウトに失敗しました: " + error.message); 
-                }
-            });
-        }
-
-        // モバイル用ユーザー情報とログアウトボタン
-        if (userInfoSpanMobile) {
-            userInfoSpanMobile.textContent = `${user.email || '匿名ユーザー'}`;
-        }
-        if (logoutButtonMobile) {
-            logoutButtonMobile.addEventListener('click', async () => {
                 try {
                     await signOut(auth);
                     window.location.href = 'login.html';
