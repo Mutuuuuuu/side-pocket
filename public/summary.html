@@ -122,6 +122,10 @@
         </div>
     </div>
     
+    <!-- PDF生成用の一時的な隠しコンテナ -->
+    <!-- html2canvasがDOM要素をキャプチャしやすいように、固定配置で画面外に配置し、サイズを明示的に指定 -->
+    <div id="pdf-hidden-container" style="position: fixed; top: -9999px; left: -9999px; width: 210mm; height: 297mm; overflow: hidden; background-color: white; border: 1px solid blue;"></div>
+
     <!-- html2pdf.js ライブラリを読み込み -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <!-- Chart.js ライブラリを読み込み -->
@@ -829,6 +833,7 @@
                         box-sizing: border-box; 
                         padding: 20px; /* 全体の余白を追加 */
                         background-color: #fff; /* 明示的に白背景を設定 */
+                        border: 1px solid red; /* デバッグ用に赤い罫線を追加 */
                     }
                     h2, p { margin: 0; padding: 0; }
                     .header-title { font-size: 24px; font-weight: bold; margin-bottom: 10px; text-align: center; }
@@ -839,15 +844,7 @@
                         border-collapse: collapse;
                         margin-top: 15px;
                         font-size: 14px;
-                        /* page-break-inside: auto; */ /* html2canvasのレンダリングを妨げる可能性があるので削除 */
                         table-layout: fixed; /* テーブルレイアウトを固定 */
-                    }
-                    thead { 
-                        /* display: table-header-group; */ /* html2canvasのレンダリングを妨げる可能性があるので削除 */
-                    }
-                    tr { 
-                        /* page-break-inside: avoid; */ /* html2canvasのレンダリングを妨げる可能性があるので削除 */
-                        /* page-break-after: auto; */ /* html2canvasのレンダリングを妨げる可能性があるので削除 */
                     }
                     th, td {
                         border: 1px solid #ccc; /* 薄いグレーの罫線 */
@@ -896,15 +893,9 @@
 
             console.log("PDF Content HTML:", pdfContentHtml); // デバッグ用にHTML内容を出力
 
-            // 一時的なdivを作成し、その中にPDFコンテンツを挿入
-            const tempPdfDiv = document.createElement('div');
-            tempPdfDiv.style.position = 'absolute';
-            tempPdfDiv.style.left = '-9999px'; // 画面外に配置
-            tempPdfDiv.style.width = '210mm'; // A4幅に合わせる (jsPDFのformat: 'a4'と連携)
-            // デバッグ用に一時的に罫線を追加
-            tempPdfDiv.style.border = '1px solid red'; 
-            tempPdfDiv.innerHTML = pdfContentHtml;
-            document.body.appendChild(tempPdfDiv);
+            // 固定で配置された隠しコンテナを取得し、HTMLコンテンツを注入
+            const pdfHiddenContainer = document.getElementById('pdf-hidden-container');
+            pdfHiddenContainer.innerHTML = pdfContentHtml;
 
             // PDFを生成
             const pdfOptions = {
@@ -921,19 +912,16 @@
             };
 
             try {
-                // html2pdfの処理をPromiseとして扱い、完了後にtempPdfDivを削除
-                // レンダリング遅延をさらに長く設定
-                await new Promise(resolve => setTimeout(resolve, 1000)); // 1000ミリ秒の遅延に延長
-                await html2pdf().from(tempPdfDiv).set(pdfOptions).save();
+                // html2pdfの処理をPromiseとして扱い、完了後にコンテナのコンテンツをクリア
+                await new Promise(resolve => setTimeout(resolve, 1000)); // 1000ミリ秒の遅延
+                await html2pdf().from(pdfHiddenContainer).set(pdfOptions).save();
                 showStatus("PDFを正常に生成しました。", false, 'summary-status');
             } catch (error) {
                 console.error("PDF生成中にエラーが発生しました:", error);
                 showStatus(`PDFの生成中にエラーが発生しました: ${error.message}。コンソールを確認してください。`, true, 'summary-status');
             } finally {
-                // 処理が完了したら（成功/失敗にかかわらず）一時的なdivを削除
-                if (tempPdfDiv.parentNode) {
-                    tempPdfDiv.parentNode.removeChild(tempPdfDiv);
-                }
+                // 処理が完了したら（成功/失敗にかかわらず）隠しコンテナのコンテンツをクリア
+                pdfHiddenContainer.innerHTML = '';
             }
         }
 
