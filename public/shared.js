@@ -71,20 +71,17 @@ function setupHeaderMenu(user) {
 
     // ユーザー情報
     if (userInfoSpan) {
-        // ディスプレイ名を優先し、なければメールアドレスを表示
         userInfoSpan.textContent = user.displayName || user.email || '匿名ユーザー';
     }
     if (userIconImg) {
-        // ユーザーのphotoURLがあれば設定、なければ汎用的なユーザーアイコン（SVG）を表示
         if (user.photoURL) {
             userIconImg.src = user.photoURL;
         } else {
-            // 汎用的なユーザーアイコンSVGをData URLとして設定
             userIconImg.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' class='lucide lucd-circle-user'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Ccircle cx='12' cy='10' r='3'/%3E%3Cpath d='M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662'/%3E%3C/svg%3E";
         }
     }
 
-    // ログアウトボタンのイベントリスナー (メニュー内に配置)
+    // ログアウトボタンのイベントリスナー
     if (logoutButton) {
         logoutButton.addEventListener('click', async () => {
             try {
@@ -97,62 +94,79 @@ function setupHeaderMenu(user) {
         });
     }
 
-    // 初期状態: サイドバーを完全に隠し、閉じるボタンとテキストも非表示
-    if (sidebarMenu) { // sidebarMenuが存在するかチェック
-        sidebarMenu.classList.add('-translate-x-full'); 
-        sidebarMenu.style.width = '64px'; 
+    // サイドバーの初期状態を設定
+    if (sidebarMenu) {
+        sidebarMenu.style.width = '64px'; // 閉じた時の幅
     }
-    if (closeMenuButton) { // closeMenuButtonが存在するかチェック
+    if (closeMenuButton) {
         closeMenuButton.classList.add('hidden'); // 閉じるボタンを非表示
     }
     menuTexts.forEach(span => {
         span.classList.add('hidden'); // テキストを非表示
     });
 
-
     // ハンバーガーメニューのトグル
     if (menuToggle && sidebarMenu) {
         menuToggle.addEventListener('click', (event) => {
-            event.stopPropagation(); 
-            sidebarMenu.classList.remove('-translate-x-full'); // サイドバーを表示
-            sidebarMenu.classList.add('translate-x-0');
-            sidebarMenu.style.width = '200px'; // メニューを開いたときの幅
-            if (closeMenuButton) { // closeMenuButtonが存在するかチェック
-                closeMenuButton.classList.remove('hidden'); // 閉じるボタンを表示
+            event.stopPropagation(); // クリックイベントがbodyに伝播するのを防ぐ
+            if (sidebarMenu.style.width === '64px') {
+                // サイドバーを展開
+                sidebarMenu.style.width = '200px';
+                if (closeMenuButton) {
+                    closeMenuButton.classList.remove('hidden'); // 閉じるボタンを表示
+                }
+                menuTexts.forEach(span => {
+                    span.classList.remove('hidden'); // メニューテキストを表示
+                });
+                // ハンバーガーアイコンを非表示にする
+                menuToggle.classList.add('hidden');
+            } else {
+                // サイドバーを閉じる (アイコンのみ)
+                sidebarMenu.style.width = '64px';
+                if (closeMenuButton) {
+                    closeMenuButton.classList.add('hidden'); // 閉じるボタンを非表示
+                }
+                menuTexts.forEach(span => {
+                    span.classList.add('hidden'); // メニューテキストを非表示
+                });
+                // ハンバーガーアイコンを表示する
+                menuToggle.classList.remove('hidden');
             }
-            menuTexts.forEach(span => {
-                span.classList.remove('hidden'); // メニューテキストを表示
-            });
         });
     }
 
     // 閉じるボタンのイベントリスナー
     if (closeMenuButton && sidebarMenu) {
         closeMenuButton.addEventListener('click', () => {
-            sidebarMenu.classList.remove('translate-x-0'); // サイドバーを非表示
-            sidebarMenu.classList.add('-translate-x-full'); // サイドバーを完全に隠す
             sidebarMenu.style.width = '64px'; // メニューを閉じたときの幅 (アイコンのみの幅)
-            if (closeMenuButton) { // closeMenuButtonが存在するかチェック
-                closeMenuButton.classList.add('hidden'); // 閉じるボタンを非表示
-            }
+            closeMenuButton.classList.add('hidden'); // 閉じるボタンを非表示
             menuTexts.forEach(span => {
                 span.classList.add('hidden'); // メニューテキストを非表示
             });
+            // ハンバーガーアイコンを表示する
+            if (menuToggle) {
+                menuToggle.classList.remove('hidden');
+            }
         });
     }
 
     // サイドバー外をクリックで閉じる
     document.body.addEventListener('click', (event) => {
-        if (sidebarMenu && !sidebarMenu.contains(event.target) && !menuToggle.contains(event.target)) {
-            sidebarMenu.classList.remove('translate-x-0');
-            sidebarMenu.classList.add('-translate-x-full'); // サイドバーを完全に隠す
-            sidebarMenu.style.width = '64px';
-            if (closeMenuButton) { // closeMenuButtonが存在するかチェック
-                closeMenuButton.classList.add('hidden'); // 閉じるボタンを非表示
+        // クリックされた要素がサイドバー、メニュー切り替えボタン、またはその子孫でない場合
+        if (sidebarMenu && !sidebarMenu.contains(event.target) && (menuToggle && !menuToggle.contains(event.target))) {
+            // サイドバーが展開状態の場合のみ閉じる
+            if (sidebarMenu.style.width === '200px') {
+                sidebarMenu.style.width = '64px';
+                if (closeMenuButton) {
+                    closeMenuButton.classList.add('hidden');
+                }
+                menuTexts.forEach(span => {
+                    span.classList.add('hidden');
+                });
+                if (menuToggle) {
+                    menuToggle.classList.remove('hidden');
+                }
             }
-            menuTexts.forEach(span => {
-                span.classList.add('hidden');
-            });
         }
     });
 }
