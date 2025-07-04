@@ -50,7 +50,11 @@
 
     <script type="module">
         import { app, auth, db, initializePage, showStatus } from './shared.js';
-        import * as fs from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        // ★★★ 修正点: インポート方法を元の安定した形式に戻しました ★★★
+        import { 
+            collection, query, where, orderBy, onSnapshot, addDoc, 
+            updateDoc, doc, serverTimestamp, limit, getDocs 
+        } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         let currentUser;
         let lastPunchType = null;
@@ -79,9 +83,9 @@
         }
 
         function listenForProjects() {
-            const projectsCollectionRef = fs.collection(db, "projects");
-            const q = fs.query(projectsCollectionRef, fs.where("ownerId", "==", currentUser.uid), fs.orderBy("code"));
-            fs.onSnapshot(q, (querySnapshot) => {
+            const projectsCollectionRef = collection(db, "projects");
+            const q = query(projectsCollectionRef, where("ownerId", "==", currentUser.uid), orderBy("code"));
+            onSnapshot(q, (querySnapshot) => {
                 const projects = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 updateProjectDropdown(projects);
             }, (error) => {
@@ -110,22 +114,29 @@
         }
         
         async function checkLastPunch() {
-            const timestampsRef = fs.collection(db, "timestamps");
-            const q = fs.query(timestampsRef, fs.where("userId", "==", currentUser.uid), fs.orderBy("startTime", "desc"), fs.limit(1));
-            const querySnapshot = await fs.getDocs(q);
-            if (!querySnapshot.empty) {
-                const lastDoc = querySnapshot.docs[0];
-                const data = lastDoc.data();
-                if (!data.endTime) {
-                    lastPunchType = 'in';
-                    lastPunchId = lastDoc.id;
-                    activeClockInTime = data.startTime.toDate();
-                    updateUIForPunchIn(data.projectCode, data.projectName);
+            try {
+                const timestampsRef = collection(db, "timestamps");
+                const q = query(timestampsRef, where("userId", "==", currentUser.uid), orderBy("startTime", "desc"), limit(1));
+                const querySnapshot = await getDocs(q);
+                if (!querySnapshot.empty) {
+                    const lastDoc = querySnapshot.docs[0];
+                    const data = lastDoc.data();
+                    if (!data.endTime) {
+                        lastPunchType = 'in';
+                        lastPunchId = lastDoc.id;
+                        activeClockInTime = data.startTime.toDate();
+                        updateUIForPunchIn(data.projectCode, data.projectName);
+                    } else {
+                        lastPunchType = 'out';
+                        updateUIForPunchOut();
+                    }
                 } else {
                     lastPunchType = 'out';
                     updateUIForPunchOut();
                 }
-            } else {
+            } catch (error) {
+                console.error("最終打刻の確認中にエラー:", error);
+                // インデックス不足などで失敗した場合、UIが固まらないようにデフォルト状態にする
                 updateUIForPunchOut();
             }
         }
@@ -139,11 +150,11 @@
             const selectedOption = document.getElementById('projectCode').options[document.getElementById('projectCode').selectedIndex];
             const projectName = selectedOption.dataset.name;
             try {
-                const docRef = await fs.addDoc(fs.collection(db, "timestamps"), {
+                const docRef = await addDoc(collection(db, "timestamps"), {
                     userId: currentUser.uid,
                     projectCode: projectCode,
                     projectName: projectName,
-                    startTime: fs.serverTimestamp(),
+                    startTime: serverTimestamp(),
                     endTime: null,
                     duration: 0
                 });
@@ -164,10 +175,10 @@
                 return;
             }
             try {
-                const punchDocRef = fs.doc(db, "timestamps", lastPunchId);
+                const punchDocRef = doc(db, "timestamps", lastPunchId);
                 const endTime = new Date();
                 const duration = (endTime - activeClockInTime) / (1000 * 60 * 60);
-                await fs.updateDoc(punchDocRef, {
+                await updateDoc(punchDocRef, {
                     endTime: endTime,
                     duration: duration
                 });
