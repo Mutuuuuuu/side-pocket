@@ -818,7 +818,12 @@
             const pdfContentHtml = `
                 <style>
                     /* PDF用の最小限のスタイル */
-                    body { font-family: sans-serif; margin: 0; padding: 0; }
+                    body { 
+                        font-family: sans-serif; 
+                        margin: 0; 
+                        padding: 0; 
+                        background-color: #fff; /* 明示的に白背景を設定 */
+                    }
                     .pdf-container { 
                         width: 100%; 
                         box-sizing: border-box; 
@@ -834,11 +839,16 @@
                         border-collapse: collapse;
                         margin-top: 15px;
                         font-size: 14px;
-                        page-break-inside: auto; /* テーブルがページをまたぐことを許可 */
+                        /* page-break-inside: auto; */ /* html2canvasのレンダリングを妨げる可能性があるので削除 */
                         table-layout: fixed; /* テーブルレイアウトを固定 */
                     }
-                    thead { display: table-header-group; }
-                    tr { page-break-inside: avoid; page-break-after: auto; }
+                    thead { 
+                        /* display: table-header-group; */ /* html2canvasのレンダリングを妨げる可能性があるので削除 */
+                    }
+                    tr { 
+                        /* page-break-inside: avoid; */ /* html2canvasのレンダリングを妨げる可能性があるので削除 */
+                        /* page-break-after: auto; */ /* html2canvasのレンダリングを妨げる可能性があるので削除 */
+                    }
                     th, td {
                         border: 1px solid #ccc; /* 薄いグレーの罫線 */
                         padding: 8px;
@@ -910,11 +920,13 @@
 
             try {
                 // html2pdfの処理をPromiseとして扱い、完了後にtempPdfDivを削除
+                // レンダリング遅延をさらに長く設定
+                await new Promise(resolve => setTimeout(resolve, 500)); // 500ミリ秒の遅延を追加
                 await html2pdf().from(tempPdfDiv).set(pdfOptions).save();
-                showStatus("PDFを生成しました。", false, 'summary-status');
+                showStatus("PDFを正常に生成しました。", false, 'summary-status');
             } catch (error) {
-                console.error("Error generating PDF:", error);
-                showStatus(`PDFの生成中にエラーが発生しました: ${error.message}`, true, 'summary-status');
+                console.error("PDF生成中にエラーが発生しました:", error);
+                showStatus(`PDFの生成中にエラーが発生しました: ${error.message}。コンソールを確認してください。`, true, 'summary-status');
             } finally {
                 // 処理が完了したら（成功/失敗にかかわらず）一時的なdivを削除
                 if (tempPdfDiv.parentNode) {
