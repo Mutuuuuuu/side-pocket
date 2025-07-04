@@ -826,7 +826,6 @@
                         box-sizing: border-box; 
                         padding: 20px; 
                         background-color: #fff; 
-                        border: 1px solid red; /* デバッグ用に赤い罫線を追加 */
                     }
                     h2, p { margin: 0; padding: 0; }
                     .header-title { font-size: 24px; font-weight: bold; margin-bottom: 10px; text-align: center; }
@@ -918,9 +917,17 @@
                 console.log("generateSummaryPdf: 非表示div内にHTMLコンテンツ注入完了");
                 console.log("tempDiv.innerHTML (注入後):", tempDiv.innerHTML);
 
-                // ★追加: DOM構築とスタイル適用を待つための短い遅延
-                await new Promise(r => setTimeout(r, 100)); 
-                console.log("generateSummaryPdf: DOMレンダリングのための100ms遅延完了");
+                // ★変更: DOM構築とスタイル適用を待つための遅延とrequestAnimationFrame
+                await new Promise(resolve => {
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                            setTimeout(() => {
+                                resolve();
+                            }, 500); // 500msの遅延
+                        });
+                    });
+                });
+                console.log("generateSummaryPdf: DOMレンダリングのための遅延完了");
 
                 // html2pdfで非表示のdivをキャプチャ
                 const pdfContainer = tempDiv.querySelector('.pdf-container');
