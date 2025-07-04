@@ -31,38 +31,39 @@
 
     <!-- サイドバーメニュー -->
     <div id="sidebar-menu" class="fixed inset-y-0 left-0 bg-white shadow-lg z-30 transition-all duration-300 ease-in-out
-                                  transform -translate-x-full md:translate-x-0 md:w-16 group">
+                                  transform -translate-x-full md:translate-x-0 md:w-16 group md:hover:w-64">
         <!-- デスクトップ用ハンバーガーメニュー (サイドバーの一番上) -->
-        <div class="p-4 flex justify-end md:justify-center">
+        <!-- ホバーで展開するため、このボタンは不要です -->
+        <!-- <div class="p-4 flex justify-end md:justify-center">
             <button id="desktop-menu-toggle" class="p-2 rounded-full hover:bg-gray-200 focus:outline-none">
                 <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path>
                 </svg>
             </button>
-        </div>
+        </div> -->
 
         <nav class="flex flex-col p-4 space-y-2">
             <a href="index.html" class="flex items-center p-2 rounded-md text-gray-700 hover:bg-gray-100">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                <span class="ml-3 menu-text whitespace-nowrap">打刻</span>
+                <span class="ml-3 menu-text whitespace-nowrap hidden md:group-hover:inline-block">打刻</span>
             </a>
             <a href="projects.html" class="flex items-center p-2 rounded-md text-gray-700 hover:bg-gray-100">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
-                <span class="ml-3 menu-text whitespace-nowrap">プロジェクト</span>
+                <span class="ml-3 menu-text whitespace-nowrap hidden md:group-hover:inline-block">プロジェクト</span>
             </a>
             <a href="summary.html" class="flex items-center p-2 rounded-md text-gray-700 hover:bg-gray-100">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-                <span class="ml-3 menu-text whitespace-nowrap">サマリー</span>
+                <span class="ml-3 menu-text whitespace-nowrap hidden md:group-hover:inline-block">サマリー</span>
             </a>
             <a href="calendar.html" class="flex items-center p-2 rounded-md text-gray-700 hover:bg-gray-100">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                <span class="ml-3 menu-text whitespace-nowrap">カレンダー</span>
+                <span class="ml-3 menu-text whitespace-nowrap hidden md:group-hover:inline-block">カレンダー</span>
             </a>
         </nav>
         <div class="mt-auto pt-4 border-t border-gray-200 p-4">
             <button id="logout-button-mobile" class="flex items-center w-full text-left px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-red-700">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-                <span class="ml-3 menu-text whitespace-nowrap">ログアウト</span>
+                <span class="ml-3 menu-text whitespace-nowrap hidden md:group-hover:inline-block">ログアウト</span>
             </button>
         </div>
     </div>

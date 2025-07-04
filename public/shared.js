@@ -28,18 +28,37 @@ export const db = getFirestore(app);
  * @param {Function} onUserAuthenticated - ユーザー認証後に実行されるコールバック関数
  */
 export async function initializePage(onUserAuthenticated) {
-    document.addEventListener('DOMContentLoaded', () => {
-        auth.onAuthStateChanged(async (user) => {
-            const loadingElement = document.getElementById('loading');
-            const appContainerElement = document.getElementById('app-container');
+    document.addEventListener('DOMContentLoaded', async () => {
+        const loadingElement = document.getElementById('loading');
+        const appContainerElement = document.getElementById('app-container');
+        const headerPlaceholder = document.getElementById('header-placeholder');
 
-            // Firebase認証状態が判明したら、常にローディング画面を非表示にし、アプリコンテナを表示
+        // ヘッダーを動的に読み込む
+        if (headerPlaceholder) {
+            try {
+                const response = await fetch('_header.html');
+                const data = await response.text();
+                headerPlaceholder.innerHTML = data;
+            } catch (error) {
+                console.error('Error loading header:', error);
+                // エラーが発生しても、アプリの動作を停止させない
+                if (loadingElement) loadingElement.style.display = 'none';
+                if (appContainerElement) appContainerElement.style.display = 'block';
+                showStatus("ヘッダーの読み込みに失敗しました。", true, 'header-status-message');
+                return; // ヘッダーがないとメニューが設定できないため、ここで中断
+            }
+        } else {
+            console.warn("Header placeholder not found. Assuming header is statically loaded.");
+        }
+
+        // Firebase認証状態が判明したら、常にローディング画面を非表示にし、アプリコンテナを表示
+        // この部分はヘッダー読み込み後、かつ認証状態判明後に実行される
+        auth.onAuthStateChanged(async (user) => {
             if (loadingElement) loadingElement.style.display = 'none';
             if (appContainerElement) appContainerElement.style.display = 'block';
 
             if (user) {
                 // ユーザーが認証されたら、ヘッダーメニューをセットアップ
-                // _header.htmlが静的に読み込まれていることを前提とする
                 setupHeaderMenu(user);
 
                 if (onUserAuthenticated) {
@@ -79,10 +98,10 @@ export function setupHeaderMenu(user) {
     const sidebarMenu = document.getElementById('sidebar-menu'); // サイドバーメニューコンテナ
     const closeMenuButton = document.getElementById('close-menu-button'); // モバイル用閉じるボタン
     const mobileMenuOverlay = document.getElementById('mobile-menu-overlay'); // モバイル用オーバーレイ
-    const menuTexts = document.querySelectorAll('#sidebar-menu .menu-text'); // メニューテキスト要素
+    // const menuTexts = document.querySelectorAll('#sidebar-menu .menu-text'); // CSSで制御するためJSからは削除
     const appContainer = document.getElementById('app-container'); // メインコンテンツコンテナ
     const logoutButtonMobile = document.getElementById('logout-button-mobile'); // サイドバー内のログアウトボタン
-    const desktopMenuToggle = document.getElementById('desktop-menu-toggle'); // デスクトップ用ハンバーガーメニュー
+    // const desktopMenuToggle = document.getElementById('desktop-menu-toggle'); // デスクトップ用ハンバーガーメニュー (削除)
 
     // ユーザー情報の表示
     if (userInfoSpan) {
@@ -109,15 +128,15 @@ export function setupHeaderMenu(user) {
         });
     }
 
-    let isSidebarExpanded = false; // サイドバーの展開状態を管理するフラグ (デスクトップ用)
-
     /**
      * デスクトップとモバイルでサイドバーの表示状態を切り替える関数
+     * この関数は主にモバイルの挙動と、デスクトップの初期状態を設定します。
+     * デスクトップのホバーによる展開はCSS (md:hover:w-64) で制御されます。
      */
     const applySidebarState = () => {
         // 各要素の存在を確実にチェック
         if (!sidebarMenu || !appContainer) {
-            console.warn("Sidebar or app container elements not found. Skipping sidebar setup.");
+            console.warn("Sidebar or app container elements not found. Skipping sidebar state application.");
             return;
         }
 
@@ -125,39 +144,21 @@ export function setupHeaderMenu(user) {
             // デスクトップではサイドバーを常に表示し、初期はアイコンのみ
             sidebarMenu.classList.remove('-translate-x-full'); // モバイルの非表示状態を解除
             sidebarMenu.classList.add('translate-x-0'); // 常に表示位置に
-
-            // デスクトップのハンバーガーメニューを表示
-            if (desktopMenuToggle) desktopMenuToggle.classList.remove('hidden');
+            sidebarMenu.classList.add('w-16'); // 初期幅をアイコン用に設定
+            sidebarMenu.classList.remove('w-64'); // 展開時の幅を削除 (CSSのhoverで制御)
 
             // モバイル用のハンバーガーメニュー、閉じるボタン、オーバーレイを非表示
             if (menuToggle) menuToggle.classList.add('hidden');
             if (closeMenuButton) closeMenuButton.classList.add('hidden');
             if (mobileMenuOverlay) mobileMenuOverlay.classList.add('hidden');
 
-            // デスクトップのサイドバー状態に基づいて幅とテキスト表示を調整
-            if (isSidebarExpanded) {
-                sidebarMenu.classList.remove('w-16');
-                sidebarMenu.classList.add('w-64');
-                appContainer.classList.remove('md:ml-16');
-                appContainer.classList.add('md:ml-64');
-                // テキストを常に表示にする（デスクトップ展開時）
-                menuTexts.forEach(span => {
-                    span.classList.remove('hidden');
-                    span.classList.add('inline-block');
-                });
-            } else {
-                sidebarMenu.classList.remove('w-64');
-                sidebarMenu.classList.add('w-16');
-                appContainer.classList.remove('md:ml-64');
-                appContainer.classList.add('md:ml-16');
-                // テキストを非表示にする（デスクトップ折りたたみ時）
-                menuTexts.forEach(span => {
-                    span.classList.add('hidden');
-                    span.classList.remove('inline-block');
-                });
-            }
+            // コンテンツの左マージンを調整 (サイドバーの幅に応じて)
+            // デスクトップでは、サイドバーがw-16の時はml-16、w-64の時はml-64
+            // これはCSSのmd:hover:w-64と連携して動作する
+            appContainer.classList.remove('md:ml-64');
+            appContainer.classList.add('md:ml-16');
 
-            // デスクトップではホバーイベントリスナーは不要（クリックで制御するため）
+            // デスクトップではホバーイベントリスナーは不要（CSSのgroup-hoverで制御するため）
             sidebarMenu.onmouseenter = null;
             sidebarMenu.onmouseleave = null;
 
@@ -171,17 +172,10 @@ export function setupHeaderMenu(user) {
             appContainer.classList.remove('md:ml-16'); // デスクトップのマージンを解除
             appContainer.classList.remove('md:ml-64');
 
-            // メニューテキストをモバイルでは常に表示
-            menuTexts.forEach(span => {
-                span.classList.remove('hidden');
-                span.classList.add('inline-block');
-            });
-
             // モバイルではハンバーガーメニュー、閉じるボタン、オーバーレイを表示
             if (menuToggle) menuToggle.classList.remove('hidden');
             if (closeMenuButton) closeMenuButton.classList.remove('hidden');
             if (mobileMenuOverlay) mobileMenuOverlay.classList.remove('hidden');
-            if (desktopMenuToggle) desktopMenuToggle.classList.add('hidden'); // デスクトップ用を非表示
 
             // モバイルではホバーイベントリスナーを削除
             sidebarMenu.onmouseenter = null;
@@ -192,14 +186,6 @@ export function setupHeaderMenu(user) {
     // ページロード時とリサイズ時にサイドバーの状態を設定
     applySidebarState();
     window.addEventListener('resize', applySidebarState);
-
-    // デスクトップ用ハンバーガーメニューのクリックイベント (サイドバーの展開/収納)
-    if (desktopMenuToggle && sidebarMenu && appContainer) {
-        desktopMenuToggle.addEventListener('click', () => {
-            isSidebarExpanded = !isSidebarExpanded; // 状態を反転
-            applySidebarState(); // 状態を適用
-        });
-    }
 
     // --- モバイル用ハンバーガーメニューの開閉ロジック ---
     if (menuToggle && sidebarMenu && mobileMenuOverlay) {
@@ -237,9 +223,9 @@ export function setupHeaderMenu(user) {
 
 /**
  * ステータスメッセージを表示します。
- * @param {string} message - 表示するメッセージ
- * @param {boolean} isError - エラーメッセージかどうか
- * @param {string} elementId - メッセージを表示する要素のID
+ * @param {string} message - The message to display
+ * @param {boolean} isError - True if it's an error message
+ * @param {string} elementId - The ID of the element to display the message in
  */
 export function showStatus(message, isError, elementId) {
     const statusDiv = document.getElementById(elementId);
