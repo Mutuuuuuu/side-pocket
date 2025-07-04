@@ -54,15 +54,15 @@
     </div>
 
     //<script type="module">
-    //    // ヘッダーを動的に読み込むスクリプト
-    //    document.addEventListener('DOMContentLoaded', function() {
-    //        fetch('_header.html')
-    //            .then(response => response.text())
-    //            .then(data => {
-    //                document.getElementById('header-placeholder').innerHTML = data;
-    //            })
-    //            .catch(error => console.error('Error loading header:', error));
-    //    });
+       // ヘッダーを動的に読み込むスクリプト
+         document.addEventListener('DOMContentLoaded', function() {
+            fetch('_header.html')
+                .then(response => response.text())
+                .then(data => {
+                    document.getElementById('header-placeholder').innerHTML = data;
+                })
+                .catch(error => console.error('Error loading header:', error));
+        });
 
         import { collection, query, where, orderBy, limit, onSnapshot, addDoc, updateDoc, doc, getDocs, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { initializePage, auth, db, showStatus } from './shared.js'; // shared.jsから関数をインポート
