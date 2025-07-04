@@ -26,6 +26,25 @@
                     </button>
                 </header>
 
+                <!-- プロジェクト表示ステータスフィルター -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">表示ステータス:</label>
+                    <div class="flex space-x-4">
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="projectStatusFilter" value="Active" class="form-radio text-main" checked>
+                            <span class="ml-2 text-gray-700">Active</span>
+                        </label>
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="projectStatusFilter" value="Inactive" class="form-radio text-main">
+                            <span class="ml-2 text-gray-700">Inactive</span>
+                        </label>
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="projectStatusFilter" value="All" class="form-radio text-main">
+                            <span class="ml-2 text-gray-700">すべて</span>
+                        </label>
+                    </div>
+                </div>
+
                 <div id="project-list" class="space-y-4">
                     <!-- プロジェクトがここに動的に挿入されます -->
                     <p class="text-gray-500 text-center py-4">プロジェクトを読み込み中...</p>
@@ -112,6 +131,15 @@
                     </div>
                 </div>
 
+                <!-- プロジェクトステータスを追加 -->
+                <div>
+                    <label for="projectStatus" class="block text-sm font-medium text-gray-700">ステータス:</label>
+                    <select id="projectStatus" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                    </select>
+                </div>
+
                 <div class="flex justify-end space-x-3">
                     <button type="button" id="cancel-project-btn" class="btn bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded">キャンセル</button>
                     <button type="submit" class="btn bg-main hover:bg-main-dark text-white font-bold py-2 px-4 rounded">保存</button>
@@ -126,6 +154,10 @@
         <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm">
             <h3 class="text-xl font-bold mb-4">プロジェクトを削除</h3>
             <p class="mb-6 text-gray-700">このプロジェクトを本当に削除しますか？</p>
+            <div id="delete-warning-message" class="text-red-600 mb-4 hidden">
+                <p>このプロジェクトには稼働実績が紐付いているため、削除できません。</p>
+                <p>稼働実績を削除するか、プロジェクトのステータスを「Inactive」に変更してください。</p>
+            </div>
             <div class="flex justify-end space-x-3">
                 <button type="button" id="cancel-delete-btn" class="btn bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded">キャンセル</button>
                 <button type="button" id="confirm-delete-btn" class="btn bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">削除</button>
@@ -135,11 +167,12 @@
     </div>
 
     <script type="module">
-        import { collection, query, where, onSnapshot, addDoc, doc, updateDoc, deleteDoc, getDoc, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { collection, query, where, onSnapshot, addDoc, doc, updateDoc, deleteDoc, getDoc, getDocs, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { initializePage, auth, db, showStatus } from './shared.js';
 
         let currentUser = null;
         let currentProjectToDeleteId = null;
+        let currentProjectCodeToDelete = null; // 削除対象のプロジェクトコードを保持
 
         // DOM要素の取得
         const projectList = document.getElementById('project-list');
@@ -165,12 +198,18 @@
         const contractPeriodStartInput = document.getElementById('contractPeriodStart');
         const contractPeriodEndInput = document.getElementById('contractPeriodEnd');
         const workTimeUnitSelect = document.getElementById('workTimeUnit');
+        const projectStatusSelect = document.getElementById('projectStatus'); // プロジェクトステータス選択
 
         // 削除確認モーダル
         const deleteConfirmModal = document.getElementById('delete-confirm-modal');
         const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
         const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
         const deleteStatusElement = document.getElementById('delete-status');
+        const deleteWarningMessage = document.getElementById('delete-warning-message'); // 削除警告メッセージ
+
+        // プロジェクト表示ステータスフィルター
+        const projectStatusFilterRadios = document.querySelectorAll('input[name="projectStatusFilter"]');
+        let currentFilterStatus = 'Active'; // デフォルトはActive
 
         /**
          * Firebase認証完了後に呼び出されるメインのセットアップ関数
@@ -193,7 +232,15 @@
             // 契約種類の変更に応じて固定清算フィールドの表示を切り替える
             contractTypeSelect.addEventListener('change', toggleFixedContractFields);
 
-            // プロジェクトリストのリアルタイムリスナーを設定
+            // プロジェクト表示ステータスフィルターのイベントリスナー
+            projectStatusFilterRadios.forEach(radio => {
+                radio.addEventListener('change', (event) => {
+                    currentFilterStatus = event.target.value;
+                    listenToProjects(); // フィルター変更時にプロジェクトリストを再読み込み
+                });
+            });
+
+            // プロジェクトリストのリアルタイムリスナーを設定 (初期フィルター適用)
             listenToProjects();
 
             document.getElementById('loading').style.display = 'none';
@@ -227,11 +274,17 @@
          */
         function listenToProjects() {
             if (!currentUser) return;
-            const q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid));
+            let q;
+            if (currentFilterStatus === 'All') {
+                q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid));
+            } else {
+                q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid), where("status", "==", currentFilterStatus));
+            }
+            
             onSnapshot(q, (snapshot) => {
                 projectList.innerHTML = ''; // リストをクリア
                 if (snapshot.empty) {
-                    projectList.innerHTML = '<p class="text-gray-500 text-center py-4">まだプロジェクトがありません。「新しいプロジェクトを追加」から作成してください。</p>';
+                    projectList.innerHTML = '<p class="text-gray-500 text-center py-4">表示するプロジェクトがありません。「新しいプロジェクトを追加」から作成するか、フィルターを変更してください。</p>';
                     return;
                 }
                 snapshot.forEach(doc => {
@@ -257,19 +310,19 @@
                     <div class="w-4 h-4 rounded-full" style="background-color: ${project.color || '#4F46E5'};"></div>
                     <div>
                         <h3 class="text-lg font-semibold text-gray-800">${project.name}</h3>
-                        <p class="text-sm text-gray-500">${project.code}</p>
+                        <p class="text-sm text-gray-500">${project.code} <span class="text-gray-400">(${project.status || 'Active'})</span></p>
                     </div>
                 </div>
                 <div class="flex space-x-2">
                     <button class="btn btn-sm bg-main hover:bg-main-dark text-white py-1 px-3 rounded text-xs edit-btn" data-id="${project.id}">編集</button>
-                    <button class="btn btn-sm bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded text-xs delete-btn" data-id="${project.id}">削除</button>
+                    <button class="btn btn-sm bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded text-xs delete-btn" data-id="${project.id}" data-code="${project.code}">削除</button>
                 </div>
             `;
             projectList.appendChild(projectCard);
 
             // イベントリスナーをアタッチ
             projectCard.querySelector('.edit-btn').addEventListener('click', () => openEditProjectModal(project.id));
-            projectCard.querySelector('.delete-btn').addEventListener('click', () => openDeleteConfirmModal(project.id));
+            projectCard.querySelector('.delete-btn').addEventListener('click', (e) => openDeleteConfirmModal(e.target.dataset.id, e.target.dataset.code));
         }
 
         /**
@@ -281,6 +334,7 @@
             projectIdInput.value = ''; // 新規追加時はIDをクリア
             projectColorInput.value = '#4F46E5'; // デフォルト色を設定
             contractTypeSelect.value = ''; // 契約種類をリセット
+            projectStatusSelect.value = 'Active'; // 新規追加時はデフォルトでActive
             toggleFixedContractFields(); // 固定清算フィールドを非表示に
             projectModal.classList.remove('hidden');
             showStatus('', false, 'modal-status');
@@ -322,6 +376,7 @@
                 contractPeriodStartInput.value = project.contractPeriodStart ? project.contractPeriodStart.toDate().toISOString().substring(0, 10) : '';
                 contractPeriodEndInput.value = project.contractPeriodEnd ? project.contractPeriodEnd.toDate().toISOString().substring(0, 10) : '';
                 workTimeUnitSelect.value = project.workTimeUnit || '';
+                projectStatusSelect.value = project.status || 'Active'; // ステータスを設定
 
                 toggleFixedContractFields(); // 契約種類に応じてフィールド表示を更新
 
@@ -361,6 +416,7 @@
             const contractType = contractTypeSelect.value;
             const baseHourlyRate = parseFloat(baseHourlyRateInput.value);
             const workTimeUnit = parseInt(workTimeUnitSelect.value);
+            const status = projectStatusSelect.value; // ステータスを取得
 
             // 固定清算の場合のみ取得するフィールド
             let baseWorkingHours = null;
@@ -385,7 +441,7 @@
             const contractPeriodStart = contractPeriodStartInput.value ? Timestamp.fromDate(new Date(contractPeriodStartInput.value)) : null;
             const contractPeriodEnd = contractPeriodEndInput.value ? Timestamp.fromDate(new Date(contractPeriodEndInput.value)) : null;
 
-            if (!name || !code || !contractType || isNaN(baseHourlyRate) || baseHourlyRate < 0 || isNaN(workTimeUnit) || workTimeUnit <= 0) {
+            if (!name || !code || !contractType || isNaN(baseHourlyRate) || baseHourlyRate < 0 || isNaN(workTimeUnit) || workTimeUnit <= 0 || !status) {
                 showStatus("必須フィールドをすべて入力してください。", true, 'modal-status');
                 return;
             }
@@ -398,7 +454,7 @@
                 contractType: contractType,
                 baseHourlyRate: baseHourlyRate,
                 workTimeUnit: workTimeUnit,
-                // createdAt: projectId ? undefined : Timestamp.now(), // この行を修正
+                status: status, // ステータスを保存
                 updatedAt: Timestamp.now()
             };
 
@@ -442,11 +498,36 @@
         /**
          * 削除確認モーダルを開く
          * @param {string} projectId - 削除対象のプロジェクトID
+         * @param {string} projectCode - 削除対象のプロジェクトコード
          */
-        function openDeleteConfirmModal(projectId) {
+        async function openDeleteConfirmModal(projectId, projectCode) {
             currentProjectToDeleteId = projectId;
+            currentProjectCodeToDelete = projectCode; // プロジェクトコードを保存
+
+            // 稼働実績の有無をチェック
+            showStatus("稼働実績の確認中...", false, 'delete-status');
+            try {
+                const q = query(collection(db, "timestamps"), where("projectCode", "==", projectCode));
+                const querySnapshot = await getDocs(q);
+
+                if (!querySnapshot.empty) {
+                    // 稼働実績がある場合
+                    deleteWarningMessage.classList.remove('hidden');
+                    confirmDeleteBtn.disabled = true; // 削除ボタンを無効化
+                    showStatus("このプロジェクトには稼働実績が紐付いています。", true, 'delete-status');
+                } else {
+                    // 稼働実績がない場合
+                    deleteWarningMessage.classList.add('hidden');
+                    confirmDeleteBtn.disabled = false; // 削除ボタンを有効化
+                    showStatus('', false, 'delete-status');
+                }
+            } catch (error) {
+                console.error("Error checking timestamps for deletion:", error);
+                showStatus("稼働実績の確認中にエラーが発生しました。", true, 'delete-status');
+                confirmDeleteBtn.disabled = true; // エラー時は削除不可に
+            }
+
             deleteConfirmModal.classList.remove('hidden');
-            showStatus('', false, 'delete-status');
         }
 
         /**
@@ -455,6 +536,9 @@
         function closeDeleteConfirmModal() {
             deleteConfirmModal.classList.add('hidden');
             currentProjectToDeleteId = null;
+            currentProjectCodeToDelete = null;
+            deleteWarningMessage.classList.add('hidden'); // 警告メッセージを非表示に
+            confirmDeleteBtn.disabled = false; // 削除ボタンを有効に戻す
             showStatus('', false, 'delete-status');
         }
 
@@ -466,6 +550,14 @@
 
             showStatus("削除中...", false, 'delete-status');
             try {
+                // 最終チェック (念のため)
+                const q = query(collection(db, "timestamps"), where("projectCode", "==", currentProjectCodeToDelete));
+                const querySnapshot = await getDocs(q);
+                if (!querySnapshot.empty) {
+                    showStatus("このプロジェクトには稼働実績が紐付いているため、削除できません。", true, 'delete-status');
+                    return; // 削除を中断
+                }
+
                 await deleteDoc(doc(db, "projects", currentProjectToDeleteId));
                 showStatus("プロジェクトが削除されました！", false, 'delete-status');
                 closeDeleteConfirmModal();
