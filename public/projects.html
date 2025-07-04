@@ -108,6 +108,7 @@
                         </select>
                     </div>
                 </div>
+
                 <div id="modal-status" class="pt-2 text-sm text-red-600"></div>
                 <div class="flex items-center justify-end space-x-4 mt-6 border-t border-gray-200 pt-4">
                     <button type="button" id="close-modal-btn" class="btn bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg">キャンセル</button>
@@ -143,9 +144,7 @@
 
         function listenForProjects() {
             if (unsubscribeProjects) unsubscribeProjects();
-            
             const q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid), orderBy("code"));
-            
             unsubscribeProjects = onSnapshot(q, (querySnapshot) => {
                 const projects = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderProjectsList(projects);
@@ -162,14 +161,11 @@
                 listElement.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-gray-500">プロジェクトがありません。</td></tr>';
                 return;
             }
-
             projects.forEach(project => {
-                // ★★★ 修正点: 新しい表示項目を追加 ★★★
                 const contractTypeDisplay = project.contractType === 'hourly' ? '時給精算' : (project.contractType === 'fixed' ? '固定精算' : '未設定');
                 const startDate = project.contractStartDate ? project.contractStartDate : '---';
                 const endDate = project.contractEndDate ? project.contractEndDate : '---';
                 const contractPeriodDisplay = `${startDate} ~ ${endDate}`;
-
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${project.code}</td>
@@ -185,7 +181,6 @@
             });
         }
 
-        // ★★★ 修正点: 時給精算項目の表示を切り替える関数を追加 ★★★
         function toggleHourlyFields() {
             const hourlyFields = document.getElementById('hourly-fields-wrapper');
             if (document.getElementById('contract-type-hourly').checked) {
@@ -195,6 +190,7 @@
             }
         }
 
+        // ★★★ 修正点: イベントリスナーの設定をより安全な方法に変更 ★★★
         function setupEventListeners() {
             document.getElementById('open-add-project-modal-btn').addEventListener('click', openAddModal);
             document.getElementById('close-modal-btn').addEventListener('click', closeModal);
@@ -203,21 +199,35 @@
             });
             document.getElementById('project-form').addEventListener('submit', handleFormSubmit);
             
-            // ★★★ 修正点: 契約種類のラジオボタンにイベントリスナーを追加 ★★★
-            document.getElementById('contract-type-hourly').addEventListener('change', toggleHourlyFields);
-            document.getElementById('contract-type-fixed').addEventListener('change', toggleHourlyFields);
+            // 契約種類のラジオボタンにリスナーを設定
+            const hourlyRadio = document.getElementById('contract-type-hourly');
+            const fixedRadio = document.getElementById('contract-type-fixed');
+
+            // デバッグ用ログ: 要素が見つかるか確認
+            console.log("Element #contract-type-hourly:", hourlyRadio);
+            console.log("Element #contract-type-fixed:", fixedRadio);
+
+            if (hourlyRadio) {
+                hourlyRadio.addEventListener('change', toggleHourlyFields);
+            } else {
+                console.error("#contract-type-hourly が見つかりません。");
+            }
+            if (fixedRadio) {
+                fixedRadio.addEventListener('change', toggleHourlyFields);
+            } else {
+                console.error("#contract-type-fixed が見つかりません。");
+            }
             
+            // 編集・削除ボタンのリスナー
             document.getElementById('projects-list').addEventListener('click', (e) => {
                 if (e.target.classList.contains('edit-btn')) {
-                    const id = e.target.dataset.id;
-                    openEditModal(id); // IDのみ渡すように変更
+                    openEditModal(e.target.dataset.id);
                 } else if (e.target.classList.contains('delete-btn')) {
-                    const id = e.target.dataset.id;
-                    const code = e.target.dataset.code;
-                    openDeleteConfirmModal(id, code);
+                    openDeleteConfirmModal(e.target.dataset.id, e.target.dataset.code);
                 }
             });
 
+            // 削除確認モーダルのリスナー
             document.getElementById('cancel-delete-btn').addEventListener('click', closeDeleteConfirmModal);
             document.getElementById('confirm-delete-btn').addEventListener('click', handleDeleteConfirmed);
         }
@@ -228,38 +238,30 @@
             document.getElementById('modal-title').textContent = "プロジェクトを追加";
             document.getElementById('submit-project-btn').textContent = "追加";
             document.getElementById('project-code-input').disabled = false;
-            // デフォルトで時給精算を選択状態にする
             document.getElementById('contract-type-hourly').checked = true;
             toggleHourlyFields();
             document.getElementById('project-modal').classList.remove('hidden');
             showStatus('', false, 'modal-status');
         }
         
-        // ★★★ 修正点: 編集モーダルを開く処理をDBからデータを取得するように変更 ★★★
         async function openEditModal(id) {
             currentProjectToEditId = id;
             document.getElementById('project-form').reset();
             showStatus('プロジェクト情報を読み込み中...', false, 'modal-status');
             
             try {
-                const projectRef = doc(db, "projects", id);
-                const docSnap = await getDoc(projectRef);
-
+                const docSnap = await getDoc(doc(db, "projects", id));
                 if (docSnap.exists()) {
                     const project = docSnap.data();
-                    
                     document.getElementById('project-id-input').value = id;
                     document.getElementById('project-code-input').value = project.code || '';
                     document.getElementById('project-code-input').disabled = true;
                     document.getElementById('project-name-input').value = project.name || '';
-
-                    // 契約情報のセット
                     if (project.contractType === 'hourly') {
                         document.getElementById('contract-type-hourly').checked = true;
                     } else {
                         document.getElementById('contract-type-fixed').checked = true;
                     }
-                    
                     document.getElementById('basic-hourly-rate-input').value = project.basicHourlyRate || '';
                     document.getElementById('settlement-range-min-input').value = project.settlementRangeMin || '';
                     document.getElementById('settlement-range-max-input').value = project.settlementRangeMax || '';
@@ -267,8 +269,7 @@
                     document.getElementById('contract-end-date-input').value = project.contractEndDate || '';
                     document.getElementById('work-time-unit-input').value = project.workTimeUnit || '60';
 
-                    toggleHourlyFields(); // ラジオボタンの状態に基づいて表示を更新
-
+                    toggleHourlyFields();
                     document.getElementById('modal-title').textContent = "プロジェクトを編集";
                     document.getElementById('submit-project-btn').textContent = "更新";
                     document.getElementById('project-modal').classList.remove('hidden');
@@ -286,27 +287,20 @@
             document.getElementById('project-modal').classList.add('hidden');
         }
 
-        // ★★★ 修正点: フォーム送信処理を新しい項目に対応させる ★★★
         async function handleFormSubmit(e) {
             e.preventDefault();
-            
-            // 基本情報
             const projectData = {
                 code: document.getElementById('project-code-input').value.trim(),
                 name: document.getElementById('project-name-input').value.trim(),
             };
-
             if (!projectData.code || !projectData.name) {
                 showStatus('プロジェクトコードと名前は必須です。', true, 'modal-status');
                 return;
             }
-
-            // 契約情報
             projectData.contractType = document.querySelector('input[name="contractType"]:checked').value;
             projectData.contractStartDate = document.getElementById('contract-start-date-input').value;
             projectData.contractEndDate = document.getElementById('contract-end-date-input').value;
             projectData.workTimeUnit = parseInt(document.getElementById('work-time-unit-input').value, 10);
-            
             if(projectData.contractType === 'hourly') {
                 projectData.basicHourlyRate = parseInt(document.getElementById('basic-hourly-rate-input').value, 10) || 0;
                 projectData.settlementRangeMin = parseInt(document.getElementById('settlement-range-min-input').value, 10) || null;
@@ -316,15 +310,12 @@
                 projectData.settlementRangeMin = null;
                 projectData.settlementRangeMax = null;
             }
-
             const btn = document.getElementById('submit-project-btn');
             btn.disabled = true;
             btn.textContent = '処理中...';
-
             try {
                 if (currentProjectToEditId) {
-                    const projectRef = doc(db, "projects", currentProjectToEditId);
-                    await updateDoc(projectRef, projectData);
+                    await updateDoc(doc(db, "projects", currentProjectToEditId), projectData);
                     showStatus('プロジェクトが更新されました！', false, 'projects-status');
                 } else {
                     projectData.ownerId = currentUser.uid;
@@ -338,17 +329,14 @@
                 showStatus(`操作に失敗しました: ${error.message}`, true, 'modal-status');
             } finally {
                 btn.disabled = false;
-                // ボタンのテキストはモーダルを開くときに設定されるのでここでは戻さない
             }
         }
         
-        // 削除関連の関数 (変更なし)
         function openDeleteConfirmModal(id, code) {
             currentProjectToDeleteId = id;
             currentProjectCodeToDelete = code;
             document.getElementById('delete-confirm-modal').classList.remove('hidden');
         }
-
         function closeDeleteConfirmModal() {
             currentProjectToDeleteId = null;
             currentProjectCodeToDelete = null;
@@ -356,7 +344,6 @@
             document.getElementById('confirm-delete-btn').disabled = false;
             showStatus('', false, 'delete-status');
         }
-
         async function handleDeleteConfirmed() {
             if (!currentProjectToDeleteId) return;
             showStatus("削除中...", false, 'delete-status');
@@ -378,9 +365,7 @@
                 showStatus(`プロジェクトの削除に失敗しました: ${error.message}`, true, 'delete-status');
             }
         }
-
         initializePage(setupProjectPage);
-
     </script>
 </body>
 </html>
