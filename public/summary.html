@@ -901,6 +901,8 @@
             tempPdfDiv.style.position = 'absolute';
             tempPdfDiv.style.left = '-9999px'; // 画面外に配置
             tempPdfDiv.style.width = '210mm'; // A4幅に合わせる (jsPDFのformat: 'a4'と連携)
+            // デバッグ用に一時的に罫線を追加
+            tempPdfDiv.style.border = '1px solid red'; 
             tempPdfDiv.innerHTML = pdfContentHtml;
             document.body.appendChild(tempPdfDiv);
 
@@ -921,7 +923,7 @@
             try {
                 // html2pdfの処理をPromiseとして扱い、完了後にtempPdfDivを削除
                 // レンダリング遅延をさらに長く設定
-                await new Promise(resolve => setTimeout(resolve, 500)); // 500ミリ秒の遅延を追加
+                await new Promise(resolve => setTimeout(resolve, 1000)); // 1000ミリ秒の遅延に延長
                 await html2pdf().from(tempPdfDiv).set(pdfOptions).save();
                 showStatus("PDFを正常に生成しました。", false, 'summary-status');
             } catch (error) {
