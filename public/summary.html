@@ -820,18 +820,12 @@
             // PDFに含めるコンテンツを構築 (元のHTMLコンテンツに戻す)
             const pdfContentHtml = `
                 <style>
-                    /* PDF用の最小限のスタイル */
-                    body { 
-                        font-family: sans-serif; 
-                        margin: 0; 
-                        padding: 0; 
-                        background-color: #fff; /* 明示的に白背景を設定 */
-                    }
+                    body { font-family: sans-serif; margin: 0; padding: 0; background-color: #fff; }
                     .pdf-container { 
                         width: 100%; 
                         box-sizing: border-box; 
-                        padding: 20px; /* 全体の余白を追加 */
-                        background-color: #fff; /* 明示的に白背景を設定 */
+                        padding: 20px; 
+                        background-color: #fff; 
                         border: 1px solid red; /* デバッグ用に赤い罫線を追加 */
                     }
                     h2, p { margin: 0; padding: 0; }
@@ -843,16 +837,16 @@
                         border-collapse: collapse;
                         margin-top: 15px;
                         font-size: 14px;
-                        table-layout: fixed; /* テーブルレイアウトを固定 */
+                        table-layout: fixed; 
                     }
                     th, td {
-                        border: 1px solid #ccc; /* 薄いグレーの罫線 */
+                        border: 1px solid #ccc; 
                         padding: 8px;
                         text-align: left;
-                        word-wrap: break-word; /* 長いテキストの折り返し */
+                        word-wrap: break-word; 
                     }
                     th {
-                        background-color: #f5f5f5; /* ヘッダーの背景色 */
+                        background-color: #f5f5f5; 
                         font-weight: bold;
                     }
                     .text-right { text-align: right; }
@@ -892,7 +886,6 @@
 
             console.log("PDF Content HTML:", pdfContentHtml); // デバッグ用にHTML内容を出力
 
-            // ★変更点: iframeではなく、非表示のdivを生成してそこにコンテンツを配置する
             const tempDiv = document.createElement('div');
             tempDiv.style.position = 'absolute';
             tempDiv.style.left = '-9999px'; // 画面外に配置
@@ -912,7 +905,8 @@
                     scale: 4, // レンダリングスケールを上げる (解像度向上)
                     logging: true, // html2canvasのログを有効化
                     useCORS: true, // クロスオリジン画像を許可
-                    allowTaint: true // キャンバスの汚染を許可
+                    allowTaint: true, // キャンバスの汚染を許可
+                    backgroundColor: '#ffffff' // 明示的に背景色を設定
                 },
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
@@ -923,6 +917,10 @@
                 tempDiv.innerHTML = pdfContentHtml;
                 console.log("generateSummaryPdf: 非表示div内にHTMLコンテンツ注入完了");
                 console.log("tempDiv.innerHTML (注入後):", tempDiv.innerHTML);
+
+                // ★追加: DOM構築とスタイル適用を待つための短い遅延
+                await new Promise(r => setTimeout(r, 100)); 
+                console.log("generateSummaryPdf: DOMレンダリングのための100ms遅延完了");
 
                 // html2pdfで非表示のdivをキャプチャ
                 const pdfContainer = tempDiv.querySelector('.pdf-container');
