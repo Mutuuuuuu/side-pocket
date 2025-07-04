@@ -65,4 +65,288 @@
                     <h4 class="text-md font-medium text-gray-800 mb-2">契約管理</h4>
                     <div class="space-y-2">
                         <label class="block text-sm font-medium text-gray-700">契約種類</label>
-                        <div class="flex items-center space-x-
+                        <div class="flex items-center space-x-4">
+                            <label class="flex items-center">
+                                <input type="radio" id="contract-type-hourly" name="contractType" value="hourly" class="h-4 w-4 text-main focus:ring-main border-gray-300">
+                                <span class="ml-2 text-sm text-gray-700">時給精算</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="radio" id="contract-type-fixed" name="contractType" value="fixed" class="h-4 w-4 text-main focus:ring-main border-gray-300">
+                                <span class="ml-2 text-sm text-gray-700">固定精算</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div id="hourly-fields-wrapper" class="space-y-4 mt-4 hidden">
+                        <div>
+                            <label for="basic-hourly-rate-input" class="block text-sm font-medium text-gray-700">基本時給 (円)</label>
+                            <input type="number" id="basic-hourly-rate-input" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">精算幅 (時間)</label>
+                            <div class="flex items-center space-x-2">
+                                <input type="number" id="settlement-range-min-input" placeholder="下限" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm">
+                                <span>～</span>
+                                <input type="number" id="settlement-range-max-input" placeholder="上限" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <label class="block text-sm font-medium text-gray-700">契約期間</label>
+                        <div class="flex items-center space-x-2">
+                            <input type="date" id="contract-start-date-input" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm">
+                            <span>～</span>
+                            <input type="date" id="contract-end-date-input" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm">
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <label for="work-time-unit-input" class="block text-sm font-medium text-gray-700">作業時間単位</label>
+                        <select id="work-time-unit-input" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-main focus:border-main sm:text-sm rounded-md">
+                            <option value="60">1時間単位</option>
+                            <option value="30">30分単位</option>
+                            <option value="15">15分単位</option>
+                            <option value="1">1分単位</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="modal-status" class="pt-2 text-sm text-red-600"></div>
+                <div class="flex items-center justify-end space-x-4 mt-6 border-t border-gray-200 pt-4">
+                    <button type="button" id="close-modal-btn" class="btn bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg">キャンセル</button>
+                    <button type="submit" id="submit-project-btn" class="btn bg-main hover:bg-main-dark text-white font-bold py-2 px-4 rounded-lg">追加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="delete-confirm-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">...</div>
+
+
+    <script type="module">
+        import { app, auth, db, initializePage, showStatus } from './shared.js';
+        import * as fs from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+        let currentUser;
+        let unsubscribeProjects; 
+        let currentProjectToEditId = null;
+        let currentProjectToDeleteId = null;
+        let currentProjectCodeToDelete = null;
+
+        function setupProjectPage(user) {
+            currentUser = user;
+            setupEventListeners();
+            listenForProjects();
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('app-container').style.display = 'block';
+        }
+
+        function listenForProjects() {
+            if (unsubscribeProjects) unsubscribeProjects();
+            const q = fs.query(fs.collection(db, "projects"), fs.where("ownerId", "==", currentUser.uid), fs.orderBy("code"));
+            unsubscribeProjects = fs.onSnapshot(q, (querySnapshot) => {
+                const projects = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderProjectsList(projects);
+            }, (error) => {
+                console.error("Error listening for projects:", error);
+                showStatus(`プロジェクトの読み込みに失敗しました: ${error.message}`, true, 'projects-status');
+            });
+        }
+
+        function renderProjectsList(projects) {
+            const listElement = document.getElementById('projects-list');
+            listElement.innerHTML = ''; 
+            if (projects.length === 0) {
+                listElement.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-gray-500">プロジェクトがありません。</td></tr>';
+                return;
+            }
+            projects.forEach(project => {
+                const contractTypeDisplay = project.contractType === 'hourly' ? '時給精算' : (project.contractType === 'fixed' ? '固定精算' : '未設定');
+                const startDate = project.contractStartDate ? project.contractStartDate : '---';
+                const endDate = project.contractEndDate ? project.contractEndDate : '---';
+                const contractPeriodDisplay = `${startDate} ~ ${endDate}`;
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${project.code}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${project.name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${contractTypeDisplay}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${contractPeriodDisplay}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                        <button class="edit-btn text-indigo-600 hover:text-indigo-900" data-id="${project.id}">編集</button>
+                        <button class="delete-btn text-red-600 hover:text-red-900" data-id="${project.id}" data-code="${project.code}">削除</button>
+                    </td>
+                `;
+                listElement.appendChild(row);
+            });
+        }
+
+        function toggleHourlyFields() {
+            const hourlyFields = document.getElementById('hourly-fields-wrapper');
+            if (document.getElementById('contract-type-hourly').checked) {
+                hourlyFields.classList.remove('hidden');
+            } else {
+                hourlyFields.classList.add('hidden');
+            }
+        }
+
+        function setupEventListeners() {
+            document.getElementById('open-add-project-modal-btn').addEventListener('click', openAddModal);
+            document.getElementById('close-modal-btn').addEventListener('click', closeModal);
+            document.getElementById('project-modal').addEventListener('click', (e) => {
+                if(e.target.id === 'project-modal') closeModal();
+            });
+            const projectForm = document.getElementById('project-form');
+            projectForm.addEventListener('submit', handleFormSubmit);
+            projectForm.addEventListener('change', (e) => {
+                if (e.target.name === 'contractType') {
+                    toggleHourlyFields();
+                }
+            });
+            document.getElementById('projects-list').addEventListener('click', (e) => {
+                if (e.target.classList.contains('edit-btn')) {
+                    openEditModal(e.target.dataset.id);
+                } else if (e.target.classList.contains('delete-btn')) {
+                    openDeleteConfirmModal(e.target.dataset.id, e.target.dataset.code);
+                }
+            });
+            document.getElementById('cancel-delete-btn').addEventListener('click', closeDeleteConfirmModal);
+            document.getElementById('confirm-delete-btn').addEventListener('click', handleDeleteConfirmed);
+        }
+
+        function openAddModal() {
+            currentProjectToEditId = null;
+            document.getElementById('project-form').reset();
+            document.getElementById('modal-title').textContent = "プロジェクトを追加";
+            document.getElementById('submit-project-btn').textContent = "追加";
+            document.getElementById('project-code-input').disabled = false;
+            document.getElementById('contract-type-hourly').checked = true;
+            toggleHourlyFields();
+            document.getElementById('project-modal').classList.remove('hidden');
+            showStatus('', false, 'modal-status');
+        }
+        
+        async function openEditModal(id) {
+            currentProjectToEditId = id;
+            document.getElementById('project-form').reset();
+            showStatus('プロジェクト情報を読み込み中...', false, 'modal-status');
+            try {
+                const docSnap = await fs.getDoc(fs.doc(db, "projects", id));
+                if (docSnap.exists()) {
+                    const project = docSnap.data();
+                    document.getElementById('project-id-input').value = id;
+                    document.getElementById('project-code-input').value = project.code || '';
+                    document.getElementById('project-code-input').disabled = true;
+                    document.getElementById('project-name-input').value = project.name || '';
+                    if (project.contractType === 'hourly') {
+                        document.getElementById('contract-type-hourly').checked = true;
+                    } else {
+                        document.getElementById('contract-type-fixed').checked = true;
+                    }
+                    document.getElementById('basic-hourly-rate-input').value = project.basicHourlyRate || '';
+                    document.getElementById('settlement-range-min-input').value = project.settlementRangeMin || '';
+                    document.getElementById('settlement-range-max-input').value = project.settlementRangeMax || '';
+                    document.getElementById('contract-start-date-input').value = project.contractStartDate || '';
+                    document.getElementById('contract-end-date-input').value = project.contractEndDate || '';
+                    document.getElementById('work-time-unit-input').value = project.workTimeUnit || '60';
+                    toggleHourlyFields();
+                    document.getElementById('modal-title').textContent = "プロジェクトを編集";
+                    document.getElementById('submit-project-btn').textContent = "更新";
+                    document.getElementById('project-modal').classList.remove('hidden');
+                    showStatus('', false, 'modal-status');
+                } else {
+                    showStatus("プロジェクトが見つかりません。", true, 'projects-status');
+                }
+            } catch (error) {
+                console.error("Error fetching project for edit:", error);
+                showStatus(`情報の読み込みに失敗しました: ${error.message}`, true, 'projects-status');
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('project-modal').classList.add('hidden');
+        }
+
+        async function handleFormSubmit(e) {
+            e.preventDefault();
+            const projectData = {
+                code: document.getElementById('project-code-input').value.trim(),
+                name: document.getElementById('project-name-input').value.trim(),
+            };
+            if (!projectData.code || !projectData.name) {
+                showStatus('プロジェクトコードと名前は必須です。', true, 'modal-status');
+                return;
+            }
+            const checkedContractType = document.querySelector('input[name="contractType"]:checked');
+            projectData.contractType = checkedContractType ? checkedContractType.value : null;
+            projectData.contractStartDate = document.getElementById('contract-start-date-input').value;
+            projectData.contractEndDate = document.getElementById('contract-end-date-input').value;
+            projectData.workTimeUnit = parseInt(document.getElementById('work-time-unit-input').value, 10);
+            
+            if(projectData.contractType === 'hourly') {
+                projectData.basicHourlyRate = parseInt(document.getElementById('basic-hourly-rate-input').value, 10) || 0;
+                projectData.settlementRangeMin = parseInt(document.getElementById('settlement-range-min-input').value, 10) || null;
+                projectData.settlementRangeMax = parseInt(document.getElementById('settlement-range-max-input').value, 10) || null;
+            } else {
+                projectData.basicHourlyRate = null;
+                projectData.settlementRangeMin = null;
+                projectData.settlementRangeMax = null;
+            }
+            const btn = document.getElementById('submit-project-btn');
+            const originalBtnText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = '処理中...';
+            try {
+                if (currentProjectToEditId) {
+                    await fs.updateDoc(fs.doc(db, "projects", currentProjectToEditId), projectData);
+                    showStatus('プロジェクトが更新されました！', false, 'projects-status');
+                } else {
+                    projectData.ownerId = currentUser.uid;
+                    projectData.createdAt = fs.serverTimestamp();
+                    await fs.addDoc(fs.collection(db, "projects"), projectData);
+                    showStatus('プロジェクトが追加されました！', false, 'projects-status');
+                }
+                closeModal();
+            } catch (error) {
+                console.error("Error adding/updating project:", error);
+                showStatus(`操作に失敗しました: ${error.message}`, true, 'modal-status');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalBtnText;
+            }
+        }
+        
+        function openDeleteConfirmModal(id, code) {
+            currentProjectToDeleteId = id;
+            currentProjectCodeToDelete = code;
+            document.getElementById('delete-confirm-modal').classList.remove('hidden');
+        }
+        function closeDeleteConfirmModal() {
+            currentProjectToDeleteId = null;
+            currentProjectCodeToDelete = null;
+            document.getElementById('delete-confirm-modal').classList.add('hidden');
+            document.getElementById('confirm-delete-btn').disabled = false;
+            showStatus('', false, 'delete-status');
+        }
+        async function handleDeleteConfirmed() {
+            if (!currentProjectToDeleteId) return;
+            showStatus("削除中...", false, 'delete-status');
+            try {
+                const q = fs.query(fs.collection(db, "timestamps"), 
+                                fs.where("projectCode", "==", currentProjectCodeToDelete),
+                                fs.where("userId", "==", currentUser.uid)
+                               );
+                const querySnapshot = await fs.getDocs(q);
+                if (!querySnapshot.empty) {
+                    showStatus("このプロジェクトには稼働実績が紐付いているため、削除できません。", true, 'delete-status');
+                    return;
+                }
+                await fs.deleteDoc(fs.doc(db, "projects", currentProjectToDeleteId));
+                showStatus("プロジェクトが削除されました！", false, 'projects-status');
+                closeDeleteConfirmModal();
+            } catch (error) {
+                console.error("Error deleting project:", error);
+                showStatus(`プロジェクトの削除に失敗しました: ${error.message}`, true, 'delete-status');
+            }
+        }
+        initializePage(setupProjectPage);
+    </script>
+</body>
+</html>

@@ -50,19 +50,7 @@
 
     <script type="module">
         import { app, auth, db, initializePage, showStatus } from './shared.js';
-        import { 
-            collection, 
-            query, 
-            where, 
-            orderBy, 
-            onSnapshot, 
-            addDoc, 
-            updateDoc, 
-            doc, 
-            serverTimestamp,
-            limit,
-            getDocs
-        } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import * as fs from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         let currentUser;
         let lastPunchType = null;
@@ -91,10 +79,9 @@
         }
 
         function listenForProjects() {
-            const projectsCollectionRef = collection(db, "projects");
-            // ★★★ 修正点: クエリのフィールド名を `userId` から `ownerId` に変更 ★★★
-            const q = query(projectsCollectionRef, where("ownerId", "==", currentUser.uid), orderBy("code"));
-            onSnapshot(q, (querySnapshot) => {
+            const projectsCollectionRef = fs.collection(db, "projects");
+            const q = fs.query(projectsCollectionRef, fs.where("ownerId", "==", currentUser.uid), fs.orderBy("code"));
+            fs.onSnapshot(q, (querySnapshot) => {
                 const projects = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 updateProjectDropdown(projects);
             }, (error) => {
@@ -115,7 +102,6 @@
                 select.appendChild(option);
             });
             select.value = currentValue;
-
             if (lastPunchType === 'in' && activeClockInTime) {
                 select.disabled = true;
             } else {
@@ -124,10 +110,9 @@
         }
         
         async function checkLastPunch() {
-            const timestampsRef = collection(db, "timestamps");
-            const q = query(timestampsRef, where("userId", "==", currentUser.uid), orderBy("startTime", "desc"), limit(1));
-            
-            const querySnapshot = await getDocs(q);
+            const timestampsRef = fs.collection(db, "timestamps");
+            const q = fs.query(timestampsRef, fs.where("userId", "==", currentUser.uid), fs.orderBy("startTime", "desc"), fs.limit(1));
+            const querySnapshot = await fs.getDocs(q);
             if (!querySnapshot.empty) {
                 const lastDoc = querySnapshot.docs[0];
                 const data = lastDoc.data();
@@ -153,13 +138,12 @@
             }
             const selectedOption = document.getElementById('projectCode').options[document.getElementById('projectCode').selectedIndex];
             const projectName = selectedOption.dataset.name;
-
             try {
-                const docRef = await addDoc(collection(db, "timestamps"), {
+                const docRef = await fs.addDoc(fs.collection(db, "timestamps"), {
                     userId: currentUser.uid,
                     projectCode: projectCode,
                     projectName: projectName,
-                    startTime: serverTimestamp(),
+                    startTime: fs.serverTimestamp(),
                     endTime: null,
                     duration: 0
                 });
@@ -180,15 +164,13 @@
                 return;
             }
             try {
-                const punchDocRef = doc(db, "timestamps", lastPunchId);
+                const punchDocRef = fs.doc(db, "timestamps", lastPunchId);
                 const endTime = new Date();
                 const duration = (endTime - activeClockInTime) / (1000 * 60 * 60);
-
-                await updateDoc(punchDocRef, {
+                await fs.updateDoc(punchDocRef, {
                     endTime: endTime,
                     duration: duration
                 });
-                
                 lastPunchId = null;
                 lastPunchType = 'out';
                 activeClockInTime = null;
@@ -205,7 +187,6 @@
             document.getElementById('punchOutBtn').disabled = false;
             document.getElementById('projectCode').value = projectCode;
             document.getElementById('projectCode').disabled = true;
-
             document.getElementById('active-project-name').textContent = projectName;
             document.getElementById('active-punch-in-time').textContent = activeClockInTime.toLocaleTimeString('ja-JP');
             document.getElementById('active-punch-info').classList.remove('hidden');
