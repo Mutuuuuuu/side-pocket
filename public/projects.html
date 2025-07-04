@@ -71,8 +71,7 @@
              <div class="text-center">
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-red-500 mx-auto" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M8.257 3.099a.75.75 0 01.986 0l5.25 4.5a.75.75 0 01-.02 1.185l-5.25 4.5a.75.75 0 01-1.006-.965L12.652 10 7.23 6.349a.75.75 0 011.027-1.25zm-2.25 0a.75.75 0 01.986 0l5.25 4.5a.75.75 0 01-.02 1.185l-5.25 4.5a.75.75 0 01-1.006-.965L8.402 10 3.007 6.349a.75.75 0 011.000-1.25z" clip-rule="evenodd" />
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM2 10a8 8 0 1116 0 8 8 0 01-16 0zM8.257 3.099a.75.75 0 01.986 0l5.25 4.5a.75.75 0 01-.02 1.185l-5.25 4.5a.75.75 0 01-1.006-.965L12.652 10 7.23 6.349a.75.75 0 011.027-1.25zM6 3.099a.75.75 0 01.986 0l5.25 4.5a.75.75 0 01-.02 1.185l-5.25 4.5a.75.75 0 01-1.006-.965L10.402 10 5.007 6.349a.75.75 0 011-1.25z" clip-rule="evenodd" />
-                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM2 10a8 8 0 1116 0 8 8 0 01-16 0zm6.257-6.901a.75.75 0 01.986 0l5.25 4.5a.75.75 0 01-.02 1.185l-5.25 4.5a.75.75 0 01-1.006-.965L12.652 10 7.23 6.349a.75.75 0 011.027-1.25z" clip-rule="evenodd" />
+                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM2 10a8 8 0 1116 0 8 8 0 01-16 0zM8.257 3.099a.75.75 0 01.986 0l5.25 4.5a.75.75 0 01-.02 1.185l-5.25 4.5a.75.75 0 01-1.006-.965L12.652 10 7.23 6.349a.75.75 0 011.027-1.25zM6 3.099a.75.75 0 01.986 0l5.25 4.5a.75.75 0 01-.02 1.185l-5.25 4.5a.75.75 0 01-1.006-.965L10.402 10 5.007 6.349a.75.75 0 011-1.25z" clip-rule="evenodd" />
                 </svg>
                 <h3 class="text-lg font-medium text-gray-900 mt-5">本当に削除しますか？</h3>
                 <p class="text-sm text-gray-500 mt-2">このプロジェクトを削除すると、元に戻すことはできません。</p>
@@ -88,16 +87,17 @@
 
     <script type="module">
         import { app, auth, db, initializePage, showStatus } from './shared.js';
-        import { 
-            collection, 
-            query, 
-            where, 
-            onSnapshot, 
-            addDoc, 
-            doc, 
-            updateDoc, 
-            deleteDoc, 
-            serverTimestamp, // ★★★ 修正点: serverTimestamp をインポートしました ★★★
+        // ★★★ 修正点: 読み込み元のパスを正しいURL形式に戻しました ★★★
+        import {
+            collection,
+            query,
+            where,
+            onSnapshot,
+            addDoc,
+            doc,
+            updateDoc,
+            deleteDoc,
+            serverTimestamp,
             orderBy,
             getDocs
         } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -275,4 +275,64 @@
                 closeModal();
             } catch (error) {
                 console.error("Error adding/updating project:", error);
-                showStatus(`操作に失敗しました: ${error.message
+                showStatus(`操作に失敗しました: ${error.message}`, true, 'modal-status');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalBtnText;
+            }
+        }
+
+        /**
+         * 削除確認モーダルを開く
+         */
+        function openDeleteConfirmModal(id, code) {
+            currentProjectToDeleteId = id;
+            currentProjectCodeToDelete = code;
+            document.getElementById('delete-confirm-modal').classList.remove('hidden');
+        }
+
+        /**
+         * 削除確認モーダルを閉じる
+         */
+        function closeDeleteConfirmModal() {
+            currentProjectToDeleteId = null;
+            currentProjectCodeToDelete = null;
+            document.getElementById('delete-confirm-modal').classList.add('hidden');
+            document.getElementById('confirm-delete-btn').disabled = false; // 削除ボタンを有効に戻す
+            showStatus('', false, 'delete-status');
+        }
+
+        /**
+         * 削除が確定されたときのハンドラー
+         */
+        async function handleDeleteConfirmed() {
+            if (!currentProjectToDeleteId) return;
+
+            showStatus("削除中...", false, 'delete-status');
+            try {
+                // 稼働実績がないかチェック
+                const q = query(collection(db, "timestamps"), 
+                                where("projectCode", "==", currentProjectCodeToDelete),
+                                where("userId", "==", currentUser.uid)
+                               );
+                const querySnapshot = await getDocs(q);
+                if (!querySnapshot.empty) {
+                    showStatus("このプロジェクトには稼働実績が紐付いているため、削除できません。", true, 'delete-status');
+                    return; // 削除を中断
+                }
+
+                await deleteDoc(doc(db, "projects", currentProjectToDeleteId));
+                showStatus("プロジェクトが削除されました！", false, 'projects-status');
+                closeDeleteConfirmModal();
+            } catch (error) {
+                console.error("Error deleting project:", error);
+                showStatus(`プロジェクトの削除に失敗しました: ${error.message}`, true, 'delete-status');
+            }
+        }
+
+        // 共通の初期化処理を呼び出し、認証完了後にプロジェクトページの処理を実行
+        initializePage(setupProjectPage);
+
+    </script>
+</body>
+</html>
