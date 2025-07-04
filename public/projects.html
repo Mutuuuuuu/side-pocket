@@ -190,35 +190,25 @@
             }
         }
 
-        // ★★★ 修正点: イベントリスナーの設定をより安全な方法に変更 ★★★
+        // ★★★ 修正点: イベントリスナーの設定をイベントデリゲーションに変更 ★★★
         function setupEventListeners() {
             document.getElementById('open-add-project-modal-btn').addEventListener('click', openAddModal);
             document.getElementById('close-modal-btn').addEventListener('click', closeModal);
             document.getElementById('project-modal').addEventListener('click', (e) => {
                 if(e.target.id === 'project-modal') closeModal();
             });
-            document.getElementById('project-form').addEventListener('submit', handleFormSubmit);
-            
-            // 契約種類のラジオボタンにリスナーを設定
-            const hourlyRadio = document.getElementById('contract-type-hourly');
-            const fixedRadio = document.getElementById('contract-type-fixed');
 
-            // デバッグ用ログ: 要素が見つかるか確認
-            console.log("Element #contract-type-hourly:", hourlyRadio);
-            console.log("Element #contract-type-fixed:", fixedRadio);
+            const projectForm = document.getElementById('project-form');
+            projectForm.addEventListener('submit', handleFormSubmit);
 
-            if (hourlyRadio) {
-                hourlyRadio.addEventListener('change', toggleHourlyFields);
-            } else {
-                console.error("#contract-type-hourly が見つかりません。");
-            }
-            if (fixedRadio) {
-                fixedRadio.addEventListener('change', toggleHourlyFields);
-            } else {
-                console.error("#contract-type-fixed が見つかりません。");
-            }
+            // フォーム内の変更を監視し、契約種類のラジオボタンが変更された場合のみ処理
+            projectForm.addEventListener('change', (e) => {
+                if (e.target.name === 'contractType') {
+                    toggleHourlyFields();
+                }
+            });
             
-            // 編集・削除ボタンのリスナー
+            // 編集・削除ボタンのリスナー (こちらは元々イベントデリゲーション)
             document.getElementById('projects-list').addEventListener('click', (e) => {
                 if (e.target.classList.contains('edit-btn')) {
                     openEditModal(e.target.dataset.id);
@@ -297,10 +287,13 @@
                 showStatus('プロジェクトコードと名前は必須です。', true, 'modal-status');
                 return;
             }
-            projectData.contractType = document.querySelector('input[name="contractType"]:checked').value;
+            const checkedContractType = document.querySelector('input[name="contractType"]:checked');
+            projectData.contractType = checkedContractType ? checkedContractType.value : null;
+
             projectData.contractStartDate = document.getElementById('contract-start-date-input').value;
             projectData.contractEndDate = document.getElementById('contract-end-date-input').value;
             projectData.workTimeUnit = parseInt(document.getElementById('work-time-unit-input').value, 10);
+            
             if(projectData.contractType === 'hourly') {
                 projectData.basicHourlyRate = parseInt(document.getElementById('basic-hourly-rate-input').value, 10) || 0;
                 projectData.settlementRangeMin = parseInt(document.getElementById('settlement-range-min-input').value, 10) || null;
