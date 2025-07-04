@@ -42,7 +42,7 @@
 
                     <!-- 調整方法選択 -->
                     <div>
-                        <label for="adjustment-method-select" class="block text-sm font-medium text-gray-700">調整方法:</label>
+                        <label for="adjustment-method-select" class="block text-sm font-medium text-gray-700">稼働時間の調整方法:</label>
                         <select id="adjustment-method-select" class="mt-1 block w-full max-w-xs p-2 border border-gray-300 rounded-md">
                             <option value="per-detail">明細毎に調整</option>
                             <option value="monthly-total">月次の合計時間で調整</option>
@@ -411,7 +411,7 @@
             const reportMonthValue = reportMonthInput.value; // レポート対象月
             const adjustmentMethod = adjustmentMethodSelect.value; // 調整方法
             const chartStartMonthValue = chartStartMonthInput.value; // グラフ開始月
-            const chartEndMonthInput = chartEndMonthInput.value;     // グラフ終了月
+            const chartEndMonthValue = chartEndMonthInput.value;     // グラフ終了月
             const selectedProjectCodeFilter = timestampsProjectFilter.value; // 実績詳細フィルターが共通フィルターとなる
 
             // --- レポート/サマリーセクション用のデータ ---
