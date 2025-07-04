@@ -1,7 +1,7 @@
-<header class="p-4 max-w-4xl mx-auto"> <!-- md:ml-64 を削除 -->
+<header class="p-4 max-w-4xl mx-auto md:ml-16 transition-all duration-300 ease-in-out"> <!-- Header will shift with sidebar -->
     <div class="flex justify-between items-center">
         <!-- 左側: ハンバーガーメニューボタン (モバイルのみ表示) -->
-        <div class="md:hidden flex justify-start">
+        <div class="md:hidden flex justify-start relative">
             <button id="menu-toggle" class="p-2 rounded-full bg-white hover:bg-gray-200 focus:outline-none">
                 <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path>
@@ -10,7 +10,7 @@
         </div>
 
         <!-- 中央: ロゴ -->
-        <div class="flex justify-center flex-grow md:flex-grow-0"> <!-- モバイルで flex-grow を適用し、ロゴを中央に寄せやすくする -->
+        <div class="flex justify-center flex-grow md:flex-grow-0">
             <a href="index.html">
                 <img src="images/sidepocket_Logo.png" alt="side pocket ロゴ" class="h-16 w-auto">
             </a>
@@ -30,9 +30,8 @@
     <div id="header-status-message" class="text-center h-5 mt-2"></div>
 
     <!-- サイドバーメニュー -->
-    <!-- shared.js でデスクトップ/モバイルの表示と開閉を制御 -->
-    <div id="mobile-menu" class="fixed inset-y-0 left-0 w-64 bg-white shadow-lg z-30 transition-transform duration-300 ease-in-out
-                                  transform -translate-x-full"> <!-- md:translate-x-0 と md:block を削除 -->
+    <div id="sidebar-menu" class="fixed inset-y-0 left-0 bg-white shadow-lg z-30 transition-all duration-300 ease-in-out
+                                  transform -translate-x-full md:translate-x-0 md:w-16 md:hover:w-64">
         <div class="flex justify-end p-4 md:hidden"> <!-- 閉じるボタンはモバイルでのみ表示 -->
             <button id="close-menu-button" class="p-2 rounded-full hover:bg-gray-200 focus:outline-none">
                 <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -43,158 +42,28 @@
         <nav class="flex flex-col p-4 space-y-2">
             <a href="index.html" class="flex items-center p-2 rounded-md text-gray-700 hover:bg-gray-100">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                <span class="ml-3 hidden md:inline-block">打刻</span> <!-- デスクトップでデフォルト非表示 -->
+                <span class="ml-3 menu-text md:hidden">打刻</span> <!-- テキストはモバイルでのみ表示 -->
             </a>
             <a href="projects.html" class="flex items-center p-2 rounded-md text-gray-700 hover:bg-gray-100">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
-                <span class="ml-3 hidden md:inline-block">プロジェクト</span>
+                <span class="ml-3 menu-text md:hidden">プロジェクト</span>
             </a>
             <a href="summary.html" class="flex items-center p-2 rounded-md text-gray-700 hover:bg-gray-100">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-                <span class="ml-3 hidden md:inline-block">サマリー</span>
+                <span class="ml-3 menu-text md:hidden">サマリー</span>
             </a>
             <a href="calendar.html" class="flex items-center p-2 rounded-md text-gray-700 hover:bg-gray-100">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                <span class="ml-3 hidden md:inline-block">カレンダー</span>
+                <span class="ml-3 menu-text md:hidden">カレンダー</span>
             </a>
         </nav>
         <div class="mt-auto pt-4 border-t border-gray-200 p-4">
             <button id="logout-button-mobile" class="flex items-center w-full text-left px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-gray-100">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-                <span class="ml-3">ログアウト</span>
+                <span class="ml-3 menu-text md:hidden">ログアウト</span>
             </button>
         </div>
     </div>
 
     <!-- オーバーレイ (メニューが開いているときに背景を暗くする) -->
-    <div id="mobile-menu-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-20 hidden"></div> <!-- md:hidden を削除 -->
-
-    <script type="module">
-        import { auth, showStatus } from './shared.js'; // shared.jsからauthとshowStatusをインポート
-        import { signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-        document.addEventListener('DOMContentLoaded', function() {
-            const menuToggle = document.getElementById('menu-toggle');
-            const mobileMenu = document.getElementById('mobile-menu');
-            const closeMenuButton = document.getElementById('close-menu-button');
-            const mobileMenuOverlay = document.getElementById('mobile-menu-overlay');
-            const userIcon = document.getElementById('user-icon'); // 共通のユーザーアイコン
-            const userInfo = document.getElementById('user-info'); // デスクトップのユーザー情報
-            const logoutButtonMobile = document.getElementById('logout-button-mobile'); // モバイルのログアウトボタン (唯一のログアウトボタン)
-            const headerStatusMessage = document.getElementById('header-status-message');
-
-            // ユーザー認証状態の監視
-            auth.onAuthStateChanged(user => {
-                if (user) {
-                    // ユーザーがログインしている場合
-                    const userEmail = user.email || 'ゲスト';
-                    userInfo.textContent = userEmail;
-                    // ユーザーアイコンの表示 (Googleアカウントのプロフィール画像があればそれを使用)
-                    if (user.photoURL) {
-                        userIcon.src = user.photoURL;
-                    } else {
-                        userIcon.src = `https://placehold.co/32x32/EFEFEF/333333?text=${userEmail.charAt(0).toUpperCase()}`;
-                    }
-                } else {
-                    // ユーザーがログアウトしている場合
-                    userInfo.textContent = '未ログイン';
-                    userIcon.src = 'https://placehold.co/32x32/EFEFEF/333333?text=?';
-                    // ログインページへのリダイレクト (例: index.htmlがログインページの場合)
-                    if (window.location.pathname !== '/index.html' && window.location.pathname !== '/') {
-                        window.location.href = 'index.html';
-                    }
-                }
-            });
-
-            // ログアウト処理
-            const handleLogout = async () => {
-                try {
-                    await signOut(auth);
-                    showStatus("ログアウトしました。", false, 'header-status-message');
-                    // ログアウト後にログインページへリダイレクト
-                    window.location.href = 'index.html';
-                } catch (error) {
-                    console.error("ログアウトエラー:", error);
-                    showStatus(`ログアウトに失敗しました: ${error.message}`, true, 'header-status-message');
-                }
-            };
-
-            // ログアウトボタンはモバイル用のみにイベントリスナーを設定
-            logoutButtonMobile.addEventListener('click', handleLogout);
-
-
-            // ハンバーガーメニューの開閉 (モバイル用)
-            menuToggle.addEventListener('click', () => {
-                mobileMenu.classList.remove('-translate-x-full');
-                mobileMenuOverlay.classList.remove('hidden');
-            });
-
-            // 閉じるボタンとオーバーレイのクリックリスナー (モバイル用)
-            closeMenuButton.addEventListener('click', () => {
-                mobileMenu.classList.add('-translate-x-full');
-                mobileMenuOverlay.classList.add('hidden');
-            });
-
-            mobileMenuOverlay.addEventListener('click', () => {
-                mobileMenu.classList.add('-translate-x-full');
-                mobileMenuOverlay.classList.add('hidden');
-            });
-
-            // メニュー内のリンクをクリックした際もメニューを閉じる (モバイル用)
-            mobileMenu.querySelectorAll('a').forEach(link => {
-                link.addEventListener('click', () => {
-                    // モバイルメニューの場合のみ閉じる (デスクトップでは常に開いているため)
-                    if (window.innerWidth < 768) { // Tailwindの 'md' ブレークポイントは 768px
-                        mobileMenu.classList.add('-translate-x-full');
-                        mobileMenuOverlay.classList.add('hidden');
-                    }
-                });
-            });
-
-            // --- サイドバーのデスクトップ専用ロジック ---
-            // デスクトップでの初期状態: 折りたたまれたサイドバー (アイコンのみ)
-            const applyDesktopSidebarState = () => {
-                if (window.innerWidth >= 768) { // md ブレークポイント
-                    mobileMenu.classList.add('w-16'); // 幅を16pxに設定 (アイコンのみ)
-                    mobileMenu.classList.remove('w-64'); // 展開時の幅を削除
-                    mobileMenu.classList.remove('-translate-x-full'); // 表示を確実にする
-                    mobileMenu.classList.add('translate-x-0'); // 表示を確実にする
-                    document.body.classList.add('md:ml-16'); // bodyコンテンツをサイドバーの幅だけずらす
-                    document.body.classList.remove('md:ml-64'); // 展開時のマージンを削除
-
-                    // テキストラベルを非表示にする
-                    mobileMenu.querySelectorAll('nav span').forEach(span => {
-                        span.classList.add('hidden');
-                        span.classList.remove('inline-block');
-                    });
-                    // モバイル用の閉じるボタンとオーバーレイをデスクトップでは非表示にする
-                    closeMenuButton.classList.add('hidden');
-                    mobileMenuOverlay.classList.add('hidden');
-
-                } else {
-                    // モバイル用にリセット
-                    mobileMenu.classList.remove('w-16');
-                    mobileMenu.classList.add('w-64'); // モバイルのデフォルト幅
-                    mobileMenu.classList.add('-translate-x-full'); // モバイルで初期非表示
-                    document.body.classList.remove('md:ml-16');
-                    document.body.classList.remove('md:ml-64');
-
-                    // テキストラベルをモバイルでは表示
-                    mobileMenu.querySelectorAll('nav span').forEach(span => {
-                        span.classList.remove('hidden');
-                        span.classList.add('inline-block');
-                    });
-                    // モバイル用の閉じるボタンを表示
-                    closeMenuButton.classList.remove('hidden');
-                }
-            };
-
-            applyDesktopSidebarState(); // ページロード時に適用
-            window.addEventListener('resize', applyDesktopSidebarState); // ウィンドウサイズ変更時に適用
-
-            // 今後の拡張: デスクトップでサイドバーを展開/収納するロジックをここに追加
-            // 例: mobileMenu.addEventListener('mouseenter', () => { /* 展開ロジック */ });
-            // 例: mobileMenu.addEventListener('mouseleave', () => { /* 収納ロジック */ });
-        });
-    </script>
-</header>
+    <div id="mobile-menu-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-20 hidden md:hidden"></div>

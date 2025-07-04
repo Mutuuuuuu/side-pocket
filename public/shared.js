@@ -50,7 +50,7 @@ export async function initializePage(onUserAuthenticated) {
             } catch (error) {
                 console.error("Authentication failed in initializePage:", error);
                 // 認証失敗時はログインページへリダイレクト
-                window.location.href = 'login.html';
+                window.location.href = 'index.html'; // login.html から index.html に変更
             }
         }
     });
@@ -63,12 +63,16 @@ export async function initializePage(onUserAuthenticated) {
 function setupHeaderMenu(user) {
     const userInfoSpan = document.getElementById('user-info');
     const userIconImg = document.getElementById('user-icon');
-    const logoutButton = document.getElementById('logout-button');
-    const menuToggle = document.getElementById('menu-toggle'); // ハンバーガーメニューボタン
+    // ログアウトボタンは_header.htmlで削除されたため、shared.jsからも参照を削除
+    // const logoutButton = document.getElementById('logout-button'); 
+    const menuToggle = document.getElementById('menu-toggle'); // ハンバーガーメニューボタン (モバイル用)
     const sidebarMenu = document.getElementById('sidebar-menu'); // サイドバーメニューコンテナ
-    const closeMenuButton = document.getElementById('close-menu-button'); // 閉じるボタン
+    const closeMenuButton = document.getElementById('close-menu-button'); // 閉じるボタン (モバイル用)
+    const mobileMenuOverlay = document.getElementById('mobile-menu-overlay'); // オーバーレイ (モバイル用)
     const menuTexts = document.querySelectorAll('#sidebar-menu .menu-text'); // メニューテキスト要素
     const appContainer = document.getElementById('app-container'); // app-container要素を取得
+    const logoutButtonMobile = document.getElementById('logout-button-mobile'); // モバイル用ログアウトボタン
+
 
     // ユーザー情報
     if (userInfoSpan) {
@@ -82,12 +86,12 @@ function setupHeaderMenu(user) {
         }
     }
 
-    // ログアウトボタンのイベントリスナー
-    if (logoutButton) {
-        logoutButton.addEventListener('click', async () => {
+    // ログアウトボタンのイベントリスナー (モバイル用のみ)
+    if (logoutButtonMobile) {
+        logoutButtonMobile.addEventListener('click', async () => {
             try {
                 await signOut(auth);
-                window.location.href = 'login.html';
+                window.location.href = 'index.html'; // ログアウト後はログインページへ
             } catch (error) {
                 console.error("Error signing out:", error);
                 showStatus("ログアウトに失敗しました: " + error.message, true, 'header-status-message');
@@ -95,102 +99,112 @@ function setupHeaderMenu(user) {
         });
     }
 
-    // サイドバーの初期状態を設定
-    if (sidebarMenu) {
-        sidebarMenu.style.width = '64px'; // 閉じた時の幅
-    }
-    if (closeMenuButton) {
-        closeMenuButton.classList.add('hidden'); // 閉じるボタンを非表示
-    }
-    menuTexts.forEach(span => {
-        span.classList.add('hidden'); // テキストを非表示
-    });
-    
-    // app-containerの初期左マージンを設定し、トランジションを追加
-    if (appContainer) {
-        appContainer.style.marginLeft = '64px';
-        appContainer.style.transition = 'margin-left 0.3s ease-in-out'; // スムーズな動きのためにトランジションを追加
-    }
+    // --- デスクトップ用サイドバーの初期状態とホバーによる展開 ---
+    const setupDesktopSidebar = () => {
+        if (window.innerWidth >= 768) { // md breakpoint
+            sidebarMenu.classList.remove('-translate-x-full'); // サイドバーを常に表示
+            sidebarMenu.classList.add('translate-x-0'); // 位置をリセット
+            sidebarMenu.classList.add('w-16'); // デフォルトでアイコンのみの幅
+            sidebarMenu.classList.remove('w-64'); // 展開時の幅を削除
 
-    // ハンバーガーメニューのトグル
-    if (menuToggle && sidebarMenu) {
-        menuToggle.addEventListener('click', (event) => {
-            event.stopPropagation(); // クリックイベントがbodyに伝播するのを防ぐ
-            if (sidebarMenu.style.width === '64px') {
-                // サイドバーを展開
-                sidebarMenu.style.width = '200px';
-                if (closeMenuButton) {
-                    closeMenuButton.classList.remove('hidden'); // 閉じるボタンを表示
-                }
-                menuTexts.forEach(span => {
-                    span.classList.remove('hidden'); // メニューテキストを表示
-                });
-                // ハンバーガーアイコンを非表示にする
-                menuToggle.classList.add('hidden');
-                // app-containerの左マージンを調整
-                if (appContainer) {
-                    appContainer.style.marginLeft = '200px';
-                }
-            } else {
-                // サイドバーを閉じる (アイコンのみ)
-                sidebarMenu.style.width = '64px';
-                if (closeMenuButton) {
-                    closeMenuButton.classList.add('hidden'); // 閉じるボタンを非表示
-                }
-                menuTexts.forEach(span => {
-                    span.classList.add('hidden'); // メニューテキストを非表示
-                });
-                // ハンバーガーアイコンを表示する
-                menuToggle.classList.remove('hidden');
-                // app-containerの左マージンを調整
-                if (appContainer) {
-                    appContainer.style.marginLeft = '64px';
-                }
-            }
-        });
-    }
+            appContainer.classList.add('md:ml-16'); // コンテンツの左マージンを調整
+            appContainer.classList.remove('md:ml-64'); // 展開時のマージンを削除
 
-    // 閉じるボタンのイベントリスナー
-    if (closeMenuButton && sidebarMenu) {
-        closeMenuButton.addEventListener('click', () => {
-            sidebarMenu.style.width = '64px'; // メニューを閉じたときの幅 (アイコンのみの幅)
-            closeMenuButton.classList.add('hidden'); // 閉じるボタンを非表示
+            // テキストを非表示
             menuTexts.forEach(span => {
-                span.classList.add('hidden'); // メニューテキストを非表示
+                span.classList.add('hidden');
             });
-            // ハンバーガーアイコンを表示する
-            if (menuToggle) {
-                menuToggle.classList.remove('hidden');
-            }
-            // app-containerの左マージンを調整
-            if (appContainer) {
-                appContainer.style.marginLeft = '64px';
-            }
-        });
-    }
 
-    // サイドバー外をクリックで閉じる
-    document.body.addEventListener('click', (event) => {
-        // クリックされた要素がサイドバー、メニュー切り替えボタン、またはその子孫でない場合
-        if (sidebarMenu && !sidebarMenu.contains(event.target) && (menuToggle && !menuToggle.contains(event.target))) {
-            // サイドバーが展開状態の場合のみ閉じる
-            if (sidebarMenu.style.width === '200px') {
-                sidebarMenu.style.width = '64px';
-                if (closeMenuButton) {
-                    closeMenuButton.classList.add('hidden');
-                }
+            // ホバーでサイドバーを展開
+            sidebarMenu.addEventListener('mouseenter', () => {
+                sidebarMenu.classList.remove('w-16');
+                sidebarMenu.classList.add('w-64');
+                appContainer.classList.remove('md:ml-16');
+                appContainer.classList.add('md:ml-64');
+                menuTexts.forEach(span => {
+                    span.classList.remove('hidden');
+                });
+            });
+
+            // ホバーが外れたらサイドバーを閉じる
+            sidebarMenu.addEventListener('mouseleave', () => {
+                sidebarMenu.classList.remove('w-64');
+                sidebarMenu.classList.add('w-16');
+                appContainer.classList.remove('md:ml-64');
+                appContainer.classList.add('md:ml-16');
                 menuTexts.forEach(span => {
                     span.classList.add('hidden');
                 });
-                if (menuToggle) {
-                    menuToggle.classList.remove('hidden');
-                }
-                // app-containerの左マージンを調整
-                if (appContainer) {
-                    appContainer.style.marginLeft = '64px';
-                }
-            }
+            });
+
+            // デスクトップではハンバーガーメニューと閉じるボタン、オーバーレイを非表示
+            if (menuToggle) menuToggle.classList.add('hidden');
+            if (closeMenuButton) closeMenuButton.classList.add('hidden');
+            if (mobileMenuOverlay) mobileMenuOverlay.classList.add('hidden');
+
+        } else { // モバイル用
+            sidebarMenu.classList.remove('w-16');
+            sidebarMenu.classList.remove('w-64');
+            sidebarMenu.classList.add('w-64'); // モバイルのデフォルト幅
+            sidebarMenu.classList.add('-translate-x-full'); // モバイルで初期非表示
+
+            appContainer.classList.remove('md:ml-16');
+            appContainer.classList.remove('md:ml-64');
+
+            // テキストをモバイルでは表示
+            menuTexts.forEach(span => {
+                span.classList.remove('hidden');
+            });
+
+            // モバイルではハンバーガーメニューと閉じるボタン、オーバーレイを表示
+            if (menuToggle) menuToggle.classList.remove('hidden');
+            if (closeMenuButton) closeMenuButton.classList.remove('hidden');
+            if (mobileMenuOverlay) mobileMenuOverlay.classList.remove('hidden');
+
+            // ホバーイベントリスナーを削除 (デスクトップからモバイルに切り替わった場合)
+            sidebarMenu.removeEventListener('mouseenter', () => {});
+            sidebarMenu.removeEventListener('mouseleave', () => {});
         }
+    };
+
+    // ページロード時とリサイズ時にサイドバーの状態を設定
+    setupDesktopSidebar();
+    window.addEventListener('resize', setupDesktopSidebar);
+
+
+    // --- モバイル用ハンバーガーメニューの開閉 ---
+    if (menuToggle && sidebarMenu && mobileMenuOverlay) {
+        menuToggle.addEventListener('click', (event) => {
+            event.stopPropagation(); // クリックイベントがbodyに伝播するのを防ぐ
+            sidebarMenu.classList.remove('-translate-x-full');
+            mobileMenuOverlay.classList.remove('hidden');
+        });
+    }
+
+    // 閉じるボタンのイベントリスナー (モバイル用)
+    if (closeMenuButton && sidebarMenu && mobileMenuOverlay) {
+        closeMenuButton.addEventListener('click', () => {
+            sidebarMenu.classList.add('-translate-x-full');
+            mobileMenuOverlay.classList.add('hidden');
+        });
+    }
+
+    // サイドバー外をクリックで閉じる (モバイル用)
+    if (sidebarMenu && mobileMenuOverlay) {
+        mobileMenuOverlay.addEventListener('click', () => {
+            sidebarMenu.classList.add('-translate-x-full');
+            mobileMenuOverlay.classList.add('hidden');
+        });
+    }
+
+    // メニュー内のリンクをクリックした際もメニューを閉じる (モバイル用)
+    sidebarMenu.querySelectorAll('a').forEach(link => {
+        link.addEventListener('click', () => {
+            if (window.innerWidth < 768) { // モバイルメニューの場合のみ閉じる
+                sidebarMenu.classList.add('-translate-x-full');
+                mobileMenuOverlay.classList.add('hidden');
+            }
+        });
     });
 }
 
