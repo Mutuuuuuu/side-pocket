@@ -55,10 +55,11 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
         import { getFirestore, collection, query, where, orderBy, limit, addDoc, updateDoc, doc, getDocs, onSnapshot, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-        import { firebaseConfig, showStatus } from './shared.js'; // __app_id, __initial_auth_token のインポートを削除
+        import { showStatus } from './shared.js'; // firebaseConfig のインポートを削除
 
         // Firebaseの初期化
-        const app = initializeApp(firebaseConfig);
+        // firebaseConfig はグローバル変数としてアクセス
+        const app = initializeApp(firebaseConfig); 
         const db = getFirestore(app);
         const auth = getAuth(app);
 
