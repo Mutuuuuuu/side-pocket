@@ -398,9 +398,14 @@
                 contractType: contractType,
                 baseHourlyRate: baseHourlyRate,
                 workTimeUnit: workTimeUnit,
-                createdAt: projectId ? undefined : Timestamp.now(), // 新規作成時のみ設定
+                // createdAt: projectId ? undefined : Timestamp.now(), // この行を修正
                 updatedAt: Timestamp.now()
             };
+
+            // 新規作成の場合のみcreatedAtを設定
+            if (!projectId) {
+                projectData.createdAt = Timestamp.now();
+            }
 
             if (contractType === 'fixed') {
                 projectData.baseWorkingHours = baseWorkingHours;
