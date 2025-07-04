@@ -1,4 +1,4 @@
-<header class="p-4 max-w-4xl mx-auto transition-all duration-300 ease-in-out"> <!-- md:ml-16 を削除 -->
+<header class="p-4 max-w-4xl mx-auto transition-all duration-300 ease-in-out">
     <div class="flex justify-between items-center">
         <!-- 左側: ハンバーガーメニューボタン (モバイルのみ表示) -->
         <div class="md:hidden flex justify-start relative">
@@ -31,18 +31,20 @@
 
     <!-- サイドバーメニュー -->
     <div id="sidebar-menu" class="fixed inset-y-0 left-0 bg-white shadow-lg z-30 transition-all duration-300 ease-in-out
-                                  transform -translate-x-full md:translate-x-0 md:w-16 md:hover:w-64 group"> <!-- groupクラスを追加 -->
-        <div class="flex justify-end p-4 md:hidden"> <!-- 閉じるボタンはモバイルでのみ表示 -->
-            <button id="close-menu-button" class="p-2 rounded-full hover:bg-gray-200 focus:outline-none">
+                                  transform -translate-x-full md:translate-x-0 md:w-16 group">
+        <!-- デスクトップ用ハンバーガーメニュー (サイドバーの一番上) -->
+        <div class="p-4 flex justify-end md:justify-center">
+            <button id="desktop-menu-toggle" class="p-2 rounded-full hover:bg-gray-200 focus:outline-none">
                 <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path>
                 </svg>
             </button>
         </div>
+
         <nav class="flex flex-col p-4 space-y-2">
             <a href="index.html" class="flex items-center p-2 rounded-md text-gray-700 hover:bg-gray-100">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                <span class="ml-3 menu-text hidden md:group-hover:inline-block">打刻</span> <!-- デスクトップホバーで表示 -->
+                <span class="ml-3 menu-text hidden md:group-hover:inline-block">打刻</span>
             </a>
             <a href="projects.html" class="flex items-center p-2 rounded-md text-gray-700 hover:bg-gray-100">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
@@ -60,10 +62,48 @@
         <div class="mt-auto pt-4 border-t border-gray-200 p-4">
             <button id="logout-button-mobile" class="flex items-center w-full text-left px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-gray-100">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-                <span class="ml-3 menu-text md:hidden">ログアウト</span>
+                <span class="ml-3 menu-text hidden md:group-hover:inline-block">ログアウト</span>
             </button>
         </div>
     </div>
 
     <!-- オーバーレイ (メニューが開いているときに背景を暗くする) -->
     <div id="mobile-menu-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-20 hidden md:hidden"></div>
+
+    <script type="module">
+        import { auth, setupHeaderMenu } from './shared.js'; // setupHeaderMenuをインポート
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Firebase認証状態が変更されたときにsetupHeaderMenuを呼び出す
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    // ヘッダーのHTMLがDOMに挿入されたことを確認してからsetupHeaderMenuを呼び出す
+                    // _header.htmlが動的にロードされるため、DOMContentLoadedだけでは不十分な場合がある
+                    // ここでは、ヘッダーのプレースホルダーにコンテンツが追加されたことを監視する
+                    const headerPlaceholder = document.getElementById('header-placeholder');
+                    if (headerPlaceholder && headerPlaceholder.innerHTML !== '') {
+                        setupHeaderMenu(user);
+                    } else {
+                        // header-placeholderがまだ空の場合、MutationObserverで変更を監視
+                        const observer = new MutationObserver((mutationsList, observer) => {
+                            for (const mutation of mutationsList) {
+                                if (mutation.type === 'childList' && headerPlaceholder.innerHTML !== '') {
+                                    setupHeaderMenu(user);
+                                    observer.disconnect(); // 一度実行したら監視を停止
+                                    break;
+                                }
+                            }
+                            // タイムアウトを追加し、一定時間内に要素が見つからない場合でも処理を続行
+                            setTimeout(() => {
+                                if (headerPlaceholder && headerPlaceholder.innerHTML !== '' && !observer.takeRecords().length) {
+                                    setupHeaderMenu(user);
+                                }
+                                observer.disconnect();
+                            }, 2000); // 2秒後にタイムアウト
+                        });
+                        observer.observe(headerPlaceholder, { childList: true });
+                    }
+                }
+            });
+        });
+    </script>
