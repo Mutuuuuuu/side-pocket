@@ -30,29 +30,32 @@
             <div class="p-6 sm:p-8 space-y-6 bg-white rounded-2xl shadow-lg">
                 <header class="flex flex-col sm:flex-row justify-between items-center mb-4">
                     <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 text-center sm:text-left flex-grow">稼働管理</h2>
-                    <button id="download-pdf-btn" class="btn bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-md text-sm mt-4 sm:mt-0 sm:ml-4">PDFダウンロード</button>
+                    <!-- PDFダウンロードボタンは稼働実績詳細セクションに移動 -->
                 </header>
 
                 <div class="space-y-4">
                     <!-- レポート期間選択 (単月) -->
                     <div>
                         <label for="report-month" class="block text-sm font-medium text-gray-700">レポート対象月:</label>
-                        <input type="month" id="report-month" class="mt-1 block w-full md:w-1/2 lg:w-1/3 p-2 border border-gray-300 rounded-md">
+                        <input type="month" id="report-month" class="mt-1 block w-full max-w-xs p-2 border border-gray-300 rounded-md">
                     </div>
 
-                    <!-- プロジェクト選択フィルター (共通) -->
+                    <!-- 調整方法選択 -->
                     <div>
-                        <label for="summary-project-filter" class="block text-sm font-medium text-gray-700">プロジェクトでフィルタ:</label>
-                        <select id="summary-project-filter" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
-                            <option value="all">すべてのプロジェクト</option>
+                        <label for="adjustment-method-select" class="block text-sm font-medium text-gray-700">調整方法:</label>
+                        <select id="adjustment-method-select" class="mt-1 block w-full max-w-xs p-2 border border-gray-300 rounded-md">
+                            <option value="per-detail">明細毎に調整</option>
+                            <option value="monthly-total">月次の合計時間で調整</option>
                         </select>
                     </div>
 
                     <!-- 稼働時間サマリー -->
                     <div class="bg-gray-50 p-4 rounded-lg shadow-sm">
                         <h3 class="text-lg font-semibold text-gray-800 mb-2">総稼働時間</h3>
-                        <p id="total-working-hours" class="text-3xl font-bold text-main-dark">0.00 時間</p>
-                        <p id="total-adjusted-hours" class="text-xl font-semibold text-gray-700 mt-2">調整後稼働時間: 0.00 時間</p>
+                        <p id="total-working-hours-container" class="text-3xl font-bold text-main-dark flex items-baseline">
+                            <span id="total-working-hours">0時間0分</span>
+                            <span id="total-adjusted-hours" class="text-xl font-semibold text-gray-700 ml-4">調整後: 0時間0分</span>
+                        </p>
                         <p id="total-billing-amount" class="text-xl font-semibold text-gray-700 mt-2">0 円</p>
                     </div>
 
@@ -79,31 +82,37 @@
                         </div>
                     </div>
 
-                    <!-- 月別稼働時間グラフ -->
-                    <div class="bg-gray-50 p-4 rounded-lg shadow-sm">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-2">月別稼働時間 (プロジェクト別積み上げ)</h3>
-                        <div class="flex justify-end mb-2">
-                            <button id="toggle-monthly-hours-chart-btn" class="btn bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-1 px-3 rounded-md text-sm">表示/非表示</button>
+                    <!-- グラフコンテナを横並びにするためのラッパー -->
+                    <div class="flex flex-col md:flex-row md:space-x-4 space-y-4 md:space-y-0">
+                        <!-- 月別稼働時間グラフ -->
+                        <div class="bg-gray-50 p-4 rounded-lg shadow-sm md:w-1/2">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">月別稼働時間 (プロジェクト別積み上げ)</h3>
+                            <div class="flex justify-end mb-2">
+                                <button id="toggle-monthly-hours-chart-btn" class="btn bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-1 px-3 rounded-md text-sm">表示/非表示</button>
+                            </div>
+                            <div id="monthly-hours-chart-container" class="relative h-64 hidden"> <!-- 固定高さのコンテナ -->
+                                <canvas id="monthly-hours-chart" class="w-full h-full"></canvas>
+                            </div>
                         </div>
-                        <div id="monthly-hours-chart-container" class="relative h-64 hidden"> <!-- 固定高さのコンテナ -->
-                            <canvas id="monthly-hours-chart" class="w-full h-full"></canvas>
-                        </div>
-                    </div>
 
-                    <!-- 月別収支グラフ -->
-                    <div class="bg-gray-50 p-4 rounded-lg shadow-sm">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-2">月別収支 (プロジェクト別積み上げ)</h3>
-                        <div class="flex justify-end mb-2">
-                            <button id="toggle-monthly-billing-chart-btn" class="btn bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-1 px-3 rounded-md text-sm">表示/非表示</button>
-                        </div>
-                        <div id="monthly-billing-chart-container" class="relative h-64 hidden"> <!-- 固定高さのコンテナ -->
-                            <canvas id="monthly-billing-chart" class="w-full h-full"></canvas>
+                        <!-- 月別収支グラフ -->
+                        <div class="bg-gray-50 p-4 rounded-lg shadow-sm md:w-1/2">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">月別収支 (プロジェクト別積み上げ)</h3>
+                            <div class="flex justify-end mb-2">
+                                <button id="toggle-monthly-billing-chart-btn" class="btn bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-1 px-3 rounded-md text-sm">表示/非表示</button>
+                            </div>
+                            <div id="monthly-billing-chart-container" class="relative h-64 hidden"> <!-- 固定高さのコンテナ -->
+                                <canvas id="monthly-billing-chart" class="w-full h-full"></canvas>
+                            </div>
                         </div>
                     </div>
 
                     <!-- 稼働実績リスト -->
                     <div class="bg-gray-50 p-4 rounded-lg shadow-sm">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-2">稼働実績詳細</h3>
+                        <header class="flex justify-between items-center mb-2">
+                            <h3 class="text-lg font-semibold text-gray-800">稼働実績詳細</h3>
+                            <button id="download-pdf-btn" class="btn bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-md text-sm ml-4">PDFダウンロード</button>
+                        </header>
                         <!-- 稼働実績詳細フィルター -->
                         <div>
                             <label for="timestamps-project-filter" class="block text-sm font-medium text-gray-700">プロジェクトでフィルタ:</label>
@@ -111,7 +120,11 @@
                                 <option value="all">すべてのプロジェクト</option>
                             </select>
                         </div>
-                        <div id="timestamps-content" class="space-y-1 max-h-80 overflow-y-auto text-sm"> <!-- 行の高さを調整 -->
+                        <div id="timestamps-total-summary" class="bg-white p-2 rounded-md shadow-sm mb-2 text-sm font-bold">
+                            <p>稼働時間合計: 0時間0分</p>
+                            <p>調整後稼働時間合計: 0時間0分</p>
+                        </div>
+                        <div id="timestamps-content" class="space-y-1 max-h-80 overflow-y-auto text-xs"> <!-- 行の高さを調整 -->
                             <p class="text-gray-500">データがありません。</p>
                         </div>
                     </div>
@@ -190,15 +203,16 @@
         
         // DOM要素
         const reportMonthInput = document.getElementById('report-month'); // レポート対象月
+        const adjustmentMethodSelect = document.getElementById('adjustment-method-select'); // 調整方法選択
         const chartStartMonthInput = document.getElementById('chart-start-month'); // グラフ開始月
         const chartEndMonthInput = document.getElementById('chart-end-month'); // グラフ終了月
-        const summaryProjectFilter = document.getElementById('summary-project-filter');
         const totalWorkingHoursElement = document.getElementById('total-working-hours');
         const totalAdjustedHoursElement = document.getElementById('total-adjusted-hours'); // 調整後稼働時間
         const totalBillingAmountElement = document.getElementById('total-billing-amount');
         const projectHoursListElement = document.getElementById('project-hours-list');
         const timestampsContentElement = document.getElementById('timestamps-content');
         const timestampsProjectFilter = document.getElementById('timestamps-project-filter'); // 実績詳細のフィルター
+        const timestampsTotalSummaryElement = document.getElementById('timestamps-total-summary'); // 実績詳細の合計表示
         const downloadPdfBtn = document.getElementById('download-pdf-btn');
         
         // 稼働時間グラフ関連
@@ -251,10 +265,10 @@
 
             // イベントリスナー
             reportMonthInput.addEventListener('change', fetchSummaryData);
+            adjustmentMethodSelect.addEventListener('change', fetchSummaryData); // 調整方法変更で再描画
             chartStartMonthInput.addEventListener('change', fetchSummaryData); // グラフ期間変更で再描画
             chartEndMonthInput.addEventListener('change', fetchSummaryData);   // グラフ期間変更で再描画
-            summaryProjectFilter.addEventListener('change', fetchSummaryData); // プロジェクトフィルター変更で再描画
-            timestampsProjectFilter.addEventListener('change', renderTimestampsListFiltered); // 実績詳細フィルター変更
+            timestampsProjectFilter.addEventListener('change', fetchSummaryData); // 実績詳細フィルター変更
             toggleMonthlyHoursChartBtn.addEventListener('click', () => toggleChartVisibility(monthlyHoursChartContainer, monthlyHoursChartCanvas, 'monthlyHoursChart', isMonthlyHoursChartVisible));
             toggleMonthlyBillingChartBtn.addEventListener('click', () => toggleChartVisibility(monthlyBillingChartContainer, monthlyBillingChartCanvas, 'monthlyBillingChart', isMonthlyBillingChartVisible));
             downloadPdfBtn.addEventListener('click', generatePdfReport);
@@ -324,21 +338,16 @@
             const q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid));
             onSnapshot(q, (snapshot) => {
                 projectsData.clear();
-                summaryProjectFilter.innerHTML = '<option value="all">すべてのプロジェクト</option>'; // フィルターをリセット
                 timestampsProjectFilter.innerHTML = '<option value="all">すべてのプロジェクト</option>'; // 実績詳細フィルターをリセット
 
                 snapshot.forEach(doc => {
                     const project = doc.data();
                     projectsData.set(project.code, project);
-                    // プロジェクトフィルターにオプションを追加
+                    // プロジェクトフィルターにオプションを追加 (timestampsProjectFilterのみ)
                     const option = document.createElement('option');
                     option.value = project.code;
                     option.textContent = `${project.code}: ${project.name}`;
-                    summaryProjectFilter.appendChild(option);
-
-                    // 実績詳細フィルターにもオプションを追加
-                    const tsOption = option.cloneNode(true);
-                    timestampsProjectFilter.appendChild(tsOption);
+                    timestampsProjectFilter.appendChild(option);
                 });
                 fetchSummaryData(); // サマリーを再計算
             }, (error) => {
@@ -400,9 +409,10 @@
          */
         function renderSummary() {
             const reportMonthValue = reportMonthInput.value; // レポート対象月
+            const adjustmentMethod = adjustmentMethodSelect.value; // 調整方法
             const chartStartMonthValue = chartStartMonthInput.value; // グラフ開始月
-            const chartEndMonthValue = chartEndMonthInput.value;     // グラフ終了月
-            const selectedProjectCodeFilter = summaryProjectFilter.value; // 全体フィルター用
+            const chartEndMonthInput = chartEndMonthInput.value;     // グラフ終了月
+            const selectedProjectCodeFilter = timestampsProjectFilter.value; // 実績詳細フィルターが共通フィルターとなる
 
             // --- レポート/サマリーセクション用のデータ ---
             const reportStartPeriod = moment(reportMonthValue).startOf('month');
@@ -418,57 +428,105 @@
             }
 
             let totalHours = 0;
-            let totalAdjustedHours = 0; // 調整後稼働時間
+            let totalAdjustedHours = 0;
             let totalBillingAmount = 0;
-            const projectHours = new Map(); // プロジェクトごとの稼働時間と請求額 (レポート用)
+            const projectSummaries = new Map(); // プロジェクトごとの稼働時間と請求額 (レポート用)
 
+            // Step 1: Calculate raw total hours per project for the report period
+            const rawProjectHoursForReport = new Map();
             filteredTimestampsForReport.forEach(ts => {
                 const project = projectsData.get(ts.projectCode);
                 if (!project) return;
-
                 const duration = ts.durationHours || 0;
-                totalHours += duration;
-
-                const workTimeUnitMinutes = project.workTimeUnit || 60;
-                const adjustedDurationHours = Math.floor((duration * 60) / workTimeUnitMinutes) * workTimeUnitMinutes / 60;
-                totalAdjustedHours += adjustedDurationHours;
-
-                let billingAmount = 0;
-                if (project.contractType === 'hourly') {
-                    billingAmount = adjustedDurationHours * project.baseHourlyRate;
-                } else if (project.contractType === 'fixed') {
-                    const baseWorkingHours = project.baseWorkingHours || 0;
-                    const billingRangeStart = project.billingRangeStart || 0;
-                    const billingRangeEnd = project.billingRangeEnd || 0;
-
-                    if (adjustedDurationHours < billingRangeStart) {
-                        billingAmount = baseWorkingHours * project.baseHourlyRate;
-                    } else if (adjustedDurationHours > billingRangeEnd) {
-                        billingAmount = baseWorkingHours * project.baseHourlyRate + (adjustedDurationHours - billingRangeEnd) * project.baseHourlyRate;
-                    } else {
-                        billingAmount = baseWorkingHours * project.baseHourlyRate;
-                    }
-                }
-                totalBillingAmount += billingAmount;
-
-                if (!projectHours.has(project.code)) {
-                    projectHours.set(project.code, { hours: 0, adjustedHours: 0, amount: 0, name: project.name, color: project.color, code: project.code });
-                }
-                const currentProjectSummary = projectHours.get(project.code);
-                currentProjectSummary.hours += duration;
-                currentProjectSummary.adjustedHours += adjustedDurationHours;
-                currentProjectSummary.amount += billingAmount;
+                rawProjectHoursForReport.set(project.code, (rawProjectHoursForReport.get(project.code) || 0) + duration);
             });
 
+            // Step 2: Calculate adjusted hours and billing based on the chosen adjustment method
+            rawProjectHoursForReport.forEach((rawHours, projectCode) => {
+                const project = projectsData.get(projectCode);
+                if (!project) return;
+
+                let currentProjectRawHours = 0;
+                let currentProjectAdjustedHours = 0;
+                let currentProjectBillingAmount = 0;
+
+                if (adjustmentMethod === 'per-detail') {
+                    // 明細毎に調整
+                    filteredTimestampsForReport.filter(ts => ts.projectCode === projectCode).forEach(ts => {
+                        const duration = ts.durationHours || 0;
+                        const workTimeUnitMinutes = project.workTimeUnit || 60;
+                        const adjustedDuration = Math.floor((duration * 60) / workTimeUnitMinutes) * workTimeUnitMinutes / 60;
+
+                        currentProjectRawHours += duration;
+                        currentProjectAdjustedHours += adjustedDuration;
+
+                        let billingAmount = 0;
+                        if (project.contractType === 'hourly') {
+                            billingAmount = adjustedDuration * project.baseHourlyRate;
+                        } else if (project.contractType === 'fixed') {
+                            const baseWorkingHours = project.baseWorkingHours || 0;
+                            const billingRangeStart = project.billingRangeStart || 0;
+                            const billingRangeEnd = project.billingRangeEnd || 0;
+
+                            if (adjustedDuration < billingRangeStart) {
+                                billingAmount = baseWorkingHours * project.baseHourlyRate;
+                            } else if (adjustedDuration > billingRangeEnd) {
+                                billingAmount = baseWorkingHours * project.baseHourlyRate + (adjustedDuration - billingRangeEnd) * project.baseHourlyRate;
+                            } else {
+                                billingAmount = baseWorkingHours * project.baseHourlyRate;
+                            }
+                        }
+                        currentProjectBillingAmount += billingAmount;
+                    });
+                } else { // monthly-total (月次の合計時間で調整)
+                    currentProjectRawHours = rawHours; // 月次の合計生時間
+
+                    const workTimeUnitMinutes = project.workTimeUnit || 60;
+                    currentProjectAdjustedHours = Math.floor((currentProjectRawHours * 60) / workTimeUnitMinutes) * workTimeUnitMinutes / 60;
+
+                    let billingAmount = 0;
+                    if (project.contractType === 'hourly') {
+                        billingAmount = currentProjectAdjustedHours * project.baseHourlyRate;
+                    } else if (project.contractType === 'fixed') {
+                        const baseWorkingHours = project.baseWorkingHours || 0;
+                        const billingRangeStart = project.billingRangeStart || 0;
+                        const billingRangeEnd = project.billingRangeEnd || 0;
+
+                        if (currentProjectAdjustedHours < billingRangeStart) {
+                            billingAmount = baseWorkingHours * project.baseHourlyRate;
+                        } else if (currentProjectAdjustedHours > billingRangeEnd) {
+                            billingAmount = baseWorkingHours * project.baseHourlyRate + (currentProjectAdjustedHours - billingRangeEnd) * project.baseHourlyRate;
+                        } else {
+                            billingAmount = baseWorkingHours * project.baseHourlyRate;
+                        }
+                    }
+                    currentProjectBillingAmount = billingAmount;
+                }
+
+                totalHours += currentProjectRawHours;
+                totalAdjustedHours += currentProjectAdjustedHours;
+                totalBillingAmount += currentProjectBillingAmount;
+
+                projectSummaries.set(projectCode, {
+                    hours: currentProjectRawHours,
+                    adjustedHours: currentProjectAdjustedHours,
+                    amount: currentProjectBillingAmount,
+                    name: project.name,
+                    color: project.color,
+                    code: project.code
+                });
+            });
+
+
             totalWorkingHoursElement.textContent = `${formatHoursToMinutes(totalHours)}`;
-            totalAdjustedHoursElement.textContent = `調整後稼働時間: ${formatHoursToMinutes(totalAdjustedHours)}`;
+            totalAdjustedHoursElement.textContent = `調整後: ${formatHoursToMinutes(totalAdjustedHours)}`;
             totalBillingAmountElement.textContent = `${Math.round(totalBillingAmount).toLocaleString()} 円`;
 
             projectHoursListElement.innerHTML = '';
-            if (projectHours.size === 0) {
+            if (projectSummaries.size === 0) {
                 projectHoursListElement.innerHTML = '<p class="text-gray-500">データがありません。</p>';
             } else {
-                Array.from(projectHours.values()).sort((a, b) => b.hours - a.hours).forEach(p => {
+                Array.from(projectSummaries.values()).sort((a, b) => b.hours - a.hours).forEach(p => {
                     const div = document.createElement('div');
                     div.className = 'flex justify-between items-center bg-white p-3 rounded-md shadow-sm';
                     div.innerHTML = `
@@ -476,7 +534,7 @@
                             <div class="w-3 h-3 rounded-full" style="background-color: ${p.color || '#4F46E5'};"></div>
                             <span class="font-medium text-gray-700">${p.name} (${p.code || 'コードなし'})</span>
                         </div>
-                        <span class="text-gray-800 font-semibold">${formatHoursToMinutes(p.hours)} (${Math.round(p.amount).toLocaleString()} 円)</span>
+                        <span class="text-gray-800 font-semibold">${formatHoursToMinutes(p.hours)} (調整後: ${formatHoursToMinutes(p.adjustedHours)}) (${Math.round(p.amount).toLocaleString()} 円)</span>
                     `;
                     projectHoursListElement.appendChild(div);
                 });
@@ -497,62 +555,82 @@
                 filteredTimestampsForCharts = filteredTimestampsForCharts.filter(ts => ts.projectCode === selectedProjectCodeFilter);
             }
 
-            const monthlyHoursData = {};
-            const monthlyBillingAmountData = {};
+            const monthlyRawHoursData = {}; // 月別プロジェクト別 生の稼働時間データ
+            const monthlyAdjustedHoursData = {}; // 月別プロジェクト別 調整後稼働時間データ
+            const monthlyBillingAmountData = {}; // 月別プロジェクト別 収支データ
 
             const monthLabels = [];
             let currentMonthForCharts = moment(chartStartPeriod);
             while (currentMonthForCharts.isSameOrBefore(chartEndPeriod, 'month')) {
-                monthLabels.push(currentMonthForCharts.format('YYYY-MM'));
+                const monthKey = currentMonthForCharts.format('YYYY-MM');
+                monthLabels.push(monthKey);
+                monthlyRawHoursData[monthKey] = {};
+                monthlyAdjustedHoursData[monthKey] = {};
+                monthlyBillingAmountData[monthKey] = {};
+                projectsData.forEach(project => {
+                    monthlyRawHoursData[monthKey][project.code] = 0;
+                    monthlyAdjustedHoursData[monthKey][project.code] = 0;
+                    monthlyBillingAmountData[monthKey][project.code] = 0;
+                });
                 currentMonthForCharts.add(1, 'month');
             }
 
-            monthLabels.forEach(month => {
-                monthlyHoursData[month] = {};
-                monthlyBillingAmountData[month] = {};
-                projectsData.forEach(project => {
-                    monthlyHoursData[month][project.code] = 0;
-                    monthlyBillingAmountData[month][project.code] = 0;
-                });
-            });
-
+            // 月ごとの生の時間と請求額を集計
             filteredTimestampsForCharts.forEach(ts => {
                 const project = projectsData.get(ts.projectCode);
                 if (!project) return;
 
                 const duration = ts.durationHours || 0;
-                const workTimeUnitMinutes = project.workTimeUnit || 60;
-                const adjustedDurationHours = Math.floor((duration * 60) / workTimeUnitMinutes) * workTimeUnitMinutes / 60;
-
-                let billingAmount = 0;
-                if (project.contractType === 'hourly') {
-                    billingAmount = adjustedDurationHours * project.baseHourlyRate;
-                } else if (project.contractType === 'fixed') {
-                    const baseWorkingHours = project.baseWorkingHours || 0;
-                    const billingRangeStart = project.billingRangeStart || 0;
-                    const billingRangeEnd = project.billingRangeEnd || 0;
-
-                    if (adjustedDurationHours < billingRangeStart) {
-                        billingAmount = baseWorkingHours * project.baseHourlyRate;
-                    } else if (adjustedDurationHours > billingRangeEnd) {
-                        billingAmount = baseWorkingHours * project.baseHourlyRate + (adjustedDurationHours - billingRangeEnd) * project.baseHourlyRate;
-                    } else {
-                        billingAmount = baseWorkingHours * project.baseHourlyRate;
-                    }
-                }
-
                 const month = moment(ts.clockInTime.toDate()).format('YYYY-MM');
-                if (monthlyHoursData[month] && monthlyHoursData[month][project.code] !== undefined) {
-                    monthlyHoursData[month][project.code] += duration;
-                }
-                if (monthlyBillingAmountData[month] && monthlyBillingAmountData[month][project.code] !== undefined) {
-                    monthlyBillingAmountData[month][project.code] += billingAmount;
+
+                if (monthlyRawHoursData[month] && monthlyRawHoursData[month][project.code] !== undefined) {
+                    monthlyRawHoursData[month][project.code] += duration;
                 }
             });
 
+            // 月ごとの集計された生の時間から、調整後稼働時間と請求額を計算
+            monthLabels.forEach(month => {
+                projectsData.forEach(project => {
+                    const rawHoursForMonth = monthlyRawHoursData[month]?.[project.code] || 0;
+                    const workTimeUnitMinutes = project.workTimeUnit || 60;
+                    
+                    let adjustedHoursForMonth = 0;
+                    if (adjustmentMethod === 'per-detail') {
+                        // 明細毎に調整の場合は、個別の調整済み時間を合計する
+                        filteredTimestampsForCharts.filter(ts => ts.projectCode === project.code && moment(ts.clockInTime.toDate()).format('YYYY-MM') === month).forEach(ts => {
+                            const duration = ts.durationHours || 0;
+                            adjustedHoursForMonth += Math.floor((duration * 60) / workTimeUnitMinutes) * workTimeUnitMinutes / 60;
+                        });
+                    } else { // monthly-total (月次の合計時間で調整)
+                        adjustedHoursForMonth = Math.floor((rawHoursForMonth * 60) / workTimeUnitMinutes) * workTimeUnitMinutes / 60;
+                    }
+                    
+                    monthlyAdjustedHoursData[month][project.code] = adjustedHoursForMonth;
+
+                    let billingAmountForMonth = 0;
+                    if (project.contractType === 'hourly') {
+                        billingAmountForMonth = adjustedHoursForMonth * project.baseHourlyRate;
+                    } else if (project.contractType === 'fixed') {
+                        const baseWorkingHours = project.baseWorkingHours || 0;
+                        const billingRangeStart = project.billingRangeStart || 0;
+                        const billingRangeEnd = project.billingRangeEnd || 0;
+
+                        if (adjustedHoursForMonth < billingRangeStart) {
+                            billingAmountForMonth = baseWorkingHours * project.baseHourlyRate;
+                        } else if (adjustedHoursForMonth > billingRangeEnd) {
+                            billingAmountForMonth = baseWorkingHours * project.baseHourlyRate + (adjustedHoursForMonth - billingRangeEnd) * project.baseHourlyRate;
+                        } else {
+                            billingAmountForMonth = baseWorkingHours * project.baseHourlyRate;
+                        }
+                    }
+                    monthlyBillingAmountData[month][project.code] = billingAmountForMonth;
+                });
+            });
+
+
             // 月別稼働時間グラフのレンダリング (表示されている場合のみ)
             if (isMonthlyHoursChartVisible) {
-                renderMonthlyHoursChart(monthLabels, monthlyHoursData);
+                renderMonthlyHoursChart(monthLabels, monthlyAdjustedHoursData); // 調整後稼働時間でグラフを描画
             } else if (monthlyHoursChart) {
                 monthlyHoursChart.destroy();
                 monthlyHoursChart = null;
@@ -570,7 +648,7 @@
         /**
          * 月別稼働時間グラフをレンダリングする (積み上げ棒グラフ)
          * @param {Array<string>} labels - 月ラベルの配列
-         * @param {object} monthlyData - 月別プロジェクト別稼働時間データ
+         * @param {object} monthlyData - 月別プロジェクト別稼働時間データ (調整後)
          */
         function renderMonthlyHoursChart(labels, monthlyData) {
             const datasets = Array.from(projectsData.values()).map(project => {
@@ -610,12 +688,31 @@
                             title: {
                                 display: true,
                                 text: '時間'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return formatHoursToMinutes(value); // Y軸の目盛りを「X時間Y分」形式に
+                                }
                             }
                         }
                     },
                     plugins: {
                         legend: {
                             display: true // 積み上げグラフなので凡例を表示
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += formatHoursToMinutes(context.parsed.y);
+                                    }
+                                    return label;
+                                }
+                            }
                         }
                     }
                 }
@@ -665,12 +762,31 @@
                             title: {
                                 display: true,
                                 text: '円'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toLocaleString(); // 円はそのまま表示
+                                }
                             }
                         }
                     },
                     plugins: {
                         legend: {
                             display: true // 積み上げグラフなので凡例を表示
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += `${context.parsed.y.toLocaleString()} 円`;
+                                    }
+                                    return label;
+                                }
+                            }
                         }
                     }
                 }
@@ -684,6 +800,7 @@
             timestampsContentElement.innerHTML = '';
             const selectedProjectCode = timestampsProjectFilter.value;
             const reportMonthValue = reportMonthInput.value;
+            const adjustmentMethod = adjustmentMethodSelect.value; // 調整方法
 
             const reportStartPeriod = moment(reportMonthValue).startOf('month');
             const reportEndPeriod = moment(reportMonthValue).endOf('month');
@@ -698,9 +815,49 @@
             }
             
             if (filteredList.length === 0) {
+                timestampsTotalSummaryElement.innerHTML = '<p>稼働時間合計: 0時間0分</p><p>調整後稼働時間合計: 0時間0分</p>';
                 timestampsContentElement.innerHTML = '<p class="text-gray-500">データがありません。</p>';
                 return;
             }
+
+            // Calculate totals for the filtered list
+            let currentFilteredTotalHours = 0;
+            let currentFilteredAdjustedHours = 0;
+
+            // Step 1: Calculate raw total hours per project for this filtered list
+            const rawProjectHoursForFilteredList = new Map();
+            filteredList.forEach(ts => {
+                const project = projectsData.get(ts.projectCode);
+                if (!project) return;
+                const duration = ts.durationHours || 0;
+                rawProjectHoursForFilteredList.set(project.code, (rawProjectHoursForFilteredList.get(project.code) || 0) + duration);
+            });
+
+            // Step 2: Calculate adjusted hours based on the chosen adjustment method for the totals
+            rawProjectHoursForFilteredList.forEach((rawHours, projectCode) => {
+                const project = projectsData.get(projectCode);
+                if (!project) return;
+                const workTimeUnitMinutes = project.workTimeUnit || 60;
+
+                currentFilteredTotalHours += rawHours; // 生の合計時間
+
+                if (adjustmentMethod === 'per-detail') {
+                    // 明細毎に調整の場合は、個別の調整済み時間を合計する
+                    filteredList.filter(ts => ts.projectCode === projectCode).forEach(ts => {
+                        const duration = ts.durationHours || 0;
+                        currentFilteredAdjustedHours += Math.floor((duration * 60) / workTimeUnitMinutes) * workTimeUnitMinutes / 60;
+                    });
+                } else { // monthly-total (月次の合計時間で調整)
+                    currentFilteredAdjustedHours += Math.floor((rawHours * 60) / workTimeUnitMinutes) * workTimeUnitMinutes / 60;
+                }
+            });
+
+            // Display totals at the top of the timestamps-content
+            timestampsTotalSummaryElement.innerHTML = `
+                <p>稼働時間合計: ${formatHoursToMinutes(currentFilteredTotalHours)}</p>
+                <p>調整後稼働時間合計: ${formatHoursToMinutes(currentFilteredAdjustedHours)}</p>
+            `;
+
 
             filteredList.forEach(ts => {
                 const project = projectsData.get(ts.projectCode);
@@ -709,22 +866,23 @@
                 const clockIn = ts.clockInTime.toDate();
                 const clockOut = ts.clockOutTime ? ts.clockOutTime.toDate() : null;
                 const duration = ts.durationHours || 0;
-                const workTimeUnitMinutes = project ? (project.workTimeUnit || 60) : 60;
-                const adjustedDurationHours = Math.floor((duration * 60) / workTimeUnitMinutes) * workTimeUnitMinutes / 60;
+                // 個別の実績明細からは調整後稼働時間を削除
+                // const workTimeUnitMinutes = project ? (project.workTimeUnit || 60) : 60;
+                // const adjustedDurationHours = Math.floor((duration * 60) / workTimeUnitMinutes) * workTimeUnitMinutes / 60;
 
                 const div = document.createElement('div');
-                div.className = 'bg-white p-2 rounded-md shadow-sm border-l-4 flex justify-between items-center'; // paddingを減らし、flexで横並びに
+                div.className = 'bg-white p-1 rounded-md shadow-sm border-l-4 flex justify-between items-center'; // paddingを減らし、flexで横並びに
                 div.style.borderColor = projectColor;
                 div.innerHTML = `
                     <div class="flex-grow">
                         <p class="font-semibold text-gray-800">${projectName} (${ts.projectCode || 'コードなし'})</p>
                         <p class="text-xs text-gray-600">IN: ${clockIn.toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
                         <p class="text-xs text-gray-600">OUT: ${clockOut ? clockOut.toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '---'}</p>
-                        <p class="text-xs text-gray-700">稼働時間: ${formatHoursToMinutes(duration)} (調整後: ${formatHoursToMinutes(adjustedDurationHours)})</p>
+                        <p class="text-xs text-gray-700">稼働時間: ${formatHoursToMinutes(duration)}</p>
                     </div>
-                    <div class="flex space-x-2 flex-shrink-0">
-                        <button class="btn btn-sm bg-main hover:bg-main-dark text-white py-1 px-2 rounded text-xs edit-timestamp-btn" data-id="${ts.id}">編集</button>
-                        <button class="btn btn-sm bg-red-500 hover:bg-red-600 text-white py-1 px-2 rounded text-xs delete-timestamp-btn" data-id="${ts.id}">削除</button>
+                    <div class="flex space-x-1 flex-shrink-0"> <!-- ボタン間のスペースを調整 -->
+                        <button class="btn btn-xs bg-main hover:bg-main-dark text-white py-1 px-2 rounded text-xs edit-timestamp-btn" data-id="${ts.id}">編集</button>
+                        <button class="btn btn-xs bg-red-500 hover:bg-red-600 text-white py-1 px-2 rounded text-xs delete-timestamp-btn" data-id="${ts.id}">削除</button>
                     </div>
                 `;
                 timestampsContentElement.appendChild(div);
@@ -788,7 +946,7 @@
             const id = timestampIdInput.value;
             const projectCode = editProjectCodeSelect.value;
             const clockInTimeStr = editClockInTimeInput.value;
-            const clockOutTimeStr = editClockOutInput.value;
+            const clockOutTimeStr = editClockOutTimeInput.value;
 
             if (!id || !projectCode || !clockInTimeStr) {
                 showStatus("必須フィールドをすべて入力してください。", true, 'timestamp-modal-status');
@@ -902,7 +1060,8 @@
             // レポート対象月とプロジェクトフィルターでフィルタリングされたデータを使用
             const reportStartPeriod = moment(reportMonthInput.value).startOf('month');
             const reportEndPeriod = moment(reportMonthInput.value).endOf('month');
-            const selectedProjectCodeFilter = summaryProjectFilter.value;
+            const selectedProjectCodeFilter = timestampsProjectFilter.value; // PDFもtimestampsProjectFilterでフィルタ
+            const adjustmentMethod = adjustmentMethodSelect.value; // 調整方法
 
             let filteredTimestampsForPdf = timestampsData.filter(ts => {
                 const clockInMoment = moment(ts.clockInTime.toDate());
@@ -913,26 +1072,35 @@
                 filteredTimestampsForPdf = filteredTimestampsForPdf.filter(ts => ts.projectCode === selectedProjectCodeFilter);
             }
 
-            const projectHoursForPdf = new Map();
+            const rawProjectHoursForPdf = new Map();
             filteredTimestampsForPdf.forEach(ts => {
                 const project = projectsData.get(ts.projectCode);
                 if (!project) return;
                 const duration = ts.durationHours || 0;
-                const workTimeUnitMinutes = project.workTimeUnit || 60;
-                const adjustedDurationHours = Math.floor((duration * 60) / workTimeUnitMinutes) * workTimeUnitMinutes / 60;
-
-                if (!projectHoursForPdf.has(project.code)) {
-                    projectHoursForPdf.set(project.code, { hours: 0, adjustedHours: 0, name: project.name, code: project.code });
-                }
-                projectHoursForPdf.get(project.code).hours += duration;
-                projectHoursForPdf.get(project.code).adjustedHours += adjustedDurationHours;
+                rawProjectHoursForPdf.set(project.code, (rawProjectHoursForPdf.get(project.code) || 0) + duration);
             });
 
-            Array.from(projectHoursForPdf.values()).sort((a, b) => b.hours - a.hours).forEach(p => {
+            Array.from(rawProjectHoursForPdf.keys()).sort().forEach(projectCode => {
+                const project = projectsData.get(projectCode);
+                if (!project) return;
+                const rawHours = rawProjectHoursForPdf.get(projectCode);
+                const workTimeUnitMinutes = project.workTimeUnit || 60;
+
+                let adjustedHours = 0;
+                if (adjustmentMethod === 'per-detail') {
+                    // 明細毎に調整の場合は、個別の調整済み時間を合計する
+                    filteredTimestampsForPdf.filter(ts => ts.projectCode === projectCode).forEach(ts => {
+                        const duration = ts.durationHours || 0;
+                        adjustedHours += Math.floor((duration * 60) / workTimeUnitMinutes) * workTimeUnitMinutes / 60;
+                    });
+                } else { // monthly-total (月次の合計時間で調整)
+                    adjustedHours = Math.floor((rawHours * 60) / workTimeUnitMinutes) * workTimeUnitMinutes / 60;
+                }
+
                 projectHoursTableData.push([
-                    `${p.name} (${p.code || 'コードなし'})`,
-                    `${formatHoursToMinutes(p.hours)}`,
-                    `${formatHoursToMinutes(p.adjustedHours)}`
+                    `${project.name} (${project.code || 'コードなし'})`,
+                    `${formatHoursToMinutes(rawHours)}`,
+                    `${formatHoursToMinutes(adjustedHours)}`
                 ]);
             });
 
@@ -959,21 +1127,18 @@
                 const clockIn = ts.clockInTime.toDate().toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
                 const clockOut = ts.clockOutTime ? ts.clockOutTime.toDate().toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '---';
                 const duration = ts.durationHours || 0;
-                const workTimeUnitMinutes = project ? (project.workTimeUnit || 60) : 60;
-                const adjustedDurationHours = Math.floor((duration * 60) / workTimeUnitMinutes) * workTimeUnitMinutes / 60;
 
                 timestampsTableData.push([
                     `${projectName} (${ts.projectCode || 'コードなし'})`,
                     clockIn,
                     clockOut,
-                    `${formatHoursToMinutes(duration)}`,
-                    `${formatHoursToMinutes(adjustedDurationHours)}`
+                    `${formatHoursToMinutes(duration)}`
                 ]);
             });
 
             doc.autoTable({
                 startY: yPos,
-                head: [['プロジェクト', '出勤時間', '退勤時間', '稼働時間', '調整後稼働時間']],
+                head: [['プロジェクト', '出勤時間', '退勤時間', '稼働時間']],
                 body: timestampsTableData,
                 theme: 'grid',
                 styles: { font: 'helvetica', fontSize: 8, cellPadding: 1, overflow: 'linebreak' },
