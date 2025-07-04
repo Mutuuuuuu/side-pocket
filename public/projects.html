@@ -37,7 +37,8 @@
 
     <!-- プロジェクト追加/編集モーダル -->
     <div id="project-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 hidden">
-        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+        <!-- max-h-[90vh]とoverflow-y-autoを追加してスクロール可能にする -->
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <h3 id="modal-title" class="text-xl font-bold mb-4">新しいプロジェクトを追加</h3>
             <form id="project-form" class="space-y-4">
                 <input type="hidden" id="project-id">
@@ -64,9 +65,22 @@
                     </select>
                 </div>
 
-                <div>
-                    <label for="baseHourlyRate" class="block text-sm font-medium text-gray-700">基本時給 (円):</label>
-                    <input type="number" id="baseHourlyRate" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" min="0" required>
+                <!-- 基本時給と作業時間単位を横並びに配置 -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label for="baseHourlyRate" class="block text-sm font-medium text-gray-700">基本時給 (円):</label>
+                        <input type="number" id="baseHourlyRate" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" min="0" required>
+                    </div>
+                    <div>
+                        <label for="workTimeUnit" class="block text-sm font-medium text-gray-700">作業時間単位:</label>
+                        <select id="workTimeUnit" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
+                            <option value="">選択してください</option>
+                            <option value="60">1時間単位 (60分)</option>
+                            <option value="30">30分単位</option>
+                            <option value="15">15分単位</option>
+                            <option value="1">1分単位</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div id="fixedContractFields" class="space-y-4 hidden">
@@ -84,25 +98,16 @@
                     </div>
                 </div>
 
-                <div>
-                    <label for="contractPeriodStart" class="block text-sm font-medium text-gray-700">契約期間 開始日:</label>
-                    <input type="date" id="contractPeriodStart" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
-                </div>
-
-                <div>
-                    <label for="contractPeriodEnd" class="block text-sm font-medium text-gray-700">契約期間 終了日:</label>
-                    <input type="date" id="contractPeriodEnd" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
-                </div>
-
-                <div>
-                    <label for="workTimeUnit" class="block text-sm font-medium text-gray-700">作業時間単位:</label>
-                    <select id="workTimeUnit" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
-                        <option value="">選択してください</option>
-                        <option value="60">1時間単位 (60分)</option>
-                        <option value="30">30分単位</option>
-                        <option value="15">15分単位</option>
-                        <option value="1">1分単位</option>
-                    </select>
+                <!-- 契約期間 開始日と終了日を横並びに配置 -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label for="contractPeriodStart" class="block text-sm font-medium text-gray-700">契約期間 開始日:</label>
+                        <input type="date" id="contractPeriodStart" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                    </div>
+                    <div>
+                        <label for="contractPeriodEnd" class="block text-sm font-medium text-gray-700">契約期間 終了日:</label>
+                        <input type="date" id="contractPeriodEnd" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                    </div>
                 </div>
 
                 <div class="flex justify-end space-x-3">
