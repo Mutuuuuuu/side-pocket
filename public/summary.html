@@ -728,7 +728,7 @@
                 const timestampRef = doc(db, "timestamps", timestampId);
                 await updateDoc(timestampRef, {
                     clockInTime: clockInTime,
-                    clockOutTime: clockOutTime,
+                    clockOutTime: clockOutOutTime,
                     durationHours: parseFloat(durationHours.toFixed(2)),
                     projectCode: projectCode,
                     projectName: projectName,
@@ -816,38 +816,32 @@
 
             // PDFに含めるコンテンツを構築
             const pdfContent = document.createElement('div');
-            pdfContent.className = 'p-6 font-sans text-gray-800'; // Added font-sans for better default font
+            pdfContent.className = 'p-6'; // TailwindクラスはPDFに影響しない可能性があるので最小限に
 
             pdfContent.innerHTML = `
                 <style>
-                    /* PDF用のスタイル */
-                    body { font-family: 'sans-serif'; }
-                    h2, h3, p { margin: 0; padding: 0; }
-                    .header-title { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
-                    .project-info { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
-                    .total-time { font-size: 18px; font-weight: bold; margin-bottom: 20px; }
+                    /* PDF用の最小限のスタイル */
+                    body { font-family: sans-serif; margin: 0; padding: 0; }
+                    h2, p { margin: 0; padding: 0; }
+                    .header-title { font-size: 24px; font-weight: bold; margin-bottom: 10px; text-align: center; }
+                    .project-info { font-size: 18px; font-weight: bold; margin-bottom: 5px; text-align: center; }
+                    .total-time { font-size: 18px; font-weight: bold; margin-bottom: 20px; text-align: center; }
                     table {
                         width: 100%;
                         border-collapse: collapse;
                         margin-top: 15px;
                         font-size: 14px;
-                        /* PDFの罫線が途切れないように */
-                        page-break-inside: auto;
+                        page-break-inside: auto; /* テーブルがページをまたぐことを許可 */
                     }
-                    thead {
-                        display: table-header-group;
-                    }
-                    tr {
-                        page-break-inside: avoid;
-                        page-break-after: auto;
-                    }
+                    thead { display: table-header-group; }
+                    tr { page-break-inside: avoid; page-break-after: auto; }
                     th, td {
-                        border: 1px solid #e2e8f0; /* Tailwind gray-200 */
+                        border: 1px solid #ccc; /* 薄いグレーの罫線 */
                         padding: 8px;
                         text-align: left;
                     }
                     th {
-                        background-color: #f0f0f0; /* Light gray for header */
+                        background-color: #f5f5f5; /* ヘッダーの背景色 */
                         font-weight: bold;
                     }
                     .text-right { text-align: right; }
@@ -883,9 +877,14 @@
                 </table>
             `;
 
+            console.log("PDF Content HTML:", pdfContent.innerHTML); // デバッグ用にHTML内容を出力
+
             // PDFを生成
-            html2pdf().from(pdfContent).save(`稼働報告書_${selectedMonth}_${projectCode}.pdf`);
-            showStatus("PDFを生成しました。", false, 'summary-status');
+            // 少し遅延させることで、DOMのレンダリングが完了するのを待つ
+            setTimeout(() => {
+                html2pdf().from(pdfContent).save(`稼働報告書_${selectedMonth}_${projectCode}.pdf`);
+                showStatus("PDFを生成しました。", false, 'summary-status');
+            }, 100); // 100ミリ秒の遅延
         }
 
         /**
