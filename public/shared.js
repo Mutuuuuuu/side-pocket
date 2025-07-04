@@ -65,7 +65,8 @@ function setupHeaderMenu(user) {
     const userIconImg = document.getElementById('user-icon');
     const logoutButton = document.getElementById('logout-button');
     const menuToggle = document.getElementById('menu-toggle'); // ハンバーガーメニューボタン
-    const mobileMenu = document.getElementById('mobile-menu'); // ドロップダウンメニューコンテナ
+    const sidebarMenu = document.getElementById('sidebar-menu'); // サイドバーメニューコンテナ
+    const closeMenuButton = document.getElementById('close-menu-button'); // 閉じるボタン
 
     // ユーザー情報
     if (userInfoSpan) {
@@ -96,19 +97,43 @@ function setupHeaderMenu(user) {
     }
 
     // ハンバーガーメニューのトグル
-    if (menuToggle && mobileMenu) {
+    if (menuToggle && sidebarMenu) {
         menuToggle.addEventListener('click', (event) => {
             event.stopPropagation(); // クリックイベントがbodyに伝播するのを防ぐ
-            mobileMenu.classList.toggle('hidden');
-        });
-
-        // メニュー外をクリックで閉じる
-        document.body.addEventListener('click', (event) => {
-            if (!mobileMenu.contains(event.target) && !menuToggle.contains(event.target)) {
-                mobileMenu.classList.add('hidden');
-            }
+            sidebarMenu.classList.remove('-translate-x-full'); // サイドバーを表示
+            sidebarMenu.classList.add('translate-x-0');
+            // メニューテキストを表示
+            document.querySelectorAll('.menu-text').forEach(span => {
+                span.classList.remove('hidden');
+            });
+            sidebarMenu.style.width = '200px'; // メニューを開いたときの幅
         });
     }
+
+    // 閉じるボタンのイベントリスナー
+    if (closeMenuButton && sidebarMenu) {
+        closeMenuButton.addEventListener('click', () => {
+            sidebarMenu.classList.remove('translate-x-0'); // サイドバーを非表示
+            sidebarMenu.classList.add('-translate-x-full');
+            // メニューテキストを非表示
+            document.querySelectorAll('.menu-text').forEach(span => {
+                span.classList.add('hidden');
+            });
+            sidebarMenu.style.width = '64px'; // メニューを閉じたときの幅 (アイコンのみの幅)
+        });
+    }
+
+    // サイドバー外をクリックで閉じる
+    document.body.addEventListener('click', (event) => {
+        if (sidebarMenu && !sidebarMenu.contains(event.target) && !menuToggle.contains(event.target)) {
+            sidebarMenu.classList.remove('translate-x-0');
+            sidebarMenu.classList.add('-translate-x-full');
+            document.querySelectorAll('.menu-text').forEach(span => {
+                span.classList.add('hidden');
+            });
+            sidebarMenu.style.width = '64px';
+        }
+    });
 }
 
 /**
