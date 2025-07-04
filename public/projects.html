@@ -190,7 +190,6 @@
             }
         }
 
-        // ★★★ 修正点: イベントリスナーの設定をイベントデリゲーションに変更 ★★★
         function setupEventListeners() {
             document.getElementById('open-add-project-modal-btn').addEventListener('click', openAddModal);
             document.getElementById('close-modal-btn').addEventListener('click', closeModal);
@@ -201,14 +200,12 @@
             const projectForm = document.getElementById('project-form');
             projectForm.addEventListener('submit', handleFormSubmit);
 
-            // フォーム内の変更を監視し、契約種類のラジオボタンが変更された場合のみ処理
             projectForm.addEventListener('change', (e) => {
                 if (e.target.name === 'contractType') {
                     toggleHourlyFields();
                 }
             });
             
-            // 編集・削除ボタンのリスナー (こちらは元々イベントデリゲーション)
             document.getElementById('projects-list').addEventListener('click', (e) => {
                 if (e.target.classList.contains('edit-btn')) {
                     openEditModal(e.target.dataset.id);
@@ -217,7 +214,6 @@
                 }
             });
 
-            // 削除確認モーダルのリスナー
             document.getElementById('cancel-delete-btn').addEventListener('click', closeDeleteConfirmModal);
             document.getElementById('confirm-delete-btn').addEventListener('click', handleDeleteConfirmed);
         }
@@ -287,6 +283,8 @@
                 showStatus('プロジェクトコードと名前は必須です。', true, 'modal-status');
                 return;
             }
+
+            // ★★★ 修正点: ラジオボタンが選択されているか確認してから値を取得 ★★★
             const checkedContractType = document.querySelector('input[name="contractType"]:checked');
             projectData.contractType = checkedContractType ? checkedContractType.value : null;
 
