@@ -39,7 +39,7 @@ export async function initializePage(onUserAuthenticated) {
 
             if (user) {
                 // ユーザーが認証されたら、ヘッダーメニューをセットアップ
-                // _header.htmlが静的に読み込まれていることを前提とする
+                // _header.htmlが静的に読み込まれていることを前提とするため、DOMContentLoadedで直接呼び出す
                 setupHeaderMenu(user);
 
                 if (onUserAuthenticated) {
@@ -79,7 +79,7 @@ export function setupHeaderMenu(user) {
     const sidebarMenu = document.getElementById('sidebar-menu'); // サイドバーメニューコンテナ
     const closeMenuButton = document.getElementById('close-menu-button'); // モバイル用閉じるボタン
     const mobileMenuOverlay = document.getElementById('mobile-menu-overlay'); // モバイル用オーバーレイ
-    const menuTexts = document.querySelectorAll('#sidebar-menu .menu-text'); // メニューテキスト要素
+    // const menuTexts = document.querySelectorAll('#sidebar-menu .menu-text'); // メニューテキスト要素 (CSSで制御するためJSからは削除)
     const appContainer = document.getElementById('app-container'); // メインコンテンツコンテナ
     const logoutButtonMobile = document.getElementById('logout-button-mobile'); // サイドバー内のログアウトボタン
     // const desktopMenuToggle = document.getElementById('desktop-menu-toggle'); // デスクトップ用ハンバーガーメニュー (削除)
@@ -126,28 +126,20 @@ export function setupHeaderMenu(user) {
             sidebarMenu.classList.add('w-16'); // 初期幅をアイコン用に設定
             sidebarMenu.classList.remove('w-64'); // 展開時の幅を削除
 
-            // デスクトップのハンバーガーメニューは不要なので非表示
-            // if (desktopMenuToggle) desktopMenuToggle.classList.add('hidden'); // desktopMenuToggleを削除したためコメントアウト
-
             // モバイル用のハンバーガーメニュー、閉じるボタン、オーバーレイを非表示
             if (menuToggle) menuToggle.classList.add('hidden');
             if (closeMenuButton) closeMenuButton.classList.add('hidden');
             if (mobileMenuOverlay) mobileMenuOverlay.classList.add('hidden');
 
             // コンテンツの左マージンを調整 (サイドバーの幅に応じて)
+            // デスクトップでは、サイドバーがw-16の時はml-16、w-64の時はml-64
+            // これはCSSのmd:hover:w-64と連携して動作する
             appContainer.classList.remove('md:ml-64');
             appContainer.classList.add('md:ml-16');
 
-            // デスクトップではホバーイベントリスナーを削除（CSSのgroup-hoverで制御するため）
+            // デスクトップではホバーイベントリスナーは不要（CSSのgroup-hoverで制御するため）
             sidebarMenu.onmouseenter = null;
             sidebarMenu.onmouseleave = null;
-
-            // デスクトップのメニューテキストはCSSのgroup-hoverで制御
-            menuTexts.forEach(span => {
-                span.classList.add('hidden'); // デフォルトで非表示
-                span.classList.remove('inline-block'); // 念のためinline-blockも削除
-            });
-
 
         } else { // モバイル
             // モバイルではサイドバーを初期非表示
@@ -159,17 +151,10 @@ export function setupHeaderMenu(user) {
             appContainer.classList.remove('md:ml-16'); // デスクトップのマージンを解除
             appContainer.classList.remove('md:ml-64');
 
-            // メニューテキストをモバイルでは常に表示
-            menuTexts.forEach(span => {
-                span.classList.remove('hidden');
-                span.classList.add('inline-block');
-            });
-
             // モバイルではハンバーガーメニュー、閉じるボタン、オーバーレイを表示
             if (menuToggle) menuToggle.classList.remove('hidden');
             if (closeMenuButton) closeMenuButton.classList.remove('hidden');
             if (mobileMenuOverlay) mobileMenuOverlay.classList.remove('hidden');
-            // if (desktopMenuToggle) desktopMenuToggle.classList.add('hidden'); // desktopMenuToggleを削除したためコメントアウト
 
             // モバイルではホバーイベントリスナーを削除
             sidebarMenu.onmouseenter = null;
@@ -180,14 +165,6 @@ export function setupHeaderMenu(user) {
     // ページロード時とリサイズ時にサイドバーの状態を設定
     applySidebarState();
     window.addEventListener('resize', applySidebarState);
-
-    // デスクトップ用ハンバーガーメニューのクリックイベント (削除したためコメントアウト)
-    // if (desktopMenuToggle && sidebarMenu && appContainer) {
-    //     desktopMenuToggle.addEventListener('click', () => {
-    //         isSidebarExpanded = !isSidebarExpanded; // 状態を反転
-    //         applySidebarState(); // 状態を適用
-    //     });
-    // }
 
     // --- モバイル用ハンバーガーメニューの開閉ロジック ---
     if (menuToggle && sidebarMenu && mobileMenuOverlay) {
