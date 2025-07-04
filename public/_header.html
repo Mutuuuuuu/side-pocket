@@ -1,8 +1,8 @@
 <header class="bg-white shadow-md rounded-2xl p-4 mb-6 max-w-4xl mx-auto">
     <div class="flex justify-between items-center">
-        <!-- 左側: ハンバーガーメニューボタン -->
+        <!-- 左側: ハンバーガーメニューボタン (円形) -->
         <div class="w-1/3 flex justify-start">
-            <button id="menu-toggle" class="p-2 rounded-md hover:bg-gray-100 text-gray-700 focus:outline-none focus:ring-2 focus:ring-main">
+            <button id="menu-toggle" class="p-2 rounded-full hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-main">
                 <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path>
                 </svg>
@@ -11,22 +11,24 @@
 
         <!-- 中央: ロゴ -->
         <div class="w-1/3 flex justify-center">
-            <img src="images/sidepocket_Logo.png" alt="side pocket ロゴ" class="h-26 w-auto">
+            <a href="index.html">
+                <img src="images/sidepocket_Logo.png" alt="side pocket ロゴ" class="h-16 w-auto">
+            </a>
         </div>
 
-        <!-- 右側: ユーザー情報とログアウトボタン -->
+        <!-- 右側: ユーザー情報 (アイコンとメール) -->
         <div class="w-1/3 flex justify-end items-center space-x-2 text-sm text-gray-600">
             <a href="profile.html" class="flex items-center space-x-2 text-gray-600 hover:text-main no-underline">
-                <!-- ユーザーアイコン画像 (placeholder) -->
+                <!-- ユーザーアイコン画像 -->
                 <img id="user-icon" src="https://placehold.co/32x32/EFEFEF/333333?text=?" class="w-8 h-8 rounded-full object-cover bg-gray-200">
                 <span id="user-info"></span>
             </a>
-            <button id="logout-button" class="btn bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-1 px-3 rounded-md text-sm">ログアウト</button>
+            <!-- ログアウトボタンはメニュー内に移動 -->
         </div>
     </div>
 
     <!-- フルスクリーンオーバーレイメニュー (デフォルトでは非表示) -->
-    <div id="mobile-menu" class="hidden fixed inset-0 bg-white shadow-lg z-20 p-4">
+    <div id="mobile-menu" class="hidden fixed inset-0 bg-white shadow-lg z-20 p-4 flex flex-col">
         <div class="flex justify-end">
             <button id="close-menu-button" class="p-2 rounded-md hover:bg-gray-100 text-gray-700 focus:outline-none focus:ring-2 focus:ring-main">
                 <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -34,11 +36,17 @@
                 </svg>
             </button>
         </div>
-        <nav class="flex flex-col space-y-2 mt-4">
+        <nav class="flex flex-col space-y-2 mt-4 flex-grow">
             <a href="index.html" class="btn text-gray-700 hover:text-main-dark hover:bg-gray-100 px-3 py-2 rounded-md text-base font-medium">打刻</a>
             <a href="projects.html" class="btn text-gray-700 hover:text-main-dark hover:bg-gray-100 px-3 py-2 rounded-md text-base font-medium">プロジェクト</a>
             <a href="summary.html" class="btn text-gray-700 hover:text-main-dark hover:bg-gray-100 px-3 py-2 rounded-md text-base font-medium">サマリー</a>
             <a href="calendar.html" class="btn text-gray-700 hover:text-main-dark hover:bg-gray-100 px-3 py-2 rounded-md text-base font-medium">カレンダー</a>
         </nav>
+        <!-- ログアウトボタンをメニューの最下部に配置 -->
+        <div class="mt-auto pt-4 border-t border-gray-200">
+            <button id="logout-button" class="btn bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-md w-full">ログアウト</button>
+        </div>
     </div>
+    <!-- ヘッダー関連のステータス表示エリア -->
+    <div id="header-status-message" class="text-center h-5 mt-2"></div>
 </header>

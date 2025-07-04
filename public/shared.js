@@ -3,8 +3,6 @@ import { getAuth, onAuthStateChanged, signOut, signInWithCustomToken, signInAnon
 import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // 1. Firebase Configuration
-// NOTE: このfirebaseConfigは、Canvas環境で提供される__firebase_configが優先されるため、
-// 実際のデプロイ環境ではFunctionsの環境変数などを使用することを推奨します。
 const firebaseConfig = {
     apiKey: "AIzaSyBuRc0oRFQk-GvVAh_90S9NGAYu5sOkxyM",
     authDomain: "side-pocket-sl.firebaseapp.com",
@@ -65,19 +63,21 @@ export async function initializePage(onUserAuthenticated) {
 function setupHeaderMenu(user) {
     const userInfoSpan = document.getElementById('user-info');
     const userIconImg = document.getElementById('user-icon');
-    const logoutButton = document.getElementById('logout-button');
+    const logoutButton = document.getElementById('logout-button'); // This will now be inside mobile-menu
     const menuToggle = document.getElementById('menu-toggle'); // ハンバーガーメニューボタン
-    const mobileMenu = document.getElementById('mobile-menu'); // モバイルメニューコンテナ
+    const mobileMenu = document.getElementById('mobile-menu'); // フルスクリーンオーバーレイメニュー
     const closeMenuButton = document.getElementById('close-menu-button'); // 閉じるボタン
 
-    // ユーザー情報とログアウトボタン
+    // ユーザー情報
     if (userInfoSpan) {
         userInfoSpan.textContent = `${user.email || '匿名ユーザー'}`;
     }
     if (userIconImg) {
-        // ユーザーのphotoURLがあれば設定、なければplaceholder
-        userIconImg.src = user.photoURL || "https://placehold.co/32x32/EFEFEF/333333?text=?";
+        // ユーザーのphotoURLがあれば設定、なければGoogleのデフォルトアイコン
+        userIconImg.src = user.photoURL || "https://placehold.co/32x32/DB4437/FFFFFF?text=G"; // Google G icon placeholder
     }
+
+    // ログアウトボタンのイベントリスナー (メニュー内に配置)
     if (logoutButton) {
         logoutButton.addEventListener('click', async () => {
             try {
@@ -85,7 +85,7 @@ function setupHeaderMenu(user) {
                 window.location.href = 'login.html';
             } catch (error) {
                 console.error("Error signing out:", error);
-                alert("ログアウトに失敗しました: " + error.message); 
+                showStatus("ログアウトに失敗しました: " + error.message, true, 'header-status-message');
             }
         });
     }

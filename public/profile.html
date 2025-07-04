@@ -10,7 +10,7 @@
 </head>
 <body class="bg-gray-100 min-h-screen p-4">
     
-    <!-- ★★★ 修正点：共通ヘッダーを読み込むためのプレースホルダーを追加しました ★★★ -->
+    <!-- ヘッダーを読み込むためのプレースホルダー -->
     <div id="header-placeholder"></div>
 
     <div id="loading" class="flex justify-center items-center h-screen">
@@ -66,8 +66,17 @@
         </main>
     </div>
 
-    <!-- ★★★ 修正点：スクリプト全体を shared.js を利用する形に書き換えました ★★★ -->
     <script type="module">
+        // ヘッダーを動的に読み込むスクリプト
+        document.addEventListener('DOMContentLoaded', function() {
+            fetch('_header.html')
+                .then(response => response.text())
+                .then(data => {
+                    document.getElementById('header-placeholder').innerHTML = data;
+                })
+                .catch(error => console.error('Error loading header:', error));
+        });
+
         import { initializePage, db, auth } from './shared.js';
         import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
@@ -87,7 +96,8 @@
             const statusDiv = document.getElementById('profile-status');
 
             // フォームに現在のユーザー情報を設定
-            userIconPreview.src = user.photoURL || 'https://placehold.co/96x96/EFEFEF/333333?text=?';
+            // user.photoURLがない場合、Googleのデフォルトアイコンを表示
+            userIconPreview.src = user.photoURL || 'https://placehold.co/96x96/DB4437/FFFFFF?text=G';
             displayNameInput.value = user.displayName || '';
             emailInput.value = user.email || '';
 
