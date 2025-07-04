@@ -52,21 +52,11 @@
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, collection, query, where, orderBy, limit, addDoc, updateDoc, doc, getDocs, onSnapshot, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-        // showStatus のみを shared.js からインポートします。
-        // firebaseConfig と __initial_auth_token はグローバル変数として提供されます。
-        import { showStatus } from './shared.js'; 
-
-        // Firebaseの設定をグローバル変数から取得します。
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-
-        // Firebaseの初期化
-        const app = initializeApp(firebaseConfig); 
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-
+        // Firebaseの初期化関連はshared.jsで行い、db, auth, showStatus をインポートします。
+        import { auth, db, showStatus } from './shared.js'; 
+        import { signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { collection, query, where, orderBy, limit, addDoc, updateDoc, doc, onSnapshot, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        
         let currentUser = null;
         let currentPunchId = null; // 現在の打刻ドキュメントID
         let currentPunchType = null; // 'clockIn' or 'clockOut'
