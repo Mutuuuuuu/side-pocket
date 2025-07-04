@@ -448,8 +448,8 @@
                     const baseHourlyRate = project.baseHourlyRate || 0;
 
                     if (adjustedHours < billingRangeStart) {
-                        // 清算幅より少ない場合
-                        billingAmount = baseWorkingHours * baseHourlyRate;
+                        // 調整後稼働時間が清算幅開始より少ない場合、収支は0円
+                        billingAmount = 0;
                     } else if (adjustedHours > billingRangeEnd) {
                         // 採算枠の外の場合 (清算幅より多い場合)
                         billingAmount = adjustedHours * baseHourlyRate;
@@ -513,7 +513,7 @@
                             const baseHourlyRate = project.baseHourlyRate || 0;
 
                             if (adjustedDuration < billingRangeStart) {
-                                billingAmount = baseWorkingHours * baseHourlyRate;
+                                billingAmount = 0; // 調整後稼働時間が清算幅開始より少ない場合、収支は0円
                             } else if (adjustedDuration > billingRangeEnd) {
                                 billingAmount = adjustedDuration * baseHourlyRate;
                             } else {
@@ -538,7 +538,7 @@
                         const baseHourlyRate = project.baseHourlyRate || 0;
 
                         if (currentProjectAdjustedHours < billingRangeStart) {
-                            billingAmount = baseWorkingHours * baseHourlyRate;
+                            billingAmount = 0; // 調整後稼働時間が清算幅開始より少ない場合、収支は0円
                         } else if (currentProjectAdjustedHours > billingRangeEnd) {
                             billingAmount = currentProjectAdjustedHours * baseHourlyRate;
                         } else {
@@ -654,7 +654,7 @@
                         const baseHourlyRate = project.baseHourlyRate || 0;
 
                         if (adjustedHoursForMonth < billingRangeStart) {
-                            billingAmountForMonth = baseWorkingHours * baseHourlyRate;
+                            billingAmountForMonth = 0; // 調整後稼働時間が清算幅開始より少ない場合、収支は0円
                         } else if (adjustedHoursForMonth > billingRangeEnd) {
                             billingAmountForMonth = adjustedHoursForMonth * baseHourlyRate;
                         } else {
@@ -905,7 +905,7 @@
                         <p class="font-semibold text-gray-800">
                             ${projectName} (${ts.projectCode || 'コードなし'})
                             <span class="text-xs text-gray-600 ml-2">
-                                ${clockInFormatted} - ${clockOutFormatted} / 稼働時間: ${formatHoursToMinutes(duration)}
+                                ${clockInFormatted} - ${clockOutFormatted} (稼働: ${formatHoursToMinutes(duration)})
                             </span>
                         </p>
                     </div>
@@ -1160,7 +1160,7 @@
                     `${projectName} (${ts.projectCode || 'コードなし'})`,
                     clockIn,
                     clockOut,
-                    `${formatHoursToMinutes(duration)}`
+                    `(稼働: ${formatHoursToMinutes(duration)})` // PDFの稼働時間表記も変更
                 ]);
             });
 
