@@ -55,10 +55,10 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
         import { getFirestore, collection, query, where, orderBy, limit, addDoc, updateDoc, doc, getDocs, onSnapshot, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-        import { showStatus } from './shared.js'; // firebaseConfig のインポートを削除
+        // firebaseConfig と __initial_auth_token を shared.js からインポートするように戻す
+        import { firebaseConfig, __initial_auth_token, showStatus } from './shared.js'; 
 
         // Firebaseの初期化
-        // firebaseConfig はグローバル変数としてアクセス
         const app = initializeApp(firebaseConfig); 
         const db = getFirestore(app);
         const auth = getAuth(app);
@@ -103,7 +103,7 @@
                     showStatus("認証していません。匿名でサインインします。", false, 'status');
                     try {
                         // Canvas環境で提供されるカスタムトークンがあれば使用
-                        // __initial_auth_token はグローバル変数としてアクセス
+                        // __initial_auth_token は shared.js からインポートされる
                         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                             await signInWithCustomToken(auth, __initial_auth_token);
                             console.log("Signed in with custom token.");
