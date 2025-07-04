@@ -80,7 +80,7 @@ function setupHeaderMenu(user) {
             userIconImg.src = user.photoURL;
         } else {
             // 汎用的なユーザーアイコンSVGをData URLとして設定
-            userIconImg.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' class='lucide lucide-circle-user'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Ccircle cx='12' cy='10' r='3'/%3E%3Cpath d='M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662'/%3E%3C/svg%3E";
+            userIconImg.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' class='lucide lucd-circle-user'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Ccircle cx='12' cy='10' r='3'/%3E%3Cpath d='M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662'/%3E%3C/svg%3E";
         }
     }
 
@@ -98,7 +98,8 @@ function setupHeaderMenu(user) {
     }
 
     // 初期状態: サイドバーを閉じた状態（アイコンのみ）
-    sidebarMenu.classList.add('-translate-x-full'); // 完全に隠す
+    // -translate-x-full クラスは削除し、初期幅をw-16に設定
+    sidebarMenu.classList.remove('-translate-x-full'); // 完全に隠すクラスを削除
     sidebarMenu.style.width = '64px'; // 閉じた時の幅
     menuTexts.forEach(span => {
         span.classList.add('hidden'); // テキストを非表示
@@ -109,8 +110,8 @@ function setupHeaderMenu(user) {
     if (menuToggle && sidebarMenu) {
         menuToggle.addEventListener('click', (event) => {
             event.stopPropagation(); // クリックイベントがbodyに伝播するのを防ぐ
-            sidebarMenu.classList.remove('-translate-x-full'); // サイドバーを表示
-            sidebarMenu.classList.add('translate-x-0');
+            // sidebarMenu.classList.remove('-translate-x-full'); // この行は不要
+            sidebarMenu.classList.add('translate-x-0'); // 表示状態にする
             sidebarMenu.style.width = '200px'; // メニューを開いたときの幅
             // メニューテキストを表示
             menuTexts.forEach(span => {
@@ -123,7 +124,7 @@ function setupHeaderMenu(user) {
     if (closeMenuButton && sidebarMenu) {
         closeMenuButton.addEventListener('click', () => {
             sidebarMenu.classList.remove('translate-x-0'); // サイドバーを非表示
-            sidebarMenu.classList.add('-translate-x-full');
+            // sidebarMenu.classList.add('-translate-x-full'); // この行は不要
             sidebarMenu.style.width = '64px'; // メニューを閉じたときの幅 (アイコンのみの幅)
             // メニューテキストを非表示
             menuTexts.forEach(span => {
@@ -136,7 +137,7 @@ function setupHeaderMenu(user) {
     document.body.addEventListener('click', (event) => {
         if (sidebarMenu && !sidebarMenu.contains(event.target) && !menuToggle.contains(event.target)) {
             sidebarMenu.classList.remove('translate-x-0');
-            sidebarMenu.classList.add('-translate-x-full');
+            // sidebarMenu.classList.add('-translate-x-full'); // この行は不要
             sidebarMenu.style.width = '64px';
             menuTexts.forEach(span => {
                 span.classList.add('hidden');
