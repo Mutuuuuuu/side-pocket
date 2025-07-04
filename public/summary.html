@@ -124,7 +124,7 @@
     
     <!-- PDF生成用の一時的な隠しコンテナ -->
     <!-- html2canvasがDOM要素をキャプチャしやすいように、固定配置で画面外に配置し、サイズを明示的に指定 -->
-    <div id="pdf-hidden-container" style="position: absolute; visibility: hidden; z-index: -1; width: 210mm; background-color: white; border: 1px solid blue;"></div>
+    <div id="pdf-hidden-container" style="position: fixed; top: 0; left: 0; width: 210mm; height: 297mm; background-color: white; border: 1px solid blue; opacity: 0; pointer-events: none;"></div>
 
     <!-- html2pdf.js ライブラリを読み込み -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -912,6 +912,8 @@
             };
 
             try {
+                // コンテナを一時的に不透明にする
+                pdfHiddenContainer.style.opacity = '1';
                 // html2pdfの処理をPromiseとして扱い、完了後にコンテナのコンテンツをクリア
                 await new Promise(resolve => setTimeout(resolve, 1000)); // 1000ミリ秒の遅延
                 await html2pdf().from(pdfHiddenContainer).set(pdfOptions).save();
@@ -920,8 +922,9 @@
                 console.error("PDF生成中にエラーが発生しました:", error);
                 showStatus(`PDFの生成中にエラーが発生しました: ${error.message}。コンソールを確認してください。`, true, 'summary-status');
             } finally {
-                // 処理が完了したら（成功/失敗にかかわらず）隠しコンテナのコンテンツをクリア
+                // 処理が完了したら（成功/失敗にかかわらず）隠しコンテナのコンテンツをクリアし、透明に戻す
                 pdfHiddenContainer.innerHTML = '';
+                pdfHiddenContainer.style.opacity = '0';
             }
         }
 
