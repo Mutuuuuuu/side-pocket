@@ -812,7 +812,7 @@
                 totalProjectHours += duration;
             });
 
-            const selectedMonth = summaryMonthInput.value; // YYYY-MM
+            const selectedMonth = summaryMonthInput.value; //儼-MM
 
             // PDFに含めるコンテンツを構築
             const pdfContent = document.createElement('div');
@@ -1233,7 +1233,7 @@
                                 display: true,
                                 text: '月'
                             },
-                            stacked: false // 各プロジェクトの棒を並べて表示
+                            stacked: true // ★変更点: 積み上げ棒グラフにする
                         },
                         y: {
                             title: {
@@ -1241,7 +1241,7 @@
                                 text: '収支 (円)'
                             },
                             beginAtZero: true,
-                            stacked: false, // 各プロジェクトの棒を並べて表示
+                            stacked: true, // ★変更点: 積み上げ棒グラフにする
                             ticks: {
                                 callback: function(value, index, values) {
                                     return value.toLocaleString('ja-JP', { style: 'currency', currency: 'JPY', minimumFractionDigits: 0 });
