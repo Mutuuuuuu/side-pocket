@@ -68,7 +68,7 @@ function setupHeaderMenu(user) {
     const sidebarMenu = document.getElementById('sidebar-menu'); // サイドバーメニューコンテナ
     const closeMenuButton = document.getElementById('close-menu-button'); // 閉じるボタン
     const menuTexts = document.querySelectorAll('#sidebar-menu .menu-text'); // メニューテキスト要素
-    const mainContent = document.querySelector('main'); // main要素を取得
+    const appContainer = document.getElementById('app-container'); // app-container要素を取得
 
     // ユーザー情報
     if (userInfoSpan) {
@@ -105,9 +105,11 @@ function setupHeaderMenu(user) {
     menuTexts.forEach(span => {
         span.classList.add('hidden'); // テキストを非表示
     });
-    // 初期状態でメインコンテンツの左マージンをサイドバーの幅に合わせる
-    if (mainContent) {
-        mainContent.style.marginLeft = '64px';
+    
+    // app-containerの初期左マージンを設定し、トランジションを追加
+    if (appContainer) {
+        appContainer.style.marginLeft = '64px';
+        appContainer.style.transition = 'margin-left 0.3s ease-in-out'; // スムーズな動きのためにトランジションを追加
     }
 
     // ハンバーガーメニューのトグル
@@ -125,9 +127,9 @@ function setupHeaderMenu(user) {
                 });
                 // ハンバーガーアイコンを非表示にする
                 menuToggle.classList.add('hidden');
-                // メインコンテンツの左マージンを調整
-                if (mainContent) {
-                    mainContent.style.marginLeft = '200px';
+                // app-containerの左マージンを調整
+                if (appContainer) {
+                    appContainer.style.marginLeft = '200px';
                 }
             } else {
                 // サイドバーを閉じる (アイコンのみ)
@@ -140,9 +142,9 @@ function setupHeaderMenu(user) {
                 });
                 // ハンバーガーアイコンを表示する
                 menuToggle.classList.remove('hidden');
-                // メインコンテンツの左マージンを調整
-                if (mainContent) {
-                    mainContent.style.marginLeft = '64px';
+                // app-containerの左マージンを調整
+                if (appContainer) {
+                    appContainer.style.marginLeft = '64px';
                 }
             }
         });
@@ -160,9 +162,9 @@ function setupHeaderMenu(user) {
             if (menuToggle) {
                 menuToggle.classList.remove('hidden');
             }
-            // メインコンテンツの左マージンを調整
-            if (mainContent) {
-                mainContent.style.marginLeft = '64px';
+            // app-containerの左マージンを調整
+            if (appContainer) {
+                appContainer.style.marginLeft = '64px';
             }
         });
     }
@@ -183,9 +185,9 @@ function setupHeaderMenu(user) {
                 if (menuToggle) {
                     menuToggle.classList.remove('hidden');
                 }
-                // メインコンテンツの左マージンを調整
-                if (mainContent) {
-                    mainContent.style.marginLeft = '64px';
+                // app-containerの左マージンを調整
+                if (appContainer) {
+                    appContainer.style.marginLeft = '64px';
                 }
             }
         }
