@@ -63,18 +63,23 @@ export async function initializePage(onUserAuthenticated) {
 function setupHeaderMenu(user) {
     const userInfoSpan = document.getElementById('user-info');
     const userIconImg = document.getElementById('user-icon');
-    const logoutButton = document.getElementById('logout-button'); // This will now be inside mobile-menu
+    const logoutButton = document.getElementById('logout-button');
     const menuToggle = document.getElementById('menu-toggle'); // ハンバーガーメニューボタン
-    const mobileMenu = document.getElementById('mobile-menu'); // フルスクリーンオーバーレイメニュー
-    const closeMenuButton = document.getElementById('close-menu-button'); // 閉じるボタン
+    const mobileMenu = document.getElementById('mobile-menu'); // ドロップダウンメニューコンテナ
 
     // ユーザー情報
     if (userInfoSpan) {
-        userInfoSpan.textContent = `${user.email || '匿名ユーザー'}`;
+        // ディスプレイ名を優先し、なければメールアドレスを表示
+        userInfoSpan.textContent = user.displayName || user.email || '匿名ユーザー';
     }
     if (userIconImg) {
-        // ユーザーのphotoURLがあれば設定、なければGoogleのデフォルトアイコン
-        userIconImg.src = user.photoURL || "https://placehold.co/32x32/DB4437/FFFFFF?text=G"; // Google G icon placeholder
+        // ユーザーのphotoURLがあれば設定、なければ汎用的なユーザーアイコン（SVG）を表示
+        if (user.photoURL) {
+            userIconImg.src = user.photoURL;
+        } else {
+            // 汎用的なユーザーアイコンSVGをData URLとして設定
+            userIconImg.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' class='lucide lucide-circle-user'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Ccircle cx='12' cy='10' r='3'/%3E%3Cpath d='M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662'/%3E%3C/svg%3E";
+        }
     }
 
     // ログアウトボタンのイベントリスナー (メニュー内に配置)
@@ -92,15 +97,16 @@ function setupHeaderMenu(user) {
 
     // ハンバーガーメニューのトグル
     if (menuToggle && mobileMenu) {
-        menuToggle.addEventListener('click', () => {
+        menuToggle.addEventListener('click', (event) => {
+            event.stopPropagation(); // クリックイベントがbodyに伝播するのを防ぐ
             mobileMenu.classList.toggle('hidden');
         });
-    }
 
-    // 閉じるボタンのイベントリスナー
-    if (closeMenuButton && mobileMenu) {
-        closeMenuButton.addEventListener('click', () => {
-            mobileMenu.classList.add('hidden');
+        // メニュー外をクリックで閉じる
+        document.body.addEventListener('click', (event) => {
+            if (!mobileMenu.contains(event.target) && !menuToggle.contains(event.target)) {
+                mobileMenu.classList.add('hidden');
+            }
         });
     }
 }
