@@ -102,11 +102,11 @@ function setupHeaderMenu(user) {
             event.stopPropagation(); // クリックイベントがbodyに伝播するのを防ぐ
             sidebarMenu.classList.remove('-translate-x-full'); // サイドバーを表示
             sidebarMenu.classList.add('translate-x-0');
+            sidebarMenu.style.width = '200px'; // メニューを開いたときの幅
             // メニューテキストを表示
-            document.querySelectorAll('.menu-text').forEach(span => {
+            document.querySelectorAll('#sidebar-menu .menu-text').forEach(span => {
                 span.classList.remove('hidden');
             });
-            sidebarMenu.style.width = '200px'; // メニューを開いたときの幅
         });
     }
 
@@ -115,11 +115,11 @@ function setupHeaderMenu(user) {
         closeMenuButton.addEventListener('click', () => {
             sidebarMenu.classList.remove('translate-x-0'); // サイドバーを非表示
             sidebarMenu.classList.add('-translate-x-full');
+            sidebarMenu.style.width = '64px'; // メニューを閉じたときの幅 (アイコンのみの幅)
             // メニューテキストを非表示
-            document.querySelectorAll('.menu-text').forEach(span => {
+            document.querySelectorAll('#sidebar-menu .menu-text').forEach(span => {
                 span.classList.add('hidden');
             });
-            sidebarMenu.style.width = '64px'; // メニューを閉じたときの幅 (アイコンのみの幅)
         });
     }
 
@@ -128,10 +128,10 @@ function setupHeaderMenu(user) {
         if (sidebarMenu && !sidebarMenu.contains(event.target) && !menuToggle.contains(event.target)) {
             sidebarMenu.classList.remove('translate-x-0');
             sidebarMenu.classList.add('-translate-x-full');
-            document.querySelectorAll('.menu-text').forEach(span => {
+            sidebarMenu.style.width = '64px';
+            document.querySelectorAll('#sidebar-menu .menu-text').forEach(span => {
                 span.classList.add('hidden');
             });
-            sidebarMenu.style.width = '64px';
         }
     });
 }
