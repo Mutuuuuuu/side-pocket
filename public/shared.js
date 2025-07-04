@@ -1,8 +1,10 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAuth, onAuthStateChanged, signOut, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // 1. Firebase Configuration
+// NOTE: このfirebaseConfigは、Canvas環境で提供される__firebase_configが優先されるため、
+// 実際のデプロイ環境ではFunctionsの環境変数などを使用することを推奨します。
 const firebaseConfig = {
     apiKey: "AIzaSyBuRc0oRFQk-GvVAh_90S9NGAYu5sOkxyM",
     authDomain: "side-pocket-sl.firebaseapp.com",
@@ -13,8 +15,12 @@ const firebaseConfig = {
     measurementId: "G-QSBDN1TX68"
 };
 
+// Canvas環境で__firebase_configが提供されていればそれを使用
+const actualFirebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : firebaseConfig;
+
+
 // 2. Firebase Initialization
-export const app = initializeApp(firebaseConfig);
+export const app = initializeApp(actualFirebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
@@ -23,8 +29,7 @@ export const db = getFirestore(app);
  * @param {Function} onUserAuthenticated - Callback function to run after user is authenticated
  */
 export async function initializePage(onUserAuthenticated) {
-    // await loadHeader(); // この行を削除
-    onAuthStateChanged(auth, (user) => {
+    onAuthStateChanged(auth, async (user) => { // asyncを追加
         if (user) {
             setupHeaderMenu(user);
             document.getElementById('loading').style.display = 'none';
@@ -33,35 +38,31 @@ export async function initializePage(onUserAuthenticated) {
                 onUserAuthenticated(user);
             }
         } else {
-            window.location.href = 'login.html';
+            // ユーザーが認証されていない場合、Canvas環境のトークンがあればそれを使用
+            // なければ匿名認証を試みる
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                    console.log("Signed in with custom token via __initial_auth_token.");
+                } else {
+                    // 匿名認証は、__initial_auth_tokenがない場合にのみ実行
+                    await signInAnonymously(auth);
+                    console.log("Signed in anonymously.");
+                }
+            } catch (error) {
+                console.error("Authentication failed in initializePage:", error);
+                // 認証失敗時はログインページへリダイレクト
+                window.location.href = 'login.html';
+            }
         }
     });
 }
-
-// /**
-//  * 4. Fetch and load the header component
-//  * この関数はindex.htmlにヘッダーが直接記述されるため不要になります。
-//  */
-// async function loadHeader() {
-//     const headerPlaceholder = document.getElementById('header-placeholder');
-//     if (headerPlaceholder) {
-//         try {
-//             const response = await fetch('_header.html');
-//             const headerHTML = await response.text();
-//             headerPlaceholder.innerHTML = headerHTML;
-//         } catch (error) {
-//             console.error('ヘッダーの読み込みに失敗しました:', error);
-//             headerPlaceholder.innerHTML = '<p class="text-red-500">ヘッダーの読み込みに失敗しました。</p>';
-//         }
-//     }
-// }
 
 /**
  * Setup header with user info and menu listeners.
  * @param {object} user - Firebase user object
  */
 function setupHeaderMenu(user) {
-    // index.htmlのヘッダーに直接記述された要素のIDに合わせる
     const userInfoSpan = document.getElementById('user-info');
     const logoutButton = document.getElementById('logout-button');
 
@@ -70,30 +71,20 @@ function setupHeaderMenu(user) {
     }
     
     if (logoutButton) {
-        logoutButton.addEventListener('click', () => {
-            signOut(auth);
+        logoutButton.addEventListener('click', async () => { // asyncを追加
+            try {
+                await signOut(auth);
+                // ログアウト後、ログインページへリダイレクト
+                window.location.href = 'login.html';
+            } catch (error) {
+                console.error("Error signing out:", error);
+                // エラー表示はshowStatus関数を使うのが望ましいが、ここでは簡易的に
+                alert("ログアウトに失敗しました: " + error.message); 
+            }
         });
     }
-    // 以前のmenuButtonやdropdownMenu関連のロジックは、もし不要であれば削除してください。
-    // 現在のindex.htmlのヘッダーにはこれらのIDがないため、エラーにならないように注意。
-    // 例: document.getElementById('user-display-name') などは削除またはコメントアウト。
-    // document.getElementById('user-display-name').textContent = user.displayName || user.email;
-    // document.getElementById('user-icon').src = user.photoURL || 'images/sidepocket_symbol.png';
-
-    // const menuButton = document.getElementById('menu-button');
-    // const dropdownMenu = document.getElementById('dropdown-menu');
-
-    // if (menuButton && dropdownMenu) {
-    //     menuButton.addEventListener('click', (e) => {
-    //         e.stopPropagation();
-    //         dropdownMenu.classList.toggle('hidden');
-    //     });
-    //     window.addEventListener('click', (e) => {
-    //         if (!menuButton.contains(e.target) && !dropdownMenu.contains(e.target)) {
-    //             dropdownMenu.classList.add('hidden');
-    //         }
-    //     });
-    // }
+    // 以前のmenuButtonやdropdownMenu関連のロジックは、index.htmlに存在しないため削除またはコメントアウト
+    // document.getElementById('user-display-name') などは削除
 }
 
 /**
