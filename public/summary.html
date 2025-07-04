@@ -29,17 +29,20 @@
                     </header>
 
                 <div class="space-y-4">
-                    <div>
-                        <label for="report-month" class="block text-sm font-medium text-gray-700">レポート対象月:</label>
-                        <input type="month" id="report-month" class="mt-1 block w-full max-w-xs p-2 border border-gray-300 rounded-md">
-                    </div>
+                    <!-- レポート対象月と稼働時間の調整方法を横並びにするラッパー -->
+                    <div class="flex flex-col sm:flex-row sm:space-x-4 space-y-4 sm:space-y-0">
+                        <div>
+                            <label for="report-month" class="block text-sm font-medium text-gray-700">レポート対象月:</label>
+                            <input type="month" id="report-month" class="mt-1 block w-full max-w-xs p-2 border border-gray-300 rounded-md">
+                        </div>
 
-                    <div>
-                        <label for="adjustment-method-select" class="block text-sm font-medium text-gray-700">稼働時間の調整方法:</label>
-                        <select id="adjustment-method-select" class="mt-1 block w-full max-w-xs p-2 border border-gray-300 rounded-md">
-                            <option value="per-detail">明細毎に調整</option>
-                            <option value="monthly-total">月次の合計時間で調整</option>
-                        </select>
+                        <div>
+                            <label for="adjustment-method-select" class="block text-sm font-medium text-gray-700">稼働時間の調整方法:</label>
+                            <select id="adjustment-method-select" class="mt-1 block w-full max-w-xs p-2 border border-gray-300 rounded-md">
+                                <option value="per-detail">明細毎に調整</option>
+                                <option value="monthly-total">月次の合計時間で調整</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div class="bg-gray-50 p-4 rounded-lg shadow-sm">
@@ -909,8 +912,7 @@
                             </span>
                         </p>
                     </div>
-                    <div class="flex space-x-1 flex-shrink-0"> <!-- ボタン間のスペースを調整 -->
-                        <button class="btn btn-xs bg-main hover:bg-main-dark text-white py-1 px-2 rounded text-xs edit-timestamp-btn" data-id="${ts.id}">編集</button>
+                    <div class="flex space-x-1 flex-shrink-0"> <button class="btn btn-xs bg-main hover:bg-main-dark text-white py-1 px-2 rounded text-xs edit-timestamp-btn" data-id="${ts.id}">編集</button>
                         <button class="btn btn-xs bg-red-500 hover:bg-red-600 text-white py-1 px-2 rounded text-xs delete-timestamp-btn" data-id="${ts.id}">削除</button>
                     </div>
                 `;
@@ -1067,6 +1069,7 @@
             let yPos = 10;
             const margin = 10;
             const lineHeight = 7;
+            const adjustmentMethod = adjustmentMethodSelect.value; // 調整方法を取得
 
             doc.setFontSize(18);
             doc.text("稼働実績報告書", doc.internal.pageSize.width / 2, yPos, { align: 'center' });
@@ -1076,20 +1079,17 @@
             doc.text(`対象月: ${reportMonthInput.value}`, margin, yPos); // レポート対象月を使用
             yPos += lineHeight;
             doc.text(`総稼働時間: ${totalWorkingHoursElement.textContent}`, margin, yPos);
-            yPos += lineHeight;
-            doc.text(`総収支: ${totalBillingAmountElement.textContent}`, margin, yPos);
-            yPos += lineHeight * 2;
+            yPos += lineHeight * 2; 
 
-            doc.text("プロジェクト別稼働時間:", margin, yPos);
+            doc.text("合計稼働時間:", margin, yPos); // 項目名を変更
             yPos += lineHeight;
 
-            // プロジェクト別稼働時間リストをテーブルで追加 (収支列なし)
+            // 合計稼働時間リストをテーブルで追加 (調整後稼働時間のみ表示)
             const projectHoursTableData = [];
             // レポート対象月とプロジェクトフィルターでフィルタリングされたデータを使用
             const reportStartPeriod = moment(reportMonthInput.value).startOf('month');
             const reportEndPeriod = moment(reportMonthInput.value).endOf('month');
             const selectedProjectCodeFilter = timestampsProjectFilter.value; // PDFもtimestampsProjectFilterでフィルタ
-            const adjustmentMethod = adjustmentMethodSelect.value; // 調整方法
 
             let filteredTimestampsForPdf = timestampsData.filter(ts => {
                 const clockInMoment = moment(ts.clockInTime.toDate());
@@ -1127,14 +1127,14 @@
 
                 projectHoursTableData.push([
                     `${project.name} (${project.code || 'コードなし'})`,
-                    `${formatHoursToMinutes(rawHours)}`,
-                    `${formatHoursToMinutes(adjustedHours)}`
+                    `${formatHoursToMinutes(adjustedHours)}`, // 調整後稼働時間のみ表示
+                    `${workTimeUnitMinutes}分単位` // 作業時間単位を追加
                 ]);
             });
 
             doc.autoTable({
                 startY: yPos,
-                head: [['プロジェクト', '稼働時間', '調整後稼働時間']],
+                head: [['プロジェクト', '稼働時間', '作業時間単位']], // 項目名を変更し、作業時間単位を追加
                 body: projectHoursTableData,
                 theme: 'grid',
                 styles: { font: 'IPAexGothic', fontSize: 10, cellPadding: 2, overflow: 'linebreak' }, // フォントを設定
@@ -1154,13 +1154,20 @@
                 const projectName = project ? project.name : '不明なプロジェクト';
                 const clockIn = ts.clockInTime.toDate().toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
                 const clockOut = ts.clockOutTime ? ts.clockOutTime.toDate().toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '---';
-                const duration = ts.durationHours || 0;
+                
+                let displayDuration;
+                if (adjustmentMethod === 'per-detail') {
+                    const workTimeUnitMinutes = project ? (project.workTimeUnit || 60) : 60;
+                    displayDuration = Math.floor(((ts.durationHours || 0) * 60) / workTimeUnitMinutes) * workTimeUnitMinutes / 60;
+                } else { // monthly-totalの場合
+                    displayDuration = ts.durationHours || 0; // 実稼働時間
+                }
 
                 timestampsTableData.push([
                     `${projectName} (${ts.projectCode || 'コードなし'})`,
                     clockIn,
                     clockOut,
-                    `(稼働: ${formatHoursToMinutes(duration)})` // PDFの稼働時間表記も変更
+                    `(稼働: ${formatHoursToMinutes(displayDuration)})` // PDFの稼働時間表記を調整
                 ]);
             });
 
