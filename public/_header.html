@@ -16,19 +16,15 @@
             </a>
         </div>
 
-        <!-- 右側: デスクトップ用ナビゲーションとユーザー情報 (モバイルでは非表示) -->
-        <nav class="hidden md:flex items-center space-x-4 text-sm font-medium text-gray-700">
-            <a href="index.html" class="hover:text-main no-underline">打刻</a>
-            <a href="projects.html" class="hover:text-main no-underline">プロジェクト</a>
-            <a href="summary.html" class="hover:text-main no-underline">サマリー</a>
-            <a href="calendar.html" class="hover:text-main no-underline">カレンダー</a>
+        <!-- 右側: デスクトップ用ユーザー情報とログアウトボタン (モバイルではアイコンのみ表示) -->
+        <div class="hidden md:flex justify-end items-center space-x-2 text-sm text-gray-600">
             <a href="profile.html" class="flex items-center space-x-2 text-gray-600 hover:text-main no-underline">
                 <!-- ユーザーアイコン画像 -->
                 <img id="user-icon" src="https://placehold.co/32x32/EFEFEF/333333?text=?" class="w-8 h-8 rounded-full object-cover">
                 <span id="user-info"></span>
             </a>
             <button id="logout-button-desktop" class="btn bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded text-xs">ログアウト</button>
-        </nav>
+        </div>
 
         <!-- 右側: ユーザー情報 (モバイルではアイコンのみ表示) -->
         <div class="md:hidden flex justify-end items-center space-x-2 text-sm text-gray-600">
