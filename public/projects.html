@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>プロジェクト管理 - side pocket</title>
+    <title>打刻 - side pocket</title>
     <link rel="icon" href="images/sidepocket_symbol.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -17,322 +17,255 @@
     <div id="app-container" class="w-full" style="display: none;">
         <div id="header-placeholder"></div>
 
-        <main class="w-full max-w-4xl mx-auto">
+        <main class="w-full max-w-md mx-auto">
             <div class="p-6 sm:p-8 space-y-6 bg-white rounded-2xl shadow-lg">
-                <header class="flex flex-col sm:flex-row justify-between items-center gap-4">
-                    <h2 class="text-2xl sm:text-3xl font-bold text-gray-800">プロジェクト管理</h2>
-                    <button id="open-add-project-modal-btn" class="btn bg-main hover:bg-main-dark text-white font-bold py-2 px-4 rounded-lg flex items-center shadow-md">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" /></svg>
-                        プロジェクトを追加
-                    </button>
+                <header>
+                    <h2 class="text-2xl sm:text-3xl font-bold text-center text-gray-800">打刻システム</h2>
+                    <p id="realtime-clock" class="text-xl sm:text-2xl text-center text-gray-500 mt-2 font-mono"></p>
                 </header>
-                <div id="projects-status" class="pt-2 text-sm"></div>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">コード</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">プロジェクト名</th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
-                            </tr>
-                        </thead>
-                        <tbody id="projects-list" class="bg-white divide-y divide-gray-200">
-                            </tbody>
-                    </table>
+
+                <div class="space-y-4">
+                    <div>
+                        <label for="projectCode" class="block text-sm font-medium text-gray-700">プロジェクト</label>
+                        <select id="projectCode" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-main focus:border-main sm:text-sm rounded-md">
+                            <option value="">プロジェクトを選択してください</option>
+                        </select>
+                    </div>
+
+                    <div id="punch-status" class="pt-2 text-sm text-red-600"></div>
+
+                    <div class="flex flex-col space-y-4">
+                        <button id="punchInBtn" class="btn bg-main hover:bg-main-dark text-white font-bold py-3 px-4 rounded-lg shadow-md text-lg">出勤</button>
+                        <button id="punchOutBtn" class="btn bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-lg shadow-md text-lg">退勤</button>
+                    </div>
+                </div>
+
+                <div id="active-punch-info" class="mt-6 p-4 bg-main-light rounded-lg text-center hidden">
+                    <p class="text-gray-700">現在、<strong id="active-project-name" class="font-bold"></strong> で打刻中です。</p>
+                    <p class="text-sm text-gray-500 mt-1">打刻開始時刻: <span id="active-punch-in-time" class="font-mono"></span></p>
                 </div>
             </div>
         </main>
     </div>
 
-    <div id="project-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-        <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
-            <h3 id="modal-title" class="text-lg font-medium leading-6 text-gray-900">プロジェクトを追加</h3>
-            <form id="project-form" class="mt-4 space-y-4">
-                <input type="hidden" id="project-id-input">
-                <div>
-                    <label for="project-code-input" class="block text-sm font-medium text-gray-700">プロジェクトコード</label>
-                    <input type="text" id="project-code-input" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-main focus:border-main sm:text-sm" required>
-                </div>
-                <div>
-                    <label for="project-name-input" class="block text-sm font-medium text-gray-700">プロジェクト名</label>
-                    <input type="text" id="project-name-input" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-main focus:border-main sm:text-sm" required>
-                </div>
-                <div id="modal-status" class="pt-2 text-sm text-red-600"></div>
-                <div class="flex items-center justify-end space-x-4 mt-6">
-                    <button type="button" id="close-modal-btn" class="btn bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg">キャンセル</button>
-                    <button type="submit" id="submit-project-btn" class="btn bg-main hover:bg-main-dark text-white font-bold py-2 px-4 rounded-lg">追加</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div id="delete-confirm-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-        <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
-             <div class="text-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-red-500 mx-auto" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M8.257 3.099a.75.75 0 01.986 0l5.25 4.5a.75.75 0 01-.02 1.185l-5.25 4.5a.75.75 0 01-1.006-.965L12.652 10 7.23 6.349a.75.75 0 011.027-1.25zm-2.25 0a.75.75 0 01.986 0l5.25 4.5a.75.75 0 01-.02 1.185l-5.25 4.5a.75.75 0 01-1.006-.965L8.402 10 3.007 6.349a.75.75 0 011.000-1.25z" clip-rule="evenodd" />
-                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM2 10a8 8 0 1116 0 8 8 0 01-16 0zM8.257 3.099a.75.75 0 01.986 0l5.25 4.5a.75.75 0 01-.02 1.185l-5.25 4.5a.75.75 0 01-1.006-.965L12.652 10 7.23 6.349a.75.75 0 011.027-1.25zM6 3.099a.75.75 0 01.986 0l5.25 4.5a.75.75 0 01-.02 1.185l-5.25 4.5a.75.75 0 01-1.006-.965L10.402 10 5.007 6.349a.75.75 0 011-1.25z" clip-rule="evenodd" />
-                </svg>
-                <h3 class="text-lg font-medium text-gray-900 mt-5">本当に削除しますか？</h3>
-                <p class="text-sm text-gray-500 mt-2">このプロジェクトを削除すると、元に戻すことはできません。</p>
-                <div id="delete-status" class="pt-2 text-sm text-red-600"></div>
-                <div class="flex justify-center items-center space-x-4 mt-6">
-                    <button id="cancel-delete-btn" class="btn bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg">キャンセル</button>
-                    <button id="confirm-delete-btn" class="btn bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg">削除する</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-
     <script type="module">
         import { app, auth, db, initializePage, showStatus } from './shared.js';
-        // ★★★ 修正点: 読み込み元のパスを正しいURL形式に戻しました ★★★
-        import {
-            collection,
-            query,
-            where,
-            onSnapshot,
-            addDoc,
-            doc,
-            updateDoc,
-            deleteDoc,
+        import { 
+            collection, 
+            query, 
+            where, 
+            orderBy, 
+            onSnapshot, 
+            addDoc, 
+            updateDoc, 
+            doc, 
             serverTimestamp,
-            orderBy,
+            limit,
             getDocs
         } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         let currentUser;
-        let unsubscribeProjects; // リアルタイムリスナーを保持するための変数
-
-        let currentProjectToEditId = null;
-        let currentProjectToDeleteId = null;
-        let currentProjectCodeToDelete = null;
+        let lastPunchType = null;
+        let lastPunchId = null;
+        let activeClockInTime = null;
 
         /**
          * ページセットアップのメイン関数
-         * @param {object} user - 認証済みユーザーオブジェクト
          */
-        function setupProjectPage(user) {
+        function setupIndexPage(user) {
             currentUser = user;
             
-            setupEventListeners();
+            updateClock();
+            setInterval(updateClock, 1000);
+
             listenForProjects();
+            checkLastPunch();
+
+            setupEventListeners();
 
             document.getElementById('loading').style.display = 'none';
             document.getElementById('app-container').style.display = 'block';
         }
 
         /**
-         * Firestoreからプロジェクトリストをリアルタイムで取得・監視する
-         */
-        function listenForProjects() {
-            if (unsubscribeProjects) {
-                unsubscribeProjects(); // 既存のリスナーがあれば解除
-            }
-            const projectsCollectionRef = collection(db, "projects");
-            const q = query(projectsCollectionRef, where("userId", "==", currentUser.uid), orderBy("code"));
-            
-            unsubscribeProjects = onSnapshot(q, (querySnapshot) => {
-                const projects = [];
-                querySnapshot.forEach((doc) => {
-                    projects.push({ id: doc.id, ...doc.data() });
-                });
-                renderProjectsList(projects);
-            }, (error) => {
-                console.error("Error listening for projects:", error);
-                showStatus(`プロジェクトの読み込みに失敗しました: ${error.message}`, true, 'projects-status');
-            });
-        }
-
-        /**
-         * プロジェクトリストをテーブルに描画する
-         * @param {Array} projects - プロジェクトの配列
-         */
-        function renderProjectsList(projects) {
-            const listElement = document.getElementById('projects-list');
-            listElement.innerHTML = ''; // リストをクリア
-            if (projects.length === 0) {
-                listElement.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-gray-500">プロジェクトがありません。</td></tr>';
-                return;
-            }
-
-            projects.forEach(project => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${project.code}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${project.name}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                        <button class="edit-btn text-indigo-600 hover:text-indigo-900" data-id="${project.id}" data-code="${project.code}" data-name="${project.name}">編集</button>
-                        <button class="delete-btn text-red-600 hover:text-red-900" data-id="${project.id}" data-code="${project.code}">削除</button>
-                    </td>
-                `;
-                listElement.appendChild(row);
-            });
-        }
-
-        /**
          * イベントリスナーをセットアップする
          */
         function setupEventListeners() {
-            // モーダル関連
-            document.getElementById('open-add-project-modal-btn').addEventListener('click', openAddModal);
-            document.getElementById('close-modal-btn').addEventListener('click', closeModal);
-            document.getElementById('project-modal').addEventListener('click', (e) => {
-                if(e.target.id === 'project-modal') closeModal();
-            });
-            document.getElementById('project-form').addEventListener('submit', handleFormSubmit);
-            
-            // 編集・削除ボタン
-            document.getElementById('projects-list').addEventListener('click', (e) => {
-                if (e.target.classList.contains('edit-btn')) {
-                    const id = e.target.dataset.id;
-                    const code = e.target.dataset.code;
-                    const name = e.target.dataset.name;
-                    openEditModal(id, code, name);
-                } else if (e.target.classList.contains('delete-btn')) {
-                    const id = e.target.dataset.id;
-                    const code = e.target.dataset.code;
-                    openDeleteConfirmModal(id, code);
-                }
-            });
-
-            // 削除確認モーダル関連
-            document.getElementById('cancel-delete-btn').addEventListener('click', closeDeleteConfirmModal);
-            document.getElementById('confirm-delete-btn').addEventListener('click', handleDeleteConfirmed);
+            document.getElementById('punchInBtn').addEventListener('click', punchIn);
+            document.getElementById('punchOutBtn').addEventListener('click', punchOut);
         }
 
         /**
-         * プロジェクト追加モーダルを開く
+         * リアルタイムクロックを更新する
          */
-        function openAddModal() {
-            currentProjectToEditId = null;
-            document.getElementById('project-form').reset();
-            document.getElementById('modal-title').textContent = "プロジェクトを追加";
-            document.getElementById('submit-project-btn').textContent = "追加";
-            document.getElementById('project-code-input').disabled = false;
-            document.getElementById('project-modal').classList.remove('hidden');
-            showStatus('', false, 'modal-status');
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('realtime-clock').textContent = now.toLocaleTimeString('ja-JP');
+        }
+
+        /**
+         * Firestoreからプロジェクトリストを取得する
+         */
+        function listenForProjects() {
+            // ★★★ デバッグのために2行追加 ★★★
+            console.log("プロジェクトを検索しているユーザーID:", currentUser.uid);
+
+            const projectsCollectionRef = collection(db, "projects");
+            const q = query(projectsCollectionRef, where("userId", "==", currentUser.uid), orderBy("code"));
+            onSnapshot(q, (querySnapshot) => {
+                const projects = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                updateProjectDropdown(projects);
+            }, (error) => {
+                showStatus("プロジェクトの読み込みに失敗しました。", true, 'punch-status');
+                // ★★★ デバッグのために1行追加 ★★★
+                console.error("プロジェクト読み込み時のFirestoreエラー:", error);
+            });
+        }
+
+        /**
+         * プロジェクトドロップダウンを更新する
+         * @param {Array} projects - プロジェクトの配列
+         */
+        function updateProjectDropdown(projects) {
+            const select = document.getElementById('projectCode');
+            const currentValue = select.value;
+            select.innerHTML = '<option value="">プロジェクトを選択してください</option>';
+            projects.forEach(p => {
+                const option = document.createElement('option');
+                option.value = p.code;
+                option.textContent = `${p.code}: ${p.name}`;
+                option.dataset.name = p.name;
+                select.appendChild(option);
+            });
+            select.value = currentValue;
+
+            if (lastPunchType === 'in' && activeClockInTime) {
+                select.disabled = true;
+            } else {
+                select.disabled = false;
+            }
         }
         
         /**
-         * プロジェクト編集モーダルを開く
+         * 最後の打刻状態を確認する
          */
-        function openEditModal(id, code, name) {
-            currentProjectToEditId = id;
-            document.getElementById('project-form').reset();
-            document.getElementById('project-id-input').value = id;
-            document.getElementById('project-code-input').value = code;
-            document.getElementById('project-code-input').disabled = true; // コードは編集不可
-            document.getElementById('project-name-input').value = name;
-            document.getElementById('modal-title').textContent = "プロジェクトを編集";
-            document.getElementById('submit-project-btn').textContent = "更新";
-            document.getElementById('project-modal').classList.remove('hidden');
-            showStatus('', false, 'modal-status');
+        async function checkLastPunch() {
+            const timestampsRef = collection(db, "timestamps");
+            const q = query(timestampsRef, where("userId", "==", currentUser.uid), orderBy("startTime", "desc"), limit(1));
+            
+            const querySnapshot = await getDocs(q);
+            if (!querySnapshot.empty) {
+                const lastDoc = querySnapshot.docs[0];
+                const data = lastDoc.data();
+                if (!data.endTime) {
+                    // 終了時刻がない -> 出勤中
+                    lastPunchType = 'in';
+                    lastPunchId = lastDoc.id;
+                    activeClockInTime = data.startTime.toDate();
+                    updateUIForPunchIn(data.projectCode, data.projectName);
+                } else {
+                    lastPunchType = 'out';
+                    updateUIForPunchOut();
+                }
+            } else {
+                updateUIForPunchOut();
+            }
         }
 
         /**
-         * 追加/編集モーダルを閉じる
+         * 出勤処理
          */
-        function closeModal() {
-            document.getElementById('project-modal').classList.add('hidden');
-        }
-
-        /**
-         * フォームのサブミットを処理（追加または更新）
-         */
-        async function handleFormSubmit(e) {
-            e.preventDefault();
-            const projectCode = document.getElementById('project-code-input').value.trim();
-            const projectName = document.getElementById('project-name-input').value.trim();
-
-            if (!projectCode || !projectName) {
-                showStatus('プロジェクトコードと名前の両方を入力してください。', true, 'modal-status');
+        async function punchIn() {
+            const projectCode = document.getElementById('projectCode').value;
+            if (!projectCode) {
+                showStatus("プロジェクトを選択してください。", true, 'punch-status');
                 return;
             }
 
-            const btn = document.getElementById('submit-project-btn');
-            const originalBtnText = btn.textContent;
-            btn.disabled = true;
-            btn.textContent = '処理中...';
+            const selectedOption = document.getElementById('projectCode').options[document.getElementById('projectCode').selectedIndex];
+            const projectName = selectedOption.dataset.name;
 
             try {
-                if (currentProjectToEditId) {
-                    // 更新処理
-                    const projectRef = doc(db, "projects", currentProjectToEditId);
-                    await updateDoc(projectRef, { name: projectName });
-                    showStatus('プロジェクトが更新されました！', false, 'projects-status');
-                } else {
-                    // 新規追加処理
-                    await addDoc(collection(db, "projects"), {
-                        code: projectCode,
-                        name: projectName,
-                        userId: currentUser.uid,
-                        createdAt: serverTimestamp()
-                    });
-                    showStatus('プロジェクトが追加されました！', false, 'projects-status');
-                }
-                closeModal();
+                const docRef = await addDoc(collection(db, "timestamps"), {
+                    userId: currentUser.uid,
+                    projectCode: projectCode,
+                    projectName: projectName,
+                    startTime: serverTimestamp(),
+                    endTime: null,
+                    duration: 0
+                });
+                lastPunchId = docRef.id;
+                lastPunchType = 'in';
+                activeClockInTime = new Date(); // 現在時刻でセット
+                showStatus("", false, 'punch-status');
+                updateUIForPunchIn(projectCode, projectName);
+
             } catch (error) {
-                console.error("Error adding/updating project:", error);
-                showStatus(`操作に失敗しました: ${error.message}`, true, 'modal-status');
-            } finally {
-                btn.disabled = false;
-                btn.textContent = originalBtnText;
+                console.error("Error punching in: ", error);
+                showStatus("出勤処理に失敗しました: " + error.message, true, 'punch-status');
             }
         }
 
         /**
-         * 削除確認モーダルを開く
+         * 退勤処理
          */
-        function openDeleteConfirmModal(id, code) {
-            currentProjectToDeleteId = id;
-            currentProjectCodeToDelete = code;
-            document.getElementById('delete-confirm-modal').classList.remove('hidden');
-        }
+        async function punchOut() {
+            if (!lastPunchId) {
+                showStatus("出勤記録がありません。", true, 'punch-status');
+                return;
+            }
 
-        /**
-         * 削除確認モーダルを閉じる
-         */
-        function closeDeleteConfirmModal() {
-            currentProjectToDeleteId = null;
-            currentProjectCodeToDelete = null;
-            document.getElementById('delete-confirm-modal').classList.add('hidden');
-            document.getElementById('confirm-delete-btn').disabled = false; // 削除ボタンを有効に戻す
-            showStatus('', false, 'delete-status');
-        }
-
-        /**
-         * 削除が確定されたときのハンドラー
-         */
-        async function handleDeleteConfirmed() {
-            if (!currentProjectToDeleteId) return;
-
-            showStatus("削除中...", false, 'delete-status');
             try {
-                // 稼働実績がないかチェック
-                const q = query(collection(db, "timestamps"), 
-                                where("projectCode", "==", currentProjectCodeToDelete),
-                                where("userId", "==", currentUser.uid)
-                               );
-                const querySnapshot = await getDocs(q);
-                if (!querySnapshot.empty) {
-                    showStatus("このプロジェクトには稼働実績が紐付いているため、削除できません。", true, 'delete-status');
-                    return; // 削除を中断
-                }
+                const punchDocRef = doc(db, "timestamps", lastPunchId);
+                const endTime = new Date();
+                const duration = (endTime - activeClockInTime) / (1000 * 60 * 60); // 時間単位
 
-                await deleteDoc(doc(db, "projects", currentProjectToDeleteId));
-                showStatus("プロジェクトが削除されました！", false, 'projects-status');
-                closeDeleteConfirmModal();
+                await updateDoc(punchDocRef, {
+                    endTime: endTime,
+                    duration: duration
+                });
+                
+                lastPunchId = null;
+                lastPunchType = 'out';
+                activeClockInTime = null;
+                showStatus("お疲れ様でした！", false, 'punch-status');
+                updateUIForPunchOut();
             } catch (error) {
-                console.error("Error deleting project:", error);
-                showStatus(`プロジェクトの削除に失敗しました: ${error.message}`, true, 'delete-status');
+                console.error("Error punching out: ", error);
+                showStatus("退勤処理に失敗しました: " + error.message, true, 'punch-status');
             }
         }
 
-        // 共通の初期化処理を呼び出し、認証完了後にプロジェクトページの処理を実行
-        initializePage(setupProjectPage);
+        /**
+         * 出勤中のUIに更新
+         */
+        function updateUIForPunchIn(projectCode, projectName) {
+            document.getElementById('punchInBtn').disabled = true;
+            document.getElementById('punchOutBtn').disabled = false;
+            document.getElementById('projectCode').value = projectCode;
+            document.getElementById('projectCode').disabled = true;
 
+            document.getElementById('active-project-name').textContent = projectName;
+            document.getElementById('active-punch-in-time').textContent = activeClockInTime.toLocaleTimeString('ja-JP');
+            document.getElementById('active-punch-info').classList.remove('hidden');
+        }
+
+        /**
+         * 退勤中のUIに更新
+         */
+        function updateUIForPunchOut() {
+            document.getElementById('punchInBtn').disabled = false;
+            document.getElementById('punchOutBtn').disabled = true;
+            document.getElementById('projectCode').disabled = false;
+            if (document.getElementById('projectCode').options.length > 1) {
+                document.getElementById('projectCode').value = ""; // プロジェクト選択をリセット
+            }
+
+            document.getElementById('active-punch-info').classList.add('hidden');
+        }
+
+        // 共通の初期化処理を呼び出し、認証完了後にページの処理を実行
+        initializePage(setupIndexPage);
     </script>
 </body>
 </html>
