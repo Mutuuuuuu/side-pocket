@@ -22,9 +22,7 @@
                 <header class="flex flex-col sm:flex-row justify-between items-center gap-4">
                     <h2 class="text-2xl sm:text-3xl font-bold text-gray-800">稼働実績サマリー</h2>
                     <div class="flex flex-wrap gap-2">
-                        <!-- グラフ表示/非表示ボタン -->
                         <button id="toggle-chart-btn" class="btn bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded">稼働グラフを表示</button>
-                        <!-- 収支グラフ表示/非表示ボタンを追加 -->
                         <button id="toggle-revenue-chart-btn" class="btn bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded">収支グラフを表示</button>
                     </div>
                 </header>
@@ -47,30 +45,23 @@
                     <button id="load-summary-btn" class="btn bg-main hover:bg-main-dark text-white font-bold py-2 px-4 rounded md:col-span-2">サマリーを読み込む</button>
                 </div>
 
-                <!-- 稼働グラフ表示エリア -->
                 <div id="chart-container" class="hidden bg-gray-50 p-4 rounded-lg shadow-inner mb-6 h-80">
                     <h3 class="text-xl font-bold text-gray-800 mb-4">月次プロジェクト別稼働推移</h3>
                     <canvas id="time-chart"></canvas>
                 </div>
 
-                <!-- 収支グラフ表示エリア -->
                 <div id="revenue-chart-container" class="hidden bg-gray-50 p-4 rounded-lg shadow-inner mb-6 h-80">
                     <h3 class="text-xl font-bold text-gray-800 mb-4">月次プロジェクト別収支推移</h3>
                     <canvas id="revenue-chart"></canvas>
                 </div>
 
-                <!-- 全プロジェクト収支サマリーセクション -->
                 <div id="global-revenue-summary" class="p-6 sm:p-8 space-y-6 bg-white rounded-2xl shadow-lg mb-6 hidden">
-                    <!-- JavaScriptで内容が動的に挿入されます -->
-                </div>
+                    </div>
 
-                <!-- タブとコンテンツのコンテナ -->
                 <div id="summary-tabs-container" class="space-y-4">
                     <div role="tablist" id="project-tab-list" class="flex flex-wrap border-b border-gray-200 -mb-px">
-                        <!-- プロジェクトタブがここに動的に挿入されます -->
-                    </div>
+                        </div>
                     <div id="project-tab-content" class="mt-4">
-                        <!-- プロジェクトごとの稼働実績がここに動的に挿入されます -->
                         <p class="text-gray-500 text-center py-4">月を選択して「サマリーを読み込む」を押してください。</p>
                     </div>
                 </div>
@@ -79,7 +70,6 @@
         </main>
     </div>
 
-    <!-- 編集モーダル -->
     <div id="edit-timestamp-modal" class="fixed inset-0 bg-gray-600 bg-opacity50 flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
             <h3 class="text-xl font-bold mb-4">稼働実績を編集</h3>
@@ -101,7 +91,6 @@
                 </div>
                 <div class="flex justify-end space-x-3">
                     <button type="button" id="cancel-edit-timestamp" class="btn bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded">キャンセル</button>
-                    <!-- 編集モーダルの更新ボタンの色を統一 -->
                     <button type="submit" class="btn bg-main hover:bg-main-dark text-white font-bold py-2 px-4 rounded">更新</button>
                 </div>
             </form>
@@ -109,7 +98,6 @@
         </div>
     </div>
 
-    <!-- 削除確認モーダル -->
     <div id="delete-confirm-modal" class="fixed inset-0 bg-gray-600 bg-opacity50 flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm">
             <h3 class="text-xl font-bold mb-4">稼働実績を削除</h3>
@@ -122,9 +110,7 @@
         </div>
     </div>
     
-    <!-- html2pdf.js ライブラリを読み込み -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <!-- Chart.js ライブラリを読み込み -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <script type="module">
@@ -815,9 +801,9 @@
                 totalProjectHours += duration;
             });
 
-            const selectedMonth = summaryMonthInput.value; // YYYY-MM
+            const selectedMonth = summaryMonthInput.value; //YYYY-MM
 
-            // PDFに含めるコンテンツを構築
+            // PDFに含めるコンテンツを構築 (デバッグ用に最小限のHTMLに変更)
             const pdfContentHtml = `
                 <style>
                     /* PDF用の最小限のスタイル */
@@ -838,72 +824,51 @@
                     .header-title { font-size: 24px; font-weight: bold; margin-bottom: 10px; text-align: center; }
                     .project-info { font-size: 18px; font-weight: bold; margin-bottom: 5px; text-align: center; }
                     .total-time { font-size: 18px; font-weight: bold; margin-bottom: 20px; text-align: center; }
-                    table {
+                    /* 以下はデバッグ用に一時的に削除またはコメントアウト */
+                    /* table {
                         width: 100%;
                         border-collapse: collapse;
                         margin-top: 15px;
                         font-size: 14px;
-                        table-layout: fixed; /* テーブルレイアウトを固定 */
+                        table-layout: fixed;
                     }
                     th, td {
-                        border: 1px solid #ccc; /* 薄いグレーの罫線 */
+                        border: 1px solid #ccc;
                         padding: 8px;
                         text-align: left;
-                        word-wrap: break-word; /* 長いテキストの折り返し */
+                        word-wrap: break-word;
                     }
                     th {
-                        background-color: #f5f5f5; /* ヘッダーの背景色 */
+                        background-color: #f5f5f5;
                         font-weight: bold;
                     }
-                    .text-right { text-align: right; }
+                    .text-right { text-align: right; } */
                 </style>
                 <div class="pdf-container">
                     <div class="text-center">
-                        <h2 class="header-title">${selectedMonth} 稼働時間報告書</h2>
-                        <p class="project-info">${activeProjectName} (${projectCode})</p>
-                        <p class="total-time">合計稼働時間: ${totalProjectHours.toFixed(2)} 時間</p>
+                        <h2 class="header-title">Hello PDF!</h2>
+                        <p class="project-info">Project: ${activeProjectName} (${projectCode})</p>
+                        <p class="total-time">Total Hours: ${totalProjectHours.toFixed(2)}</p>
                     </div>
-
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>日付</th>
-                                <th>稼働時間</th>
-                                <th class="text-right">時間(h)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${projectTimestamps.sort((a, b) => a.clockInTime.toDate() - b.clockInTime.toDate()).map(ts => {
-                                const clockIn = ts.clockInTime.toDate();
-                                const clockOut = ts.clockOutTime.toDate();
-                                const duration = ts.durationHours || ((clockOut.getTime() - clockIn.getTime()) / 3600000);
-                                return `
-                                    <tr>
-                                        <td>${clockIn.toLocaleDateString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric' })}</td>
-                                        <td>${clockIn.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })} - ${clockOut.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}</td>
-                                        <td class="text-right">${duration.toFixed(2)}</td>
-                                    </tr>
-                                `;
-                            }).join('')}
-                        </tbody>
-                    </table>
-                </div>
+                    </div>
             `;
 
             console.log("PDF Content HTML:", pdfContentHtml); // デバッグ用にHTML内容を出力
 
             // Create a temporary iframe for PDF rendering
             const iframe = document.createElement('iframe');
-            iframe.style.position = 'absolute';
-            iframe.style.top = '-9999px'; // Place off-screen
-            iframe.style.left = '-9999px'; // Place off-screen
-            iframe.style.width = '210mm'; // A4 width
-            iframe.style.height = '297mm'; // A4 height
-            iframe.style.border = '1px solid blue'; // Debug border for the iframe itself
+            // ★変更点: デバッグのためにiframeを画面内に表示
+            iframe.style.position = 'fixed'; // fixedにすることでスクロールしても画面内に残る
+            iframe.style.top = '0px'; 
+            iframe.style.left = '0px'; 
+            iframe.style.width = '400px'; // デバッグしやすいように固定サイズ
+            iframe.style.height = '300px'; // デバッグしやすいように固定サイズ
+            iframe.style.border = '2px solid blue'; // Debug border for the iframe itself
             iframe.style.backgroundColor = 'white';
-            iframe.style.zIndex = '-1'; // Ensure it doesn't interfere with user interaction
+            iframe.style.zIndex = '9999'; // 最前面に表示
+            iframe.style.opacity = '1'; // 透明度をなくす
             document.body.appendChild(iframe);
-            console.log("generateSummaryPdf: iframe作成・DOM追加完了");
+            console.log("generateSummaryPdf: iframe作成・DOM追加完了 (デバッグ表示中)");
 
             // Get the iframe's document
             const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
@@ -925,9 +890,10 @@
 
             try {
                 // Write the HTML content into the iframe's body
-                // iframeDoc.open() と iframeDoc.close() は不要
                 iframeDoc.body.innerHTML = pdfContentHtml;
                 console.log("generateSummaryPdf: iframe内にHTMLコンテンツ注入完了");
+                console.log("iframeDoc.body.innerHTML (注入後):", iframeDoc.body.innerHTML);
+
 
                 // Wait for the iframe content to load and render
                 await new Promise(resolve => {
