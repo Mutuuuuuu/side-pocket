@@ -123,10 +123,8 @@
 
     <script type="module">
         import { app, auth, db, initializePage, showStatus } from './shared.js';
-        import { 
-            collection, query, where, onSnapshot, addDoc, doc, 
-            updateDoc, deleteDoc, serverTimestamp, orderBy, getDocs, getDoc
-        } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        // ★★★ 修正点: Firestoreの機能をまとめてインポート ★★★
+        import * as fs from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         let currentUser;
         let unsubscribeProjects; 
@@ -144,8 +142,9 @@
 
         function listenForProjects() {
             if (unsubscribeProjects) unsubscribeProjects();
-            const q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid), orderBy("code"));
-            unsubscribeProjects = onSnapshot(q, (querySnapshot) => {
+            // ★★★ 修正点: 全ての関数呼び出しに `fs.` を追加 ★★★
+            const q = fs.query(fs.collection(db, "projects"), fs.where("ownerId", "==", currentUser.uid), fs.orderBy("code"));
+            unsubscribeProjects = fs.onSnapshot(q, (querySnapshot) => {
                 const projects = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderProjectsList(projects);
             }, (error) => {
@@ -236,7 +235,7 @@
             showStatus('プロジェクト情報を読み込み中...', false, 'modal-status');
             
             try {
-                const docSnap = await getDoc(doc(db, "projects", id));
+                const docSnap = await fs.getDoc(fs.doc(db, "projects", id));
                 if (docSnap.exists()) {
                     const project = docSnap.data();
                     document.getElementById('project-id-input').value = id;
@@ -283,11 +282,8 @@
                 showStatus('プロジェクトコードと名前は必須です。', true, 'modal-status');
                 return;
             }
-
-            // ★★★ 修正点: ラジオボタンが選択されているか確認してから値を取得 ★★★
             const checkedContractType = document.querySelector('input[name="contractType"]:checked');
             projectData.contractType = checkedContractType ? checkedContractType.value : null;
-
             projectData.contractStartDate = document.getElementById('contract-start-date-input').value;
             projectData.contractEndDate = document.getElementById('contract-end-date-input').value;
             projectData.workTimeUnit = parseInt(document.getElementById('work-time-unit-input').value, 10);
@@ -306,12 +302,12 @@
             btn.textContent = '処理中...';
             try {
                 if (currentProjectToEditId) {
-                    await updateDoc(doc(db, "projects", currentProjectToEditId), projectData);
+                    await fs.updateDoc(fs.doc(db, "projects", currentProjectToEditId), projectData);
                     showStatus('プロジェクトが更新されました！', false, 'projects-status');
                 } else {
                     projectData.ownerId = currentUser.uid;
-                    projectData.createdAt = serverTimestamp();
-                    await addDoc(collection(db, "projects"), projectData);
+                    projectData.createdAt = fs.serverTimestamp();
+                    await fs.addDoc(fs.collection(db, "projects"), projectData);
                     showStatus('プロジェクトが追加されました！', false, 'projects-status');
                 }
                 closeModal();
@@ -339,16 +335,16 @@
             if (!currentProjectToDeleteId) return;
             showStatus("削除中...", false, 'delete-status');
             try {
-                const q = query(collection(db, "timestamps"), 
-                                where("projectCode", "==", currentProjectCodeToDelete),
-                                where("userId", "==", currentUser.uid)
+                const q = fs.query(fs.collection(db, "timestamps"), 
+                                fs.where("projectCode", "==", currentProjectCodeToDelete),
+                                fs.where("userId", "==", currentUser.uid)
                                );
-                const querySnapshot = await getDocs(q);
+                const querySnapshot = await fs.getDocs(q);
                 if (!querySnapshot.empty) {
                     showStatus("このプロジェクトには稼働実績が紐付いているため、削除できません。", true, 'delete-status');
                     return;
                 }
-                await deleteDoc(doc(db, "projects", currentProjectToDeleteId));
+                await fs.deleteDoc(fs.doc(db, "projects", currentProjectToDeleteId));
                 showStatus("プロジェクトが削除されました！", false, 'projects-status');
                 closeDeleteConfirmModal();
             } catch (error) {
