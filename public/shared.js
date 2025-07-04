@@ -91,7 +91,6 @@ export function setupHeaderMenu(user) {
     const sidebarMenu = document.getElementById('sidebar-menu'); // サイドバーメニューコンテナ
     const closeMenuButton = document.getElementById('close-menu-button'); // モバイル用閉じるボタン
     const mobileMenuOverlay = document.getElementById('mobile-menu-overlay'); // モバイル用オーバーレイ
-    const menuTexts = document.querySelectorAll('#sidebar-menu .menu-text'); // メニューテキスト要素
     const appContainer = document.getElementById('app-container'); // メインコンテンツコンテナ
     const logoutButtonMobile = document.getElementById('logout-button-mobile'); // サイドバー内のログアウトボタン
     const desktopMenuToggle = document.getElementById('desktop-menu-toggle'); // デスクトップ用ハンバーガーメニュー
@@ -132,7 +131,7 @@ export function setupHeaderMenu(user) {
         }
 
         if (window.innerWidth >= 768) { // デスクトップ (md breakpoint)
-            // デスクトップではサイドバーを常に表示し、初期はアイコンのみ、ホバーで展開
+            // デスクトップではサイドバーを常に表示し、初期はアイコンのみ
             sidebarMenu.classList.remove('-translate-x-full'); // モバイルの非表示状態を解除
             sidebarMenu.classList.add('translate-x-0'); // 常に表示位置に
 
@@ -145,8 +144,14 @@ export function setupHeaderMenu(user) {
             if (mobileMenuOverlay) mobileMenuOverlay.classList.add('hidden');
 
             // コンテンツの左マージンを調整 (サイドバーの幅に応じて)
-            appContainer.classList.remove('md:ml-64'); // 展開時のマージンを削除
-            appContainer.classList.add('md:ml-16'); // 初期は折りたたみ時のマージン
+            // 初期は折りたたみ時のマージン
+            if (!sidebarMenu.classList.contains('w-64')) { // サイドバーが展開されていない場合
+                appContainer.classList.remove('md:ml-64');
+                appContainer.classList.add('md:ml-16');
+            } else { // サイドバーが展開されている場合
+                appContainer.classList.remove('md:ml-16');
+                appContainer.classList.add('md:ml-64');
+            }
 
             // デスクトップではホバーイベントリスナーを削除（CSSのgroup-hoverで制御するため）
             sidebarMenu.onmouseenter = null;
