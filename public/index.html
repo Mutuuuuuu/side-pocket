@@ -55,36 +55,17 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
         import { getFirestore, collection, query, where, orderBy, limit, addDoc, updateDoc, doc, getDocs, onSnapshot, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-        // shared.jsからのインポートをすべて削除し、必要な関数と設定をここに直接定義します。
+        // showStatus のみを shared.js からインポートします。
+        // firebaseConfig と __initial_auth_token はグローバル変数として提供されます。
+        import { showStatus } from './shared.js'; 
 
-        // Firebaseの設定をここに直接記述します。
-        // !!重要!!: 以下のプレースホルダーをあなたのFirebaseプロジェクトの実際の情報に置き換えてください。
-        const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_AUTH_DOMAIN",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_STORAGE_BUCKET",
-            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-            appId: "YOUR_APP_ID"
-        };
+        // Firebaseの設定をグローバル変数から取得します。
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
 
         // Firebaseの初期化
         const app = initializeApp(firebaseConfig); 
         const db = getFirestore(app);
         const auth = getAuth(app);
-
-        // ステータス表示関数を直接定義
-        function showStatus(message, isError, elementId = 'status') {
-            const statusElement = document.getElementById(elementId);
-            if (statusElement) {
-                statusElement.textContent = message;
-                if (isError) {
-                    statusElement.className = 'text-center h-5 mt-4 text-sm text-red-500';
-                } else {
-                    statusElement.className = 'text-center h-5 mt-4 text-sm text-gray-700';
-                }
-            }
-        }
 
         let currentUser = null;
         let currentPunchId = null; // 現在の打刻ドキュメントID
