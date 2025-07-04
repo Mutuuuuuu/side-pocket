@@ -44,25 +44,25 @@
         <nav class="flex flex-col p-4 space-y-2">
             <a href="index.html" class="flex items-center p-2 rounded-md text-gray-700 hover:bg-gray-100">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                <span class="ml-3 menu-text hidden md:group-hover:inline-block">打刻</span>
+                <span class="ml-3 menu-text md:hidden md:group-hover:inline-block whitespace-nowrap">打刻</span>
             </a>
             <a href="projects.html" class="flex items-center p-2 rounded-md text-gray-700 hover:bg-gray-100">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
-                <span class="ml-3 menu-text hidden md:group-hover:inline-block">プロジェクト</span>
+                <span class="ml-3 menu-text md:hidden md:group-hover:inline-block whitespace-nowrap">プロジェクト</span>
             </a>
             <a href="summary.html" class="flex items-center p-2 rounded-md text-gray-700 hover:bg-gray-100">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-                <span class="ml-3 menu-text hidden md:group-hover:inline-block">サマリー</span>
+                <span class="ml-3 menu-text hidden md:group-hover:inline-block whitespace-nowrap">サマリー</span>
             </a>
             <a href="calendar.html" class="flex items-center p-2 rounded-md text-gray-700 hover:bg-gray-100">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                <span class="ml-3 menu-text hidden md:group-hover:inline-block">カレンダー</span>
+                <span class="ml-3 menu-text hidden md:group-hover:inline-block whitespace-nowrap">カレンダー</span>
             </a>
         </nav>
         <div class="mt-auto pt-4 border-t border-gray-200 p-4">
             <button id="logout-button-mobile" class="flex items-center w-full text-left px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-gray-100">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-                <span class="ml-3 menu-text hidden md:group-hover:inline-block">ログアウト</span>
+                <span class="ml-3 menu-text hidden md:group-hover:inline-block whitespace-nowrap">ログアウト</span>
             </button>
         </div>
     </div>
@@ -74,35 +74,32 @@
         import { auth, setupHeaderMenu } from './shared.js'; // setupHeaderMenuをインポート
 
         document.addEventListener('DOMContentLoaded', function() {
-            // Firebase認証状態が変更されたときにsetupHeaderMenuを呼び出す
-            auth.onAuthStateChanged(user => {
-                if (user) {
-                    // ヘッダーのHTMLがDOMに挿入されたことを確認してからsetupHeaderMenuを呼び出す
-                    // _header.htmlが動的にロードされるため、DOMContentLoadedだけでは不十分な場合がある
-                    // ここでは、ヘッダーのプレースホルダーにコンテンツが追加されたことを監視する
-                    const headerPlaceholder = document.getElementById('header-placeholder');
-                    if (headerPlaceholder && headerPlaceholder.innerHTML !== '') {
-                        setupHeaderMenu(user);
-                    } else {
-                        // header-placeholderがまだ空の場合、MutationObserverで変更を監視
-                        const observer = new MutationObserver((mutationsList, observer) => {
-                            for (const mutation of mutationsList) {
-                                if (mutation.type === 'childList' && headerPlaceholder.innerHTML !== '') {
-                                    setupHeaderMenu(user);
-                                    observer.disconnect(); // 一度実行したら監視を停止
-                                    break;
-                                }
-                            }
-                            // タイムアウトを追加し、一定時間内に要素が見つからない場合でも処理を続行
-                            setTimeout(() => {
-                                if (headerPlaceholder && headerPlaceholder.innerHTML !== '' && !observer.takeRecords().length) {
+            // ヘッダーのHTMLがDOMに挿入されたことを確認してからsetupHeaderMenuを呼び出す
+            const headerPlaceholder = document.getElementById('header-placeholder');
+            if (headerPlaceholder) { // headerPlaceholderが存在することを確認
+                const observer = new MutationObserver((mutationsList, observer) => {
+                    for (const mutation of mutationsList) {
+                        if (mutation.type === 'childList' && headerPlaceholder.innerHTML !== '') {
+                            // headerPlaceholderにコンテンツが追加されたら、setupHeaderMenuを呼び出す
+                            auth.onAuthStateChanged(user => {
+                                if (user) {
                                     setupHeaderMenu(user);
                                 }
-                                observer.disconnect();
-                            }, 2000); // 2秒後にタイムアウト
-                        });
-                        observer.observe(headerPlaceholder, { childList: true });
+                            });
+                            observer.disconnect(); // 一度実行したら監視を停止
+                            break;
+                        }
                     }
+                });
+                // headerPlaceholderの子要素の変更を監視
+                observer.observe(headerPlaceholder, { childList: true });
+            }
+
+            // Firebase認証状態が変更されたときに、もしヘッダーが既にロードされていればsetupHeaderMenuを呼び出す
+            // これは、リロードせずに認証状態が変わる場合（例: ログイン/ログアウト）に対応
+            auth.onAuthStateChanged(user => {
+                if (user && document.getElementById('sidebar-menu')) { // sidebar-menuが存在することを確認
+                    setupHeaderMenu(user);
                 }
             });
         });

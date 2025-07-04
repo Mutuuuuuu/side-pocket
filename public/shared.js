@@ -28,32 +28,54 @@ export const db = getFirestore(app);
  * @param {Function} onUserAuthenticated - ユーザー認証後に実行されるコールバック関数
  */
 export async function initializePage(onUserAuthenticated) {
-    onAuthStateChanged(auth, async (user) => {
-        if (user) {
-            // ヘッダーメニューの設定は_header.htmlがロードされた後に行うため、ここからは削除
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('app-container').style.display = 'block';
-            if (onUserAuthenticated) {
-                onUserAuthenticated(user);
-            }
-        } else {
-            // ユーザーが認証されていない場合、Canvas環境のトークンがあればそれを使用
-            // なければ匿名認証を試みる
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                    console.log("Signed in with custom token via __initial_auth_token.");
+    // DOMContentLoadedイベント内でFirebase認証状態を監視し、
+    // ヘッダーがロードされた後にsetupHeaderMenuを呼び出すように変更
+    document.addEventListener('DOMContentLoaded', () => {
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                // ヘッダーのHTMLがDOMに挿入されたことを確認してからsetupHeaderMenuを呼び出す
+                const headerPlaceholder = document.getElementById('header-placeholder');
+                if (headerPlaceholder && headerPlaceholder.innerHTML !== '') {
+                    setupHeaderMenu(user);
                 } else {
-                    // 匿名認証は、__initial_auth_tokenがない場合にのみ実行
-                    await signInAnonymously(auth);
-                    console.log("Signed in anonymously.");
+                    // header-placeholderがまだ空の場合、MutationObserverで変更を監視
+                    const observer = new MutationObserver((mutationsList, observer) => {
+                        for (const mutation of mutationsList) {
+                            if (mutation.type === 'childList' && headerPlaceholder.innerHTML !== '') {
+                                setupHeaderMenu(user);
+                                observer.disconnect(); // 一度実行したら監視を停止
+                                break;
+                            }
+                        }
+                    });
+                    observer.observe(headerPlaceholder, { childList: true });
                 }
-            } catch (error) {
-                console.error("Authentication failed in initializePage:", error);
-                // 認証失敗時はログインページへリダイレクト
-                window.location.href = 'index.html';
+
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('app-container').style.display = 'block';
+
+                if (onUserAuthenticated) {
+                    onUserAuthenticated(user);
+                }
+            } else {
+                // ユーザーが認証されていない場合、Canvas環境のトークンがあればそれを使用
+                // なければ匿名認証を試みる
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                        console.log("Signed in with custom token via __initial_auth_token.");
+                    } else {
+                        // 匿名認証は、__initial_auth_tokenがない場合にのみ実行
+                        await signInAnonymously(auth);
+                        console.log("Signed in anonymously.");
+                    }
+                } catch (error) {
+                    console.error("Authentication failed in initializePage:", error);
+                    // 認証失敗時はログインページへリダイレクト
+                    window.location.href = 'index.html';
+                }
             }
-        }
+        });
     });
 }
 
@@ -99,22 +121,23 @@ export function setupHeaderMenu(user) {
         });
     }
 
-    let isSidebarExpanded = false; // サイドバーの展開状態を管理するフラグ
+    let isSidebarExpanded = false; // サイドバーの展開状態を管理するフラグ (デスクトップ用)
 
     /**
      * デスクトップとモバイルでサイドバーの表示状態を切り替える関数
      */
     const applySidebarState = () => {
+        // 各要素の存在を確実にチェック
         if (!sidebarMenu || !appContainer) {
             console.warn("Sidebar or app container elements not found. Skipping sidebar setup.");
             return;
         }
 
         if (window.innerWidth >= 768) { // デスクトップ (md breakpoint)
-            // デスクトップではサイドバーを常に表示し、初期はアイコンのみ、ホバーで展開
+            // デスクトップではサイドバーを常に表示し、初期はアイコンのみ、クリックで展開
             sidebarMenu.classList.remove('-translate-x-full'); // モバイルの非表示状態を解除
             sidebarMenu.classList.add('translate-x-0'); // 常に表示位置に
-            
+
             // デスクトップのハンバーガーメニューを表示
             if (desktopMenuToggle) desktopMenuToggle.classList.remove('hidden');
 
@@ -129,6 +152,7 @@ export function setupHeaderMenu(user) {
                 sidebarMenu.classList.add('w-64');
                 appContainer.classList.remove('md:ml-16');
                 appContainer.classList.add('md:ml-64');
+                // テキストを常に表示にする（デスクトップ展開時）
                 menuTexts.forEach(span => {
                     span.classList.remove('hidden');
                     span.classList.add('inline-block');
@@ -138,13 +162,14 @@ export function setupHeaderMenu(user) {
                 sidebarMenu.classList.add('w-16');
                 appContainer.classList.remove('md:ml-64');
                 appContainer.classList.add('md:ml-16');
+                // テキストを非表示にする（デスクトップ折りたたみ時）
                 menuTexts.forEach(span => {
                     span.classList.add('hidden');
                     span.classList.remove('inline-block');
                 });
             }
 
-            // ホバーイベントリスナーを削除 (JSで開閉を制御するため)
+            // デスクトップではホバーイベントリスナーを削除（クリックで制御するため）
             sidebarMenu.onmouseenter = null;
             sidebarMenu.onmouseleave = null;
 
@@ -169,6 +194,10 @@ export function setupHeaderMenu(user) {
             if (closeMenuButton) closeMenuButton.classList.remove('hidden');
             if (mobileMenuOverlay) mobileMenuOverlay.classList.remove('hidden');
             if (desktopMenuToggle) desktopMenuToggle.classList.add('hidden'); // デスクトップ用を非表示
+
+            // モバイルではホバーイベントリスナーを削除
+            sidebarMenu.onmouseenter = null;
+            sidebarMenu.onmouseleave = null;
         }
     };
 
@@ -216,10 +245,6 @@ export function setupHeaderMenu(user) {
             }
         });
     });
-
-    // ロード中の表示を非表示にし、アプリコンテナを表示
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('app-container').style.display = 'block';
 }
 
 /**
