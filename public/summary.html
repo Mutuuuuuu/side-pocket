@@ -124,7 +124,7 @@
     
     <!-- PDF生成用の一時的な隠しコンテナ -->
     <!-- html2canvasがDOM要素をキャプチャしやすいように、固定配置で画面外に配置し、サイズを明示的に指定 -->
-    <div id="pdf-hidden-container" style="position: fixed; top: 0; left: 0; width: 210mm; height: 297mm; background-color: white; border: 1px solid blue; visibility: hidden; pointer-events: none;"></div>
+    <div id="pdf-hidden-container" style="display: none; background-color: white; border: 1px solid blue; pointer-events: none;"></div>
 
     <!-- html2pdf.js ライブラリを読み込み -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -912,19 +912,36 @@
             };
 
             try {
-                // コンテナを一時的に見える状態にする
-                pdfHiddenContainer.style.visibility = 'visible';
-                // html2pdfの処理をPromiseとして扱い、完了後にコンテナのコンテンツをクリア
-                await new Promise(resolve => setTimeout(resolve, 1000)); // 1000ミリ秒の遅延
+                // コンテナを一時的に表示状態にする
+                pdfHiddenContainer.style.display = 'block';
+                pdfHiddenContainer.style.position = 'absolute'; // 画面の左上に配置
+                pdfHiddenContainer.style.left = '0';
+                pdfHiddenContainer.style.top = '0';
+                pdfHiddenContainer.style.zIndex = '9999'; // 最前面に
+                pdfHiddenContainer.style.width = '210mm'; // A4幅を再設定
+                pdfHiddenContainer.style.height = '297mm'; // A4高さを再設定
+
+                // requestAnimationFrame を2回使用して、ブラウザが完全にレンダリングするのを待つ
+                await new Promise(resolve => requestAnimationFrame(() => {
+                    requestAnimationFrame(resolve);
+                }));
+
                 await html2pdf().from(pdfHiddenContainer).set(pdfOptions).save();
                 showStatus("PDFを正常に生成しました。", false, 'summary-status');
             } catch (error) {
                 console.error("PDF生成中にエラーが発生しました:", error);
                 showStatus(`PDFの生成中にエラーが発生しました: ${error.message}。コンソールを確認してください。`, true, 'summary-status');
             } finally {
-                // 処理が完了したら（成功/失敗にかかわらず）隠しコンテナのコンテンツをクリアし、再び隠す
+                // 処理が完了したら（成功/失敗にかかわらず）隠しコンテナのコンテンツをクリアし、再び非表示にする
                 pdfHiddenContainer.innerHTML = '';
-                pdfHiddenContainer.style.visibility = 'hidden';
+                pdfHiddenContainer.style.display = 'none';
+                // スタイルをリセットして、次回のためにクリーンな状態にする
+                pdfHiddenContainer.style.position = '';
+                pdfHiddenContainer.style.left = '';
+                pdfHiddenContainer.style.top = '';
+                pdfHiddenContainer.style.zIndex = '';
+                pdfHiddenContainer.style.width = ''; // 幅もリセット
+                pdfHiddenContainer.style.height = ''; // 高さもリセット
             }
         }
 
