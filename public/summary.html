@@ -728,7 +728,7 @@
                 const timestampRef = doc(db, "timestamps", timestampId);
                 await updateDoc(timestampRef, {
                     clockInTime: clockInTime,
-                    clockOutTime: clockOutOutTime,
+                    clockOutTime: clockOutTime,
                     durationHours: parseFloat(durationHours.toFixed(2)),
                     projectCode: projectCode,
                     projectName: projectName,
@@ -846,43 +846,58 @@
                     }
                     .text-right { text-align: right; }
                 </style>
-                <div class="text-center">
-                    <h2 class="header-title">${selectedMonth} 稼働時間報告書</h2>
-                    <p class="project-info">${activeProjectName} (${projectCode})</p>
-                    <p class="total-time">合計稼働時間: ${totalProjectHours.toFixed(2)} 時間</p>
-                </div>
+                <div style="padding: 20px;"> <!-- 全体の余白を追加 -->
+                    <div class="text-center">
+                        <h2 class="header-title">${selectedMonth} 稼働時間報告書</h2>
+                        <p class="project-info">${activeProjectName} (${projectCode})</p>
+                        <p class="total-time">合計稼働時間: ${totalProjectHours.toFixed(2)} 時間</p>
+                    </div>
 
-                <table>
-                    <thead>
-                        <tr>
-                            <th>日付</th>
-                            <th>稼働時間</th>
-                            <th class="text-right">時間(h)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${projectTimestamps.sort((a, b) => a.clockInTime.toDate() - b.clockInTime.toDate()).map(ts => {
-                            const clockIn = ts.clockInTime.toDate();
-                            const clockOut = ts.clockOutTime.toDate();
-                            const duration = ts.durationHours || ((clockOut.getTime() - clockIn.getTime()) / 3600000);
-                            return `
-                                <tr>
-                                    <td>${clockIn.toLocaleDateString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric' })}</td>
-                                    <td>${clockIn.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })} - ${clockOut.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}</td>
-                                    <td class="text-right">${duration.toFixed(2)}</td>
-                                </tr>
-                            `;
-                        }).join('')}
-                    </tbody>
-                </table>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>日付</th>
+                                <th>稼働時間</th>
+                                <th class="text-right">時間(h)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${projectTimestamps.sort((a, b) => a.clockInTime.toDate() - b.clockInTime.toDate()).map(ts => {
+                                const clockIn = ts.clockInTime.toDate();
+                                const clockOut = ts.clockOutTime.toDate();
+                                const duration = ts.durationHours || ((clockOut.getTime() - clockIn.getTime()) / 3600000);
+                                return `
+                                    <tr>
+                                        <td>${clockIn.toLocaleDateString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric' })}</td>
+                                        <td>${clockIn.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })} - ${clockOut.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}</td>
+                                        <td class="text-right">${duration.toFixed(2)}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
             `;
 
             console.log("PDF Content HTML:", pdfContent.innerHTML); // デバッグ用にHTML内容を出力
 
             // PDFを生成
-            // 少し遅延させることで、DOMのレンダリングが完了するのを待つ
+            // html2pdfオプションを調整
+            const pdfOptions = {
+                margin: [10, 10, 10, 10], // 上、左、下、右の余白 (mm)
+                filename: `稼働報告書_${selectedMonth}_${projectCode}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { 
+                    scale: 2, // レンダリングスケールを上げる (解像度向上)
+                    logging: true, // html2canvasのログを有効化
+                    useCORS: true, // クロスオリジン画像を許可
+                    allowTaint: true // キャンバスの汚染を許可
+                },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
             setTimeout(() => {
-                html2pdf().from(pdfContent).save(`稼働報告書_${selectedMonth}_${projectCode}.pdf`);
+                html2pdf().from(pdfContent).set(pdfOptions).save();
                 showStatus("PDFを生成しました。", false, 'summary-status');
             }, 100); // 100ミリ秒の遅延
         }
