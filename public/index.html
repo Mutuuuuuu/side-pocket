@@ -6,7 +6,7 @@
     <link rel="icon" href="images/sidepocket_symbol.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="style.css"> 
+    <link rel="stylesheet" href="style.css">
 </head>
 <body class="bg-gray-100 min-h-screen p-4">
 
@@ -23,141 +23,282 @@
                     <h2 class="text-2xl sm:text-3xl font-bold text-center text-gray-800">打刻システム</h2>
                     <p id="realtime-clock" class="text-xl sm:text-2xl text-center text-gray-500 mt-2 font-mono"></p>
                 </header>
-                <div class="space-y-2">
-                    <label for="projectCode" class="text-sm font-medium text-gray-700">プロジェクト</label>
-                    <select id="projectCode" class="w-full px-4 py-3 text-base bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 ring-main outline-none">
-                        <option value="">プロジェクトを選択してください</option>
-                    </select>
+
+                <div class="space-y-4">
+                    <div>
+                        <label for="projectCode" class="block text-sm font-medium text-gray-700">プロジェクト:</label>
+                        <select id="projectCode" class="mt-1 block w-full p-2 border border-gray-300 rounded-md" required>
+                            <option value="">プロジェクトを選択してください</option>
+                            </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <button id="clock-in-btn" class="btn bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg shadow-md">出勤</button>
+                        <button id="clock-out-btn" class="btn bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg shadow-md">退勤</button>
+                    </div>
+
+                    <p id="punch-status" class="text-center text-sm font-medium h-5"></p>
+
+                    <div class="flex justify-between items-center text-gray-600 text-sm mt-4">
+                        <p>最終打刻:</p>
+                        <p id="last-punch-time" class="font-mono text-gray-800"></p>
+                    </div>
                 </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <button id="clockInBtn" class="btn w-full px-6 py-3 text-lg font-semibold text-white bg-main rounded-lg hover:bg-main-dark">出勤</button>
-                    <button id="clockOutBtn" class="btn w-full px-6 py-3 text-lg font-semibold text-white bg-slate-500 rounded-lg hover:bg-slate-600">退勤</button>
-                </div>
-                <div id="status" class="pt-4 text-center font-medium h-10"></div>
             </div>
         </main>
     </div>
 
     <script type="module">
-        import { collection, addDoc, getDocs, query, where, orderBy, limit, doc, updateDoc, serverTimestamp, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-        import { initializePage, auth, db, showStatus } from './shared.js';
+        import { collection, query, where, orderBy, limit, getDocs, onSnapshot, addDoc, updateDoc, doc, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { initializePage, auth, db, showStatus } from './shared.js'; // shared.jsをインポート
 
         let currentUser = null;
-        let currentPunchId = null;
+        let currentPunchId = null; // 現在の打刻ID
+        let lastPunchType = null; // 最後の打刻が 'in' か 'out' か
+        let activeClockInTime = null; // 現在の出勤打刻の時間
 
-        initializePage(user => {
-            currentUser = user;
-            listenToActiveProjects();
-            checkForOngoingPunch();
-            updateClock();
-            setInterval(updateClock, 1000);
-        });
+        const realtimeClock = document.getElementById('realtime-clock');
+        const projectSelect = document.getElementById('projectCode');
+        const clockInBtn = document.getElementById('clock-in-btn');
+        const clockOutBtn = document.getElementById('clock-out-btn');
+        const punchStatus = document.getElementById('punch-status');
+        const lastPunchTime = document.getElementById('last-punch-time');
 
+        // リアルタイムクロックの更新
         function updateClock() {
-            document.getElementById('realtime-clock').textContent = new Date().toLocaleTimeString('ja-JP');
+            const now = new Date();
+            realtimeClock.textContent = now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+        setInterval(updateClock, 1000); // 毎秒更新
+
+        /**
+         * Firebase認証完了後に呼び出されるメインのセットアップ関数
+         * @param {object} user - Firebase認証ユーザーオブジェクト
+         */
+        async function setupPunchPage(user) {
+            currentUser = user;
+            listenToActiveProjects(); // アクティブなプロジェクトを購読
+            listenToLastPunch(); // 最後の打刻情報を購読
+
+            clockInBtn.addEventListener('click', handleClockIn);
+            clockOutBtn.addEventListener('click', handleClockOut);
+
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('app-container').style.display = 'block';
         }
 
-        document.getElementById('clockInBtn').addEventListener('click', () => handleTimestamp('出勤'));
-        document.getElementById('clockOutBtn').addEventListener('click', () => handleTimestamp('退勤'));
+        /**
+         * 出勤・退勤ボタンの有効/無効を切り替える
+         * @param {boolean} disabled - 無効にする場合はtrue、有効にする場合はfalse
+         */
+        function setButtonsDisabled(disabled) {
+            clockInBtn.disabled = disabled;
+            clockOutBtn.disabled = disabled;
+            if (disabled) {
+                clockInBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                clockOutBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            } else {
+                clockInBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                clockOutBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        }
 
-        async function handleTimestamp(action) {
-            const projectCode = document.getElementById('projectCode').value;
-            if (!projectCode && action === '出勤') {
-                showStatus("エラー: プロジェクトを選択してください。", true, 'status');
+        /**
+         * 最後の打刻情報をFirestoreから購読
+         */
+        function listenToLastPunch() {
+            if (!currentUser) return;
+            const q = query(
+                collection(db, "punches"),
+                where("userId", "==", currentUser.uid),
+                orderBy("timestamp", "desc"),
+                limit(1)
+            );
+            onSnapshot(q, (snapshot) => {
+                if (!snapshot.empty) {
+                    const lastPunch = snapshot.docs[0].data();
+                    lastPunchType = lastPunch.type;
+                    lastPunchTime.textContent = lastPunch.timestamp.toDate().toLocaleString('ja-JP');
+
+                    if (lastPunch.type === 'in') {
+                        currentPunchId = snapshot.docs[0].id;
+                        activeClockInTime = lastPunch.timestamp.toDate();
+                        clockInBtn.disabled = true;
+                        clockInBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                        clockOutBtn.disabled = false;
+                        clockOutBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                        projectSelect.value = lastPunch.projectCode || ''; // 最後の打刻のプロジェクトを選択状態に
+                        projectSelect.disabled = true; // プロジェクト選択を無効化
+                        showStatus("現在打刻中です。", false, 'punch-status');
+                    } else { // type === 'out'
+                        currentPunchId = null;
+                        activeClockInTime = null;
+                        clockInBtn.disabled = false;
+                        clockInBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                        clockOutBtn.disabled = true;
+                        clockOutBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                        projectSelect.value = ''; // プロジェクト選択をリセット
+                        projectSelect.disabled = false; // プロジェクト選択を有効化
+                        showStatus("打刻されていません。", false, 'punch-status');
+                    }
+                } else {
+                    // まだ打刻がない場合
+                    currentPunchId = null;
+                    activeClockInTime = null;
+                    lastPunchType = null;
+                    clockInBtn.disabled = false;
+                    clockInBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    clockOutBtn.disabled = true;
+                    clockOutBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                    projectSelect.value = ''; // プロジェクト選択をリセット
+                    projectSelect.disabled = false; // プロジェクト選択を有効化
+                    showStatus("打刻されていません。", false, 'punch-status');
+                }
+            }, (error) => {
+                console.error("Error listening to last punch:", error);
+                showStatus("最後の打刻情報の読み込みに失敗しました。", true, 'punch-status');
+            });
+        }
+
+        /**
+         * 出勤打刻を処理
+         */
+        async function handleClockIn() {
+            if (!currentUser) {
+                showStatus("ユーザーが認証されていません。", true, 'punch-status');
                 return;
             }
-            setButtonsDisabled(true);
-            showStatus("記録しています...", false, 'status');
+            if (lastPunchType === 'in') {
+                showStatus("既に出勤打刻済みです。", true, 'punch-status');
+                return;
+            }
+            const projectCode = projectSelect.value;
+            if (!projectCode) {
+                showStatus("プロジェクトを選択してください。", true, 'punch-status');
+                return;
+            }
 
+            showStatus("出勤打刻中...", false, 'punch-status');
             try {
-                if (action === "出勤") {
-                    const q = query(collection(db, "timestamps"), where("userId", "==", currentUser.uid), where("clockOutTime", "==", null));
-                    const querySnapshot = await getDocs(q);
-                    if (!querySnapshot.empty) throw new Error("既に別のプロジェクトで出勤済みです。");
-
-                    const projectOption = document.querySelector(`#projectCode option[value="${projectCode}"]`);
-                    const projectName = projectOption ? projectOption.dataset.name : projectCode;
-
-                    const punchRef = await addDoc(collection(db, "timestamps"), {
-                        userId: currentUser.uid, userEmail: currentUser.email,
-                        projectCode: projectCode, projectName: projectName,
-                        clockInTime: serverTimestamp(), clockOutTime: null, durationHours: null
-                    });
-                    currentPunchId = punchRef.id;
-                    showStatus(`成功:「出勤」を記録しました。`, false, 'status');
-                } else {
-                    if (!currentPunchId) throw new Error("対応する出勤記録が見つかりません。");
-                    
-                    const recordDocRef = doc(db, "timestamps", currentPunchId);
-                    const recordDoc = await getDoc(recordDocRef);
-                    const clockInTime = recordDoc.data().clockInTime.toDate();
-                    const now = new Date();
-                    const durationHours = (now.getTime() - clockInTime.getTime()) / 3600000;
-
-                    await updateDoc(recordDocRef, {
-                        clockOutTime: now,
-                        durationHours: parseFloat(durationHours.toFixed(2))
-                    });
-                    currentPunchId = null;
-                    showStatus(`成功:「退勤」を ${now.toLocaleTimeString('ja-JP')} に記録しました。`, false, 'status');
-                }
+                const now = new Date();
+                const newPunchRef = await addDoc(collection(db, "punches"), {
+                    userId: currentUser.uid,
+                    projectCode: projectCode,
+                    projectName: projectSelect.options[projectSelect.selectedIndex].dataset.name, // プロジェクト名も保存
+                    type: 'in',
+                    timestamp: Timestamp.fromDate(now),
+                    createdAt: Timestamp.fromDate(now)
+                });
+                currentPunchId = newPunchRef.id;
+                activeClockInTime = now;
+                lastPunchType = 'in';
+                showStatus("出勤打刻が完了しました！", false, 'punch-status');
+                projectSelect.disabled = true; // 出勤中はプロジェクト選択を無効化
+                setButtonsDisabled(true); // ボタン状態を更新
+                clockOutBtn.disabled = false; // 退勤ボタンを有効化
+                clockOutBtn.classList.remove('opacity-50', 'cursor-not-allowed');
             } catch (error) {
-                showStatus(`エラー: ${error.message}`, true, 'status');
-            } finally {
-                checkForOngoingPunch();
+                console.error("Error clocking in:", error);
+                showStatus(`出勤打刻に失敗しました: ${error.message}`, true, 'punch-status');
             }
         }
 
-        function setButtonsDisabled(isWorking) {
-            document.getElementById('clockInBtn').disabled = isWorking;
-            document.getElementById('clockInBtn').classList.toggle('opacity-50', isWorking);
-            document.getElementById('clockInBtn').classList.toggle('cursor-not-allowed', isWorking);
-            
-            document.getElementById('clockOutBtn').disabled = !isWorking;
-            document.getElementById('clockOutBtn').classList.toggle('opacity-50', !isWorking);
-            document.getElementById('clockOutBtn').classList.toggle('cursor-not-allowed', !isWorking);
-        }
+        /**
+         * 退勤打刻を処理
+         */
+        async function handleClockOut() {
+            if (!currentUser) {
+                showStatus("ユーザーが認証されていません。", true, 'punch-status');
+                return;
+            }
+            if (lastPunchType === 'out' || !currentPunchId) {
+                showStatus("まだ出勤打刻されていません。", true, 'punch-status');
+                return;
+            }
 
-        async function checkForOngoingPunch() {
-            const q = query(collection(db, "timestamps"), where("userId", "==", currentUser.uid), where("clockOutTime", "==", null), limit(1));
-            const querySnapshot = await getDocs(q);
-            if (!querySnapshot.empty) {
-                const ongoingPunch = querySnapshot.docs[0];
-                currentPunchId = ongoingPunch.id;
-                document.getElementById('projectCode').value = ongoingPunch.data().projectCode;
-                document.getElementById('projectCode').disabled = true;
-                setButtonsDisabled(true);
-            } else {
+            showStatus("退勤打刻中...", false, 'punch-status');
+            try {
+                const now = new Date();
+                const punchRef = doc(db, "punches", currentPunchId);
+                await updateDoc(punchRef, {
+                    type: 'out',
+                    timestamp: Timestamp.fromDate(now),
+                    updatedAt: Timestamp.fromDate(now)
+                });
+
+                // 稼働時間ログをtimestampsコレクションに追加
+                if (activeClockInTime) {
+                    const durationMs = now.getTime() - activeClockInTime.getTime();
+                    const durationHours = durationMs / (1000 * 60 * 60); // ミリ秒から時間へ変換
+
+                    await addDoc(collection(db, "timestamps"), {
+                        userId: currentUser.uid,
+                        projectCode: projectSelect.value,
+                        projectName: projectSelect.options[projectSelect.selectedIndex].dataset.name,
+                        clockInTime: Timestamp.fromDate(activeClockInTime),
+                        clockOutTime: Timestamp.fromDate(now),
+                        durationHours: parseFloat(durationHours.toFixed(2)), // 小数点以下2桁に丸める
+                        createdAt: Timestamp.fromDate(now)
+                    });
+                }
+
+                lastPunchType = 'out';
                 currentPunchId = null;
-                document.getElementById('projectCode').disabled = false;
-                setButtonsDisabled(false);
+                activeClockInTime = null;
+                showStatus("退勤打刻が完了しました！", false, 'punch-status');
+                projectSelect.disabled = false; // 退勤後はプロジェクト選択を有効化
+                setButtonsDisabled(true); // ボタン状態を更新
+                clockInBtn.disabled = false; // 出勤ボタンを有効化
+                clockInBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                projectSelect.value = ''; // プロジェクト選択をリセット
+            } catch (error) {
+                console.error("Error clocking out:", error);
+                showStatus(`退勤打刻に失敗しました: ${error.message}`, true, 'punch-status');
             }
         }
 
+        /**
+         * アクティブなプロジェクトのみをFirestoreから購読し、ドロップダウンを更新する
+         */
         function listenToActiveProjects() {
             if (!currentUser) return;
+            // 'Active'なプロジェクトのみをフィルタリング
             const q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid), where("status", "==", "Active"), orderBy("code"));
             onSnapshot(q, (querySnapshot) => {
                 const projects = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 updateProjectDropdown(projects);
             }, (error) => {
-                showStatus("プロジェクトの読み込みに失敗しました。", true, 'status');
+                showStatus("プロジェクトの読み込みに失敗しました。", true, 'punch-status');
             });
         }
 
+        /**
+         * プロジェクトドロップダウンを更新する
+         * @param {Array} projects - プロジェクトの配列
+         */
         function updateProjectDropdown(projects) {
             const select = document.getElementById('projectCode');
-            const currentValue = select.value;
-            select.innerHTML = '<option value="">プロジェクトを選択してください</option>';
+            const currentValue = select.value; // 現在選択されている値を保持
+            select.innerHTML = '<option value="">プロジェクトを選択してください</option>'; // ドロップダウンをクリア
             projects.forEach(p => {
                 const option = document.createElement('option');
                 option.value = p.code;
                 option.textContent = `${p.code}: ${p.name}`;
-                option.dataset.name = p.name;
+                option.dataset.name = p.name; // プロジェクト名をdata属性に保存
                 select.appendChild(option);
             });
+            // 以前選択されていた値があれば再設定
             select.value = currentValue;
+            // 現在打刻中の場合は、プロジェクト選択を無効化
+            if (lastPunchType === 'in' && activeClockInTime) {
+                select.disabled = true;
+            } else {
+                select.disabled = false;
+            }
         }
+
+        // 共通の初期化処理を呼び出し、認証完了後に打刻ページの処理を実行
+        initializePage(setupPunchPage);
     </script>
 </body>
 </html>

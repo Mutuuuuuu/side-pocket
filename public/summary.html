@@ -210,7 +210,11 @@
                 });
                 updateProjectSelectDropdowns(); // プロジェクト選択ドロップダウンを更新
                 // プロジェクトリストが更新されたら、サマリーを再描画する
-                renderSummary(loadedTimestamps);
+                renderSummary(loadedTimestamps.filter(ts => {
+                    const selectedDateForTable = new Date(summaryMonthInput.value + '-01T00:00:00');
+                    const tsDate = ts.clockInTime.toDate();
+                    return tsDate.getFullYear() === selectedDateForTable.getFullYear() && tsDate.getMonth() === selectedDateForTable.getMonth();
+                }));
             }, (error) => {
                 console.error("Error listening to projects:", error);
                 showStatus("プロジェクトの読み込みに失敗しました。", true, 'summary-status');
@@ -331,7 +335,8 @@
 
             sortedProjectCodes.forEach(projectCode => {
                 const projectEntries = groupedByProject[projectCode];
-                const projectName = userProjects.get(projectCode)?.name || projectCode; // プロジェクト名を取得
+                const projectDetails = userProjects.get(projectCode); // Get full project details
+                const projectName = projectDetails?.name || projectCode; // プロジェクト名を取得
 
                 // Create Tab Button
                 const tabButton = document.createElement('button');
@@ -357,6 +362,51 @@
 
                 // 各プロジェクトの合計時間を初期化
                 let projectTotalHours = 0; 
+                projectEntries.forEach(ts => {
+                    const duration = ts.durationHours || 0;
+                    projectTotalHours += duration;
+                });
+
+                // --- Project Revenue Calculation ---
+                let totalRevenue = 0;
+                let baseRevenue = 0;
+                let overageHours = 0;
+                let shortfallHours = 0;
+                let overageAmount = 0;
+                let shortfallAmount = 0;
+                let adjustedTotalHours = projectTotalHours; // デフォルトはそのまま
+
+                if (projectDetails) {
+                    const baseHourlyRate = projectDetails.baseHourlyRate || 0;
+                    const workTimeUnitMinutes = projectDetails.workTimeUnit || 1; // Default to 1 minute if not set
+
+                    // Convert actual total hours to minutes for rounding
+                    const totalActualMinutes = projectTotalHours * 60;
+                    // Apply workTimeUnit rounding
+                    const adjustedTotalMinutes = Math.floor(totalActualMinutes / workTimeUnitMinutes) * workTimeUnitMinutes;
+                    adjustedTotalHours = adjustedTotalMinutes / 60; // Convert back to hours
+
+                    if (projectDetails.contractType === 'fixed') {
+                        const baseWorkingHours = projectDetails.baseWorkingHours || 0;
+                        const billingRangeStart = projectDetails.billingRangeStart || 0;
+                        const billingRangeEnd = projectDetails.billingRangeEnd || 0;
+
+                        baseRevenue = baseHourlyRate * baseWorkingHours;
+                        totalRevenue = baseRevenue; // Start with base revenue
+
+                        if (adjustedTotalHours > billingRangeEnd) {
+                            overageHours = adjustedTotalHours - billingRangeEnd;
+                            overageAmount = overageHours * baseHourlyRate;
+                            totalRevenue += overageAmount;
+                        } else if (adjustedTotalHours < billingRangeStart) {
+                            shortfallHours = billingRangeStart - adjustedTotalHours;
+                            shortfallAmount = shortfallHours * baseHourlyRate;
+                            totalRevenue -= shortfallAmount;
+                        }
+                    } else if (projectDetails.contractType === 'hourly') {
+                        totalRevenue = adjustedTotalHours * baseHourlyRate;
+                    }
+                }
 
                 // Create table for each project
                 const table = document.createElement('table');
@@ -381,8 +431,7 @@
                     const clockIn = ts.clockInTime.toDate();
                     const clockOut = ts.clockOutTime.toDate();
                     const duration = ts.durationHours || ((clockOut.getTime() - clockIn.getTime()) / 3600000);
-                    projectTotalHours += duration;
-
+                    
                     const row = document.createElement('tr');
                     row.innerHTML = `
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${clockIn.toLocaleDateString('ja-JP')}</td>
@@ -398,10 +447,38 @@
 
                 tabPanel.appendChild(table);
 
+                // --- Displaying Revenue Details ---
+                const revenueDetailsDiv = document.createElement('div');
+                revenueDetailsDiv.className = 'mt-4 p-3 bg-blue-50 rounded-lg text-sm';
+                revenueDetailsDiv.innerHTML = `
+                    <h4 class="font-semibold text-blue-800 mb-2">プロジェクト収支詳細:</h4>
+                    <p><strong>契約種類:</strong> ${projectDetails?.contractType === 'fixed' ? '固定清算' : '時給清算'}</p>
+                    <p><strong>基本時給:</strong> ${projectDetails?.baseHourlyRate?.toLocaleString('ja-JP', { style: 'currency', currency: 'JPY' }) || 'N/A'}</p>
+                    <p><strong>作業時間単位:</strong> ${projectDetails?.workTimeUnit || 'N/A'} 分</p>
+                    <p><strong>総稼働時間 (調整後):</strong> ${adjustedTotalHours.toFixed(2)} 時間</p>
+                `;
+
+                if (projectDetails?.contractType === 'fixed') {
+                    revenueDetailsDiv.innerHTML += `
+                        <p><strong>基本稼働時間:</strong> ${projectDetails.baseWorkingHours?.toFixed(2) || 'N/A'} 時間</p>
+                        <p><strong>清算幅:</strong> ${projectDetails.billingRangeStart?.toFixed(2) || 'N/A'} - ${projectDetails.billingRangeEnd?.toFixed(2) || 'N/A'} 時間</p>
+                        <p><strong>基本報酬:</strong> ${baseRevenue.toLocaleString('ja-JP', { style: 'currency', currency: 'JPY' })}</p>
+                        ${overageHours > 0 ? `<p class="text-green-700"><strong>超過時間:</strong> ${overageHours.toFixed(2)} 時間 (${overageAmount.toLocaleString('ja-JP', { style: 'currency', currency: 'JPY' })})</p>` : ''}
+                        ${shortfallHours > 0 ? `<p class="text-red-700"><strong>不足時間:</strong> ${shortfallHours.toFixed(2)} 時間 (${shortfallAmount.toLocaleString('ja-JP', { style: 'currency', currency: 'JPY' })})</p>` : ''}
+                    `;
+                }
+
+                revenueDetailsDiv.innerHTML += `
+                    <p class="text-lg font-bold text-blue-900 mt-3"><strong>合計収支:</strong> ${totalRevenue.toLocaleString('ja-JP', { style: 'currency', currency: 'JPY' })}</p>
+                `;
+
+                tabPanel.appendChild(revenueDetailsDiv); // Append this to the tabPanel
+
                 const projectTotalDiv = document.createElement('div');
                 projectTotalDiv.className = 'flex justify-end font-bold text-gray-800 text-lg mt-4 pr-3';
-                projectTotalDiv.textContent = `合計時間: ${projectTotalHours.toFixed(2)} 時間`;
+                projectTotalDiv.textContent = `合計稼働時間: ${projectTotalHours.toFixed(2)} 時間`; // 元の合計稼働時間
                 tabPanel.appendChild(projectTotalDiv);
+
 
                 projectTabContent.appendChild(tabPanel);
                 firstTab = false;
@@ -587,9 +664,72 @@
 
             const selectedMonth = summaryMonthInput.value; // YYYY-MM
 
+            // --- Project Revenue Calculation for PDF ---
+            let totalRevenue = 0;
+            let baseRevenue = 0;
+            let overageHours = 0;
+            let shortfallHours = 0;
+            let overageAmount = 0;
+            let shortfallAmount = 0;
+            let adjustedTotalHours = totalProjectHours;
+
+            const projectDetails = userProjects.get(activeProjectCode);
+            if (projectDetails) {
+                const baseHourlyRate = projectDetails.baseHourlyRate || 0;
+                const workTimeUnitMinutes = projectDetails.workTimeUnit || 1;
+
+                const totalActualMinutes = totalProjectHours * 60;
+                const adjustedTotalMinutes = Math.floor(totalActualMinutes / workTimeUnitMinutes) * workTimeUnitMinutes;
+                adjustedTotalHours = adjustedTotalMinutes / 60;
+
+                if (projectDetails.contractType === 'fixed') {
+                    const baseWorkingHours = projectDetails.baseWorkingHours || 0;
+                    const billingRangeStart = projectDetails.billingRangeStart || 0;
+                    const billingRangeEnd = projectDetails.billingRangeEnd || 0;
+
+                    baseRevenue = baseHourlyRate * baseWorkingHours;
+                    totalRevenue = baseRevenue;
+
+                    if (adjustedTotalHours > billingRangeEnd) {
+                        overageHours = adjustedTotalHours - billingRangeEnd;
+                        overageAmount = overageHours * baseHourlyRate;
+                        totalRevenue += overageAmount;
+                    } else if (adjustedTotalHours < billingRangeStart) {
+                        shortfallHours = billingRangeStart - adjustedTotalHours;
+                        shortfallAmount = shortfallHours * baseHourlyRate;
+                        totalRevenue -= shortfallAmount;
+                    }
+                } else if (projectDetails.contractType === 'hourly') {
+                    totalRevenue = adjustedTotalHours * baseHourlyRate;
+                }
+            }
+
             // PDFに含めるコンテンツを構築
             const pdfContent = document.createElement('div');
             pdfContent.className = 'p-6 font-sans text-gray-800'; // Added font-sans for better default font
+
+            let contractDetailsHtml = '';
+            if (projectDetails) {
+                contractDetailsHtml += `
+                    <p><strong>契約種類:</strong> ${projectDetails.contractType === 'fixed' ? '固定清算' : '時給清算'}</p>
+                    <p><strong>基本時給:</strong> ${projectDetails.baseHourlyRate?.toLocaleString('ja-JP', { style: 'currency', currency: 'JPY' }) || 'N/A'}</p>
+                    <p><strong>作業時間単位:</strong> ${projectDetails.workTimeUnit || 'N/A'} 分</p>
+                    <p><strong>総稼働時間 (調整後):</strong> ${adjustedTotalHours.toFixed(2)} 時間</p>
+                `;
+                if (projectDetails.contractType === 'fixed') {
+                    contractDetailsHtml += `
+                        <p><strong>基本稼働時間:</strong> ${projectDetails.baseWorkingHours?.toFixed(2) || 'N/A'} 時間</p>
+                        <p><strong>清算幅:</strong> ${projectDetails.billingRangeStart?.toFixed(2) || 'N/A'} - ${projectDetails.billingRangeEnd?.toFixed(2) || 'N/A'} 時間</p>
+                        <p><strong>基本報酬:</strong> ${baseRevenue.toLocaleString('ja-JP', { style: 'currency', currency: 'JPY' })}</p>
+                        ${overageHours > 0 ? `<p class="text-green-700"><strong>超過時間:</strong> ${overageHours.toFixed(2)} 時間 (${overageAmount.toLocaleString('ja-JP', { style: 'currency', currency: 'JPY' })})</p>` : ''}
+                        ${shortfallHours > 0 ? `<p class="text-red-700"><strong>不足時間:</strong> ${shortfallHours.toFixed(2)} 時間 (${shortfallAmount.toLocaleString('ja-JP', { style: 'currency', currency: 'JPY' })})</p>` : ''}
+                    `;
+                }
+                contractDetailsHtml += `<p class="text-lg font-bold mt-3"><strong>合計収支:</strong> ${totalRevenue.toLocaleString('ja-JP', { style: 'currency', currency: 'JPY' })}</p>`;
+            } else {
+                contractDetailsHtml = '<p>プロジェクトの契約情報がありません。</p>';
+            }
+
 
             pdfContent.innerHTML = `
                 <style>
@@ -628,7 +768,12 @@
                 <div class="text-center">
                     <h2 class="header-title">${selectedMonth} 稼働時間報告書</h2>
                     <p class="project-info">${activeProjectName} (${activeProjectCode})</p>
-                    <p class="total-time">合計時間: ${totalProjectHours.toFixed(2)} 時間</p>
+                    <p class="total-time">合計稼働時間: ${totalProjectHours.toFixed(2)} 時間</p>
+                </div>
+
+                <div style="margin-top: 20px; padding: 10px; background-color: #e0f2f7; border-radius: 8px;">
+                    <h3 style="font-size: 16px; font-weight: bold; color: #01579B; margin-bottom: 10px;">プロジェクト収支詳細:</h3>
+                    ${contractDetailsHtml}
                 </div>
 
                 <table>
