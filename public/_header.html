@@ -1,8 +1,19 @@
 <header class="p-4 max-w-4xl mx-auto">
     <div class="flex justify-between items-center">
-        <!-- 左側: ハンバーガーメニューボタン (サイドバー内に移動するため削除) -->
+        <!-- 左側: ハンバーガーメニューボタン (モバイル用とデスクトップ用) -->
         <div class="w-1/3 flex justify-start relative">
-            <!-- ここにハンバーガーメニューボタンがあったが、サイドバー内に移動 -->
+            <!-- モバイル用ハンバーガーメニュー -->
+            <button id="menu-toggle" class="p-2 rounded-full bg-white hover:bg-gray-200 focus:outline-none md:hidden">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path>
+                </svg>
+            </button>
+            <!-- デスクトップ用ハンバーガーメニュー (md以上で表示) -->
+            <button id="desktop-menu-toggle" class="p-2 rounded-full bg-white hover:bg-gray-200 focus:outline-none hidden md:block">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path>
+                </svg>
+            </button>
         </div>
 
         <!-- 中央: ロゴ -->
@@ -24,45 +35,43 @@
     <!-- ヘッダー関連のステータス表示エリア -->
     <div id="header-status-message" class="text-center h-5 mt-2"></div>
 
-    <!-- サイドバーメニュー (デフォルトではアイコンのみ表示) -->
-    <!-- transform -translate-x-full を削除し、w-16 を初期幅に設定 -->
-    <div id="sidebar-menu" class="fixed inset-y-0 left-0 w-16 bg-white shadow-lg z-30 transition-all duration-300 ease-in-out">
+    <!-- モバイルメニューオーバーレイ -->
+    <div id="mobile-menu-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-20 hidden"></div>
+
+    <!-- サイドバーメニュー (デフォルトでは非表示、モバイルでは展開時にw-64、デスクトップではw-16またはw-64) -->
+    <div id="sidebar-menu" class="fixed inset-y-0 left-0 w-64 bg-white shadow-lg z-30 transition-transform duration-300 ease-in-out -translate-x-full md:w-16">
         <div class="flex justify-between p-4">
-            <!-- ハンバーガーメニューボタンをサイドバー内に移動 -->
-            <button id="menu-toggle" class="p-2 rounded-full bg-white hover:bg-gray-200 focus:outline-none">
-                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path>
-                </svg>
-            </button>
-            <!-- 閉じるボタンは初期状態でhidden -->
-            <button id="close-menu-button" class="p-2 rounded-full hover:bg-gray-200 focus:outline-none hidden">
+            <!-- 閉じるボタン (モバイル用) -->
+            <button id="close-menu-button" class="p-2 rounded-full hover:bg-gray-200 focus:outline-none md:hidden">
                 <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                 </svg>
             </button>
+            <!-- デスクトップでサイドバーが展開されているときに表示されるロゴのプレースホルダー -->
+            <img src="images/sidepocket_Logo.png" alt="side pocket ロゴ" class="h-10 w-auto hidden md:block" id="sidebar-logo">
         </div>
         <nav class="flex flex-col p-2 space-y-2">
             <a href="index.html" class="flex items-center p-2 rounded-md text-gray-700 hover:bg-gray-100">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                <span class="ml-3 menu-text hidden">打刻</span>
+                <span class="ml-3 menu-text hidden md:inline-block md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300 ease-in-out">打刻</span>
             </a>
             <a href="projects.html" class="flex items-center p-2 rounded-md text-gray-700 hover:bg-gray-100">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
-                <span class="ml-3 menu-text hidden">プロジェクト管理</span>
+                <span class="ml-3 menu-text hidden md:inline-block md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300 ease-in-out">プロジェクト管理</span>
             </a>
             <a href="summary.html" class="flex items-center p-2 rounded-md text-gray-700 hover:bg-gray-100">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-                <span class="ml-3 menu-text hidden">稼働管理</span>
+                <span class="ml-3 menu-text hidden md:inline-block md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300 ease-in-out">稼働管理</span>
             </a>
             <a href="calendar.html" class="flex items-center p-2 rounded-md text-gray-700 hover:bg-gray-100">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                <span class="ml-3 menu-text hidden">カレンダー連携</span>
+                <span class="ml-3 menu-text hidden md:inline-block md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300 ease-in-out">カレンダー連携</span>
             </a>
         </nav>
-        <div class="mt-auto pt-4 border-t border-gray-200">
-            <button id="logout-button" class="flex items-center w-full text-left px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-gray-100">
+        <div class="mt-auto pt-4 border-t border-gray-200 p-4">
+            <button id="logout-button-mobile" class="flex items-center w-full text-left px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-gray-100">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-                <span class="ml-3 menu-text hidden">ログアウト</span>
+                <span class="ml-3 menu-text whitespace-nowrap inline-block md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300 ease-in-out">ログアウト</span>
             </button>
         </div>
     </div>
