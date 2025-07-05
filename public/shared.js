@@ -90,7 +90,9 @@ export async function initializePage(onUserAuthenticated) {
                     }
                 } catch (error) {
                     console.error("Authentication failed in initializePage:", error);
-                    // ここでリダイレクトしない。認証失敗は現在のページで処理されるべき。
+                    // 認証失敗時はログインページへリダイレクト
+                    // これにより、無限ループを防ぎ、ユーザーにログインを促す
+                    window.location.href = 'login.html'; 
                     showStatus("認証に失敗しました。ログインしてください。", true, 'header-status-message');
                     // ローディング画面を非表示にし、アプリコンテナを表示 (認証失敗時も表示は行う)
                     if (loadingElement) loadingElement.style.display = 'none';
