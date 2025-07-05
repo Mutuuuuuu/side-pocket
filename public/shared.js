@@ -161,7 +161,7 @@ export function setupHeaderMenu(user) {
                 sidebarLogo.classList.remove('hidden'); // ロゴを表示
                 logoutButtonMobile.querySelector('.menu-text').classList.remove('hidden'); // ログアウトテキストを表示
                 logoutButtonMobile.querySelector('.menu-text').classList.add('inline-block');
-            } else {
+            } else { // Collapsed desktop state
                 sidebarMenu.classList.remove('w-64');
                 sidebarMenu.classList.add('w-16');
                 appContainer.classList.remove('md:ml-64');
@@ -169,11 +169,11 @@ export function setupHeaderMenu(user) {
                 // テキストを非表示
                 menuTexts.forEach(span => {
                     span.classList.add('hidden');
-                    span.classList.remove('inline-block');
+                    span.classList.remove('inline-block'); // Ensure inline-block is removed
                 });
                 sidebarLogo.classList.add('hidden'); // ロゴを非表示
                 logoutButtonMobile.querySelector('.menu-text').classList.add('hidden'); // ログアウトテキストを非表示
-                logoutButtonMobile.querySelector('.menu-text').classList.remove('inline-block');
+                logoutButtonMobile.querySelector('.menu-text').classList.remove('inline-block'); // Ensure inline-block is removed
             }
 
             // デスクトップではホバーイベントリスナーを削除（クリックで制御するため）
@@ -185,29 +185,27 @@ export function setupHeaderMenu(user) {
             sidebarMenu.classList.remove('w-16'); // デスクトップのアイコン幅を解除
             sidebarMenu.classList.remove('translate-x-0'); // デスクトップの位置を解除
             sidebarMenu.classList.add('w-64'); // モバイルの展開幅
-            // モバイルでの初期状態は常に隠れている
-            if (!sidebarMenu.classList.contains('-translate-x-full')) {
-                 sidebarMenu.classList.add('-translate-x-full');
-            }
+            sidebarMenu.classList.add('-translate-x-full'); // モバイルでの初期状態は常に隠れている
 
             appContainer.classList.remove('md:ml-16'); // デスクトップのマージンを解除
             appContainer.classList.remove('md:ml-64');
             appContainer.style.marginLeft = '0px'; // モバイルではマージンを0に
 
-            // モバイル用の要素を表示
+            // モバイル用の要素を表示 (ハンバーガーメニュー)
             menuToggle.classList.remove('hidden');
-            // closeMenuButton.classList.remove('hidden'); // これはクリックイベントで制御される
-            mobileMenuOverlay.classList.add('hidden'); // オーバーレイはデフォルトで非表示
+            desktopMenuToggle.classList.add('hidden'); // デスクトップ用を非表示
 
-            // メニューテキストはモバイルでは常に表示
+            // サイドバー内のテキストとロゴは初期状態で非表示にする（開閉イベントで制御されるため）
             menuTexts.forEach(span => {
-                span.classList.remove('hidden');
-                span.classList.add('inline-block');
+                span.classList.add('hidden'); // Default to hidden
+                span.classList.remove('inline-block');
             });
-            // モバイルでサイドバーが開いたときにロゴを表示
-            sidebarLogo.classList.add('hidden'); // 初期状態は非表示
-            logoutButtonMobile.querySelector('.menu-text').classList.remove('hidden'); // ログアウトテキストを表示
-            logoutButtonMobile.querySelector('.menu-text').classList.add('inline-block');
+            sidebarLogo.classList.add('hidden'); // Default to hidden
+            logoutButtonMobile.querySelector('.menu-text').classList.add('hidden'); // Default to hidden
+            logoutButtonMobile.querySelector('.menu-text').classList.remove('inline-block');
+
+            // Overlay is hidden by default, shown by menuToggle click
+            mobileMenuOverlay.classList.add('hidden');
         }
     };
 
