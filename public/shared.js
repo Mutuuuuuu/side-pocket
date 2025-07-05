@@ -94,7 +94,7 @@ export function setupHeaderMenu(user) {
     const menuTexts = document.querySelectorAll('#sidebar-menu .menu-text'); // メニューテキスト要素
     const appContainer = document.getElementById('app-container'); // メインコンテンツコンテナ
     const logoutButtonMobile = document.getElementById('logout-button-mobile'); // サイドバー内のログアウトボタン
-    const desktopMenuToggle = document.getElementById('desktop-menu-toggle'); // デスクトップ用ハンバーガーメニュー
+    const desktopMenuToggle = document.getElementById('sidebar-desktop-menu-toggle'); // デスクトップ用ハンバーガーメニュー (サイドバー内に移動)
     const sidebarLogo = document.getElementById('sidebar-logo'); // サイドバー内のロゴ
 
     // ユーザー情報の表示
