@@ -811,3 +811,73 @@
     </script>
 </body>
 </html>
+```
+
+まだエラーが続いているとのこと、申し訳ありません。
+
+ご提供いただいた最新のログ画像と、現在開いている`calendar.html`のCanvasコードを拝見しました。
+
+ログには引き続き、Functionsが`asia-northeast1`リージョンで500エラーを返し、`Unhandled error TypeError: Cannot read properties of undefined (reading 'auth')`というエラーが発生していることが示されています。
+
+このエラーは、`calendar.html`が`httpsCallable`でFunctionsを呼び出しているにもかかわらず、Functions側で`context.auth`が`undefined`になっているという状況です。これは通常、Functionsが`onCall`トリガーとして正しくデプロイされていない場合に発生します。
+
+**考えられる原因**
+
+1.  **Functionsのデプロイが古い、または失敗している**:
+    最も可能性が高いのは、Firebase Functionsの`index.js`が、まだ`onCall`トリガーとして正しくデプロイされていないことです。FirebaseコンソールでFunctionsのダッシュボードを確認し、`exchangeGoogleToken`と`refreshGoogleAccessToken`の「タイプ」が「Callable」になっていることを確認してください。もし「HTTP」になっている場合は、`onCall`トリガーとして正しくデプロイされていません。
+
+2.  **Firebaseプロジェクトの設定の問題**:
+    稀に、Firebaseプロジェクト自体の設定（例えば、Firebase認証が正しく設定されていない、またはプロジェクトの権限に問題がある）が原因で、`context.auth`が正しく渡されないことがあります。
+
+### 修正と対応策
+
+**【最重要】Firebase Functions (`index.js`) のデプロイ状態の最終最終確認と再デプロイ**
+
+1.  **`functions/index.js`の内容を再確認**:
+    現在開いている`calendar.html`のCanvasコードは、`httpsCallable`を使用してFunctionsを呼び出しています。これに対応するためには、Functions側（`functions/index.js`）が**必ず**`onCall`トリガーを使用している必要があります。
+
+    以下のいずれかのCanvasのコードが、あなたのローカルの`functions/index.js`に**完全に一致していること**を再度確認してください。
+
+    * **Canvas「Firebase Functions index.js」**: `functions.config()`を使用しているV2の`onCall`トリガー版
+    * **Canvas「Firebase Functions index.js (V2 with Params)」**: `defineString`を使用しているV2の`onCall`トリガー版
+
+    特に、以下の行が含まれていることを確認してください。
+    * `const { HttpsError, onCall } = require('firebase-functions/v2/https');`
+    * `exports.exchangeGoogleToken = onCall(async (data, context) => { ... });`
+    * `exports.refreshGoogleAccessToken = onCall(async (data, context) => { ... });`
+
+2.  **Functionsの環境変数の設定を再確認**:
+    * あなたが`functions.config()`を使っている場合:
+        `functions`ディレクトリで以下のコマンドを実行し、環境変数が正しく設定されていることを確認してください。
+        ```bash
+        firebase functions:config:get
+        ```
+        もし`googleapi`セクションが表示されない、または値が正しくない場合は、以下のコマンドで設定してください。
+        ```bash
+        firebase functions:config:set googleapi.client_id="YOUR_CLIENT_ID" googleapi.client_secret="YOUR_CLIENT_SECRET" googleapi.redirect_uri="YOUR_REDIRECT_URI"
+        ```
+        **`YOUR_CLIENT_ID`、`YOUR_CLIENT_SECRET`、`YOUR_REDIRECT_URI`は、あなたのGoogle Cloud Consoleで取得した正しい値に置き換えてください。**
+
+    * あなたが`defineString`を使っている場合:
+        `functions`ディレクトリで以下のコマンドを実行し、環境変数がシークレットとして正しく設定されていることを確認してください。
+        ```bash
+        firebase functions:secrets:list
+        ```
+        もし`GOOGLEAPI_CLIENT_ID`、`GOOGLEAPI_CLIENT_SECRET`、`GOOGLEAPI_REDIRECT_URI`が表示されない、または値が正しくない場合は、以下のコマンドで設定してください。
+        ```bash
+        firebase functions:secrets:set GOOGLEAPI_CLIENT_ID="YOUR_CLIENT_ID"
+        firebase functions:secrets:set GOOGLEAPI_CLIENT_SECRET="YOUR_CLIENT_SECRET"
+        firebase functions:secrets:set GOOGLEAPI_REDIRECT_URI="YOUR_REDIRECT_URI"
+        ```
+
+3.  **Firebase Functionsの強制再デプロイ**:
+    環境変数を設定したら、`functions`ディレクトリに移動し、以下のコマンドを**再度、順に実行**して、Firebase Functionsを強制的に再デプロイしてください。
+    ```bash
+    cd functions
+    npm install
+    firebase deploy --only functions
+    ```
+    デプロイが完了したら、FirebaseコンソールでFunctionsのタイプが「Callable」になっていることを**必ず**確認してください。
+
+これらの手順を再度、慎重に確認し、実行していただくことで、問題が解決されるはずです。特に、Functionsが`onCall`トリガーとしてデプロイされていることを確認することが重要です。
+
