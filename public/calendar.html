@@ -95,7 +95,7 @@
     
     <script type="module">
         import { collection, addDoc, query, where, onSnapshot, getDocs, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-        import { initializePage, auth, db, showStatus } from './shared.js';
+        import { initializePage, auth, db, app, showStatus } from './shared.js'; // appもインポート
         import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js"; // Functions SDKをインポート
 
         // Google APIのクライアントIDとAPIキーはFirebaseプロジェクトの設定から取得できます
@@ -133,8 +133,8 @@
         const eventDescriptionInput = document.getElementById('event-description');
         const createEventStatusElement = document.getElementById('create-event-status');
 
-        // Firebase Functionsのインスタンスを取得
-        const functions = getFunctions();
+        // Firebase Functionsのインスタンスを取得し、リージョンを指定
+        const functions = getFunctions(app, 'asia-northeast1'); // ★ここを修正★
         // Callable Functionのリファレンスを作成
         const exchangeGoogleTokenCallable = httpsCallable(functions, 'exchangeGoogleToken');
         const refreshGoogleAccessTokenCallable = httpsCallable(functions, 'refreshGoogleAccessToken');
