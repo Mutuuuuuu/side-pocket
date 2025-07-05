@@ -129,7 +129,7 @@ export function setupHeaderMenu(user) {
      */
     const applySidebarState = () => {
         // 各要素の存在を確実にチェック
-        if (!sidebarMenu || !appContainer || !menuToggle || !closeMenuButton || !mobileMenuOverlay || !desktopMenuToggle || !sidebarLogo) {
+        if (!sidebarMenu || !appContainer || !menuToggle || !closeMenuButton || !mobileMenuOverlay || !desktopMenuToggle || !sidebarLogo || !logoutButtonMobile) {
             console.warn("Sidebar or related elements not found. Skipping sidebar setup.");
             return;
         }
@@ -159,6 +159,8 @@ export function setupHeaderMenu(user) {
                     span.classList.add('inline-block');
                 });
                 sidebarLogo.classList.remove('hidden'); // ロゴを表示
+                logoutButtonMobile.querySelector('.menu-text').classList.remove('hidden'); // ログアウトテキストを表示
+                logoutButtonMobile.querySelector('.menu-text').classList.add('inline-block');
             } else {
                 sidebarMenu.classList.remove('w-64');
                 sidebarMenu.classList.add('w-16');
@@ -170,6 +172,8 @@ export function setupHeaderMenu(user) {
                     span.classList.remove('inline-block');
                 });
                 sidebarLogo.classList.add('hidden'); // ロゴを非表示
+                logoutButtonMobile.querySelector('.menu-text').classList.add('hidden'); // ログアウトテキストを非表示
+                logoutButtonMobile.querySelector('.menu-text').classList.remove('inline-block');
             }
 
             // デスクトップではホバーイベントリスナーを削除（クリックで制御するため）
@@ -202,6 +206,8 @@ export function setupHeaderMenu(user) {
             });
             // モバイルでサイドバーが開いたときにロゴを表示
             sidebarLogo.classList.add('hidden'); // 初期状態は非表示
+            logoutButtonMobile.querySelector('.menu-text').classList.remove('hidden'); // ログアウトテキストを表示
+            logoutButtonMobile.querySelector('.menu-text').classList.add('inline-block');
         }
     };
 
@@ -229,6 +235,8 @@ export function setupHeaderMenu(user) {
                 span.classList.remove('hidden');
                 span.classList.add('inline-block');
             });
+            logoutButtonMobile.querySelector('.menu-text').classList.remove('hidden'); // ログアウトテキストを表示
+            logoutButtonMobile.querySelector('.menu-text').classList.add('inline-block');
         });
     }
 
@@ -242,6 +250,8 @@ export function setupHeaderMenu(user) {
                 span.classList.add('hidden');
                 span.classList.remove('inline-block');
             });
+            logoutButtonMobile.querySelector('.menu-text').classList.add('hidden'); // ログアウトテキストを非表示
+            logoutButtonMobile.querySelector('.menu-text').classList.remove('inline-block');
         });
     }
 
@@ -255,6 +265,8 @@ export function setupHeaderMenu(user) {
                 span.classList.add('hidden');
                 span.classList.remove('inline-block');
             });
+            logoutButtonMobile.querySelector('.menu-text').classList.add('hidden'); // ログアウトテキストを非表示
+            logoutButtonMobile.querySelector('.menu-text').classList.remove('inline-block');
         });
     }
 
@@ -270,6 +282,8 @@ export function setupHeaderMenu(user) {
                     span.classList.add('hidden');
                     span.classList.remove('inline-block');
                 });
+                logoutButtonMobile.querySelector('.menu-text').classList.add('hidden'); // ログアウトテキストを非表示
+                logoutButtonMobile.querySelector('.menu-text').classList.remove('inline-block');
             }
         });
     });
