@@ -74,14 +74,9 @@ exports.exchangeGoogleToken = onRequest(async (req, res) => {
         }
 
         try {
-            // oAuth2Clientのredirect_uriは初期化時に設定済みのため、ここでのsetRedirectUriは不要です。
-            // ただし、もし動的に変更する必要がある場合は、新しいOAuth2Clientインスタンスを作成するか、
-            // Google API Client Libraryの適切なメソッドを使用する必要があります。
-            // 現在のシナリオでは、Functionsの環境変数として設定されたredirect_uriを使用します。
-
             const { tokens } = await oAuth2Client.getToken(code);
 
-            // ここもtokens.credentials.refresh_tokenに修正
+            // ここをtokens.credentials.refresh_tokenに修正
             if (tokens.credentials.refresh_token) {
                 await db.collection('users').doc(decodedIdToken.uid).set({
                     googleRefreshToken: tokens.credentials.refresh_token,
