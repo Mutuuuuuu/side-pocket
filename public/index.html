@@ -34,54 +34,40 @@
                         </select>
                     </div>
 
-                    <div class="flex justify-center space-x-4">
-                        <button id="clock-in-btn" class="btn bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-md shadow-md transition duration-200 text-lg">
-                            出勤
-                        </button>
-                        <button id="clock-out-btn" class="btn bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-md shadow-md transition duration-200 text-lg" disabled>
-                            退勤
-                        </button>
+                    <div class="flex flex-col sm:flex-row gap-4">
+                        <button id="clock-in-btn" class="w-full sm:w-1/2 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition duration-200 ease-in-out transform hover:scale-105 btn">出勤</button>
+                        <button id="clock-out-btn" class="w-full sm:w-1/2 bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition duration-200 ease-in-out transform hover:scale-105 btn">退勤</button>
                     </div>
+                </div>
 
-                    <div id="status-message" class="text-center h-5 mt-4 text-sm font-medium"></div>
+                <div id="status-message" class="text-center h-5 mt-4"></div>
 
-                    <div class="text-center text-sm text-gray-600 mt-6">
-                        <p>最終打刻: <span id="last-clock-in-out">---</span></p>
-                    </div>
+                <div class="mt-6 pt-4 border-t border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">最終打刻:</h3>
+                    <p id="last-timestamp-info" class="text-gray-600">---</p>
                 </div>
             </div>
         </main>
     </div>
 
-    //<script type="module">
-       // ヘッダーを動的に読み込むスクリプト
-       document.addEventListener('DOMContentLoaded', function() {
-            fetch('_header.html')
-                .then(response => response.text())
-                .then(data => {
-                    document.getElementById('header-placeholder').innerHTML = data;
-                })
-                .catch(error => console.error('Error loading header:', error));
-        });
-
-        import { collection, query, where, orderBy, limit, onSnapshot, addDoc, updateDoc, doc, getDocs, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-        import { initializePage, auth, db, showStatus } from './shared.js'; // shared.jsから関数をインポート
+    <script type="module">
+        import { initializePage, auth, db, showStatus } from './shared.js';
+        import { collection, addDoc, query, where, orderBy, limit, onSnapshot, doc, updateDoc, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         let currentUser = null;
-        let currentTimestampId = null; // 現在の打刻IDを保持
-        let clockInTime = null; // 出勤時間を保持
-        let projectsData = []; // プロジェクトデータを保持
+        let currentTimestampId = null; // 現在の打刻ドキュメントID
+        let clockInTime = null; // 現在の出勤時刻 (Dateオブジェクト)
+        let timerInterval = null; // タイマーのインターバルID
 
         // DOM要素の取得
-        const currentTimeElement = document.getElementById('current-time');
+        const currentTimeDisplay = document.getElementById('current-time');
         const projectSelect = document.getElementById('project-select');
         const clockInBtn = document.getElementById('clock-in-btn');
         const clockOutBtn = document.getElementById('clock-out-btn');
-        const statusMessageElement = document.getElementById('status-message');
-        const lastClockInOutElement = document.getElementById('last-clock-in-out');
+        const lastTimestampInfo = document.getElementById('last-timestamp-info');
 
         /**
-         * Firebase認証完了後に呼び出されるメインのセットアップ関数
+         * ページの初期化とFirebase認証後の処理
          * @param {object} user - Firebase認証ユーザーオブジェクト
          */
         async function setupIndexPage(user) {
@@ -91,42 +77,52 @@
                 return;
             }
 
-            // 現在時刻を更新
-            updateCurrentTime();
-            setInterval(updateCurrentTime, 1000); // 1秒ごとに更新
+            // プロジェクトリストの購読を開始
+            listenToProjects();
+
+            // 最終打刻の購読を開始
+            listenToLastTimestamp();
 
             // イベントリスナーの設定
             clockInBtn.addEventListener('click', handleClockIn);
             clockOutBtn.addEventListener('click', handleClockOut);
 
-            // プロジェクトと打刻データのリアルタイム購読を開始
-            listenToProjects();
-            listenToLatestTimestamp();
+            // 現在時刻の更新を開始
+            startClock();
 
+            // ローディング画面を非表示にし、アプリコンテナを表示
             document.getElementById('loading').style.display = 'none';
             document.getElementById('app-container').style.display = 'block';
         }
 
         /**
-         * 現在時刻を更新する
+         * 現在時刻を1秒ごとに更新する
          */
-        function updateCurrentTime() {
-            const now = new Date();
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            const seconds = String(now.getSeconds()).padStart(2, '0');
-            currentTimeElement.textContent = `${hours}:${minutes}:${seconds}`;
+        function startClock() {
+            timerInterval = setInterval(() => {
+                const now = new Date();
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+                currentTimeDisplay.textContent = `${hours}:${minutes}:${seconds}`;
+            }, 1000);
         }
 
         /**
-         * プロジェクトデータをFirestoreからリアルタイムで購読する
+         * プロジェクトリストをFirestoreからリアルタイムで購読する
          */
         function listenToProjects() {
             if (!currentUser) return;
-            const q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid), orderBy("code"));
+            const q = query(collection(db, "projects"), where("ownerId", "==", currentUser.uid));
             onSnapshot(q, (snapshot) => {
-                projectsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                populateProjectSelect();
+                projectSelect.innerHTML = '<option value="">プロジェクトを選択してください</option>'; // オプションをクリア
+                snapshot.forEach(doc => {
+                    const project = doc.data();
+                    const option = document.createElement('option');
+                    option.value = project.code;
+                    option.textContent = `${project.name} (${project.code})`;
+                    projectSelect.appendChild(option);
+                });
             }, (error) => {
                 console.error("Error listening to projects:", error);
                 showStatus("プロジェクトの読み込みに失敗しました。", true, 'status-message');
@@ -134,22 +130,9 @@
         }
 
         /**
-         * プロジェクト選択ドロップダウンを更新する
+         * 最終打刻をFirestoreからリアルタイムで購読する
          */
-        function populateProjectSelect() {
-            projectSelect.innerHTML = '<option value="">プロジェクトを選択してください</option>';
-            projectsData.forEach(project => {
-                const option = document.createElement('option');
-                option.value = project.code;
-                option.textContent = `${project.code}: ${project.name}`;
-                projectSelect.appendChild(option);
-            });
-        }
-
-        /**
-         * 最新の打刻データをFirestoreからリアルタイムで購読する
-         */
-        function listenToLatestTimestamp() {
+        function listenToLastTimestamp() {
             if (!currentUser) return;
             const q = query(
                 collection(db, "timestamps"),
@@ -159,89 +142,59 @@
             );
             onSnapshot(q, (snapshot) => {
                 if (!snapshot.empty) {
-                    const latestTimestamp = snapshot.docs[0].data();
+                    const lastTimestamp = snapshot.docs[0].data();
                     currentTimestampId = snapshot.docs[0].id;
+                    clockInTime = lastTimestamp.clockInTime.toDate(); // Dateオブジェクトとして保存
 
-                    if (latestTimestamp.clockOutTime === null) {
-                        // 出勤済みで退勤がまだの場合
-                        clockInTime = latestTimestamp.clockInTime.toDate();
-                        clockInBtn.disabled = true;
-                        clockOutBtn.disabled = false;
-                        projectSelect.value = latestTimestamp.projectCode; // 選択中のプロジェクトをセット
-                        projectSelect.disabled = true; // プロジェクト選択を無効化
-                        showStatus(`現在稼働中です。 (${latestTimestamp.projectCode})`, false, 'status-message');
-                    } else {
-                        // 退勤済みの場合
-                        clockInTime = null;
+                    const clockInStr = clockInTime.toLocaleString('ja-JP', {
+                        year: 'numeric', month: '2-digit', day: '2-digit',
+                        hour: '2-digit', minute: '2-digit', second: '2-digit'
+                    });
+
+                    if (lastTimestamp.clockOutTime) {
+                        const clockOutStr = lastTimestamp.clockOutTime.toDate().toLocaleString('ja-JP', {
+                            year: 'numeric', month: '2-digit', day: '2-digit',
+                            hour: '2-digit', minute: '2-digit', second: '2-digit'
+                        });
+                        lastTimestampInfo.textContent = `出勤: ${clockInStr}, 退勤: ${clockOutStr} (${lastTimestamp.durationHours ? lastTimestamp.durationHours.toFixed(2) + '時間' : '計算中'})`;
+                        // 退勤済みなので、次の出勤に備えて状態をリセット
                         currentTimestampId = null;
+                        clockInTime = null;
                         clockInBtn.disabled = false;
                         clockOutBtn.disabled = true;
-                        projectSelect.value = ''; // プロジェクト選択をリセット
-                        projectSelect.disabled = false; // プロジェクト選択を有効化
-                        showStatus("打刻されていません。", false, 'status-message');
+                        showStatus("退勤済みです。新しい出勤を開始できます。", false, 'status-message');
+                    } else {
+                        lastTimestampInfo.textContent = `出勤: ${clockInStr} (退勤待ち)`;
+                        clockInBtn.disabled = true;
+                        clockOutBtn.disabled = false;
+                        showStatus("出勤中です。", false, 'status-message');
                     }
-                    displayLastClockInOut(latestTimestamp);
                 } else {
-                    // 打刻データが全くない場合
-                    clockInTime = null;
-                    currentTimestampId = null;
+                    lastTimestampInfo.textContent = "打刻されていません。";
                     clockInBtn.disabled = false;
                     clockOutBtn.disabled = true;
-                    projectSelect.value = '';
-                    projectSelect.disabled = false;
-                    showStatus("打刻されていません。", false, 'status-message');
-                    lastClockInOutElement.textContent = '---';
+                    currentTimestampId = null;
+                    clockInTime = null;
+                    showStatus("出勤を開始できます。", false, 'status-message');
                 }
             }, (error) => {
-                console.error("Error listening to latest timestamp:", error);
-                showStatus("打刻情報の読み込みに失敗しました。", true, 'status-message');
+                console.error("Error listening to last timestamp:", error);
+                showStatus("最終打刻の読み込みに失敗しました。", true, 'status-message');
             });
-        }
-
-        /**
-         * 最終打刻情報を表示する
-         * @param {object} timestamp - 最新の打刻データ
-         */
-        function displayLastClockInOut(timestamp) {
-            const clockInDate = timestamp.clockInTime.toDate();
-            const clockOutDate = timestamp.clockOutTime ? timestamp.clockOutTime.toDate() : null;
-            const project = projectsData.find(p => p.code === timestamp.projectCode);
-            const projectName = project ? project.name : '不明なプロジェクト';
-
-            const formatDate = (date) => {
-                if (!date) return '---';
-                const year = date.getFullYear();
-                const month = String(date.getMonth() + 1).padStart(2, '0');
-                const day = String(date.getDate()).padStart(2, '0');
-                const hours = String(date.getHours()).padStart(2, '0');
-                const minutes = String(date.getMinutes()).padStart(2, '0');
-                return `${year}/${month}/${day} ${hours}:${minutes}`;
-            };
-
-            const inTimeFormatted = formatDate(clockInDate);
-            let displayString = '';
-
-            if (clockOutDate) {
-                const outTimeFormatted = formatDate(clockOutDate);
-                displayString = `${projectName}: ${inTimeFormatted} - ${outTimeFormatted} (退勤)`;
-            } else {
-                displayString = `${projectName}: ${inTimeFormatted} (出勤中)`;
-            }
-            lastClockInOutElement.textContent = displayString;
         }
 
         /**
          * 出勤ボタンのハンドラー
          */
         async function handleClockIn() {
-            const selectedProjectCode = projectSelect.value;
-            if (!selectedProjectCode) {
-                showStatus("プロジェクトを選択してください。", true, 'status-message');
+            if (currentTimestampId) {
+                showStatus("既に出勤しています。退勤してください。", true, 'status-message');
                 return;
             }
 
-            if (clockInTime) {
-                showStatus("既に稼働中です。", true, 'status-message');
+            const selectedProjectCode = projectSelect.value;
+            if (!selectedProjectCode) {
+                showStatus("プロジェクトを選択してください。", true, 'status-message');
                 return;
             }
 
@@ -249,14 +202,17 @@
             try {
                 const newTimestamp = {
                     userId: currentUser.uid,
+                    userEmail: currentUser.email,
                     projectCode: selectedProjectCode,
                     clockInTime: Timestamp.now(),
-                    clockOutTime: null,
-                    durationHours: 0,
+                    clockOutTime: null, // 退勤時はnull
+                    durationHours: null, // 退勤時に計算
                     createdAt: Timestamp.now(),
                     updatedAt: Timestamp.now()
                 };
-                await addDoc(collection(db, "timestamps"), newTimestamp);
+                const docRef = await addDoc(collection(db, "timestamps"), newTimestamp);
+                currentTimestampId = docRef.id;
+                clockInTime = new Date(); // 現在の出勤時刻を保存
                 showStatus("出勤しました！", false, 'status-message');
             } catch (error) {
                 console.error("Error clocking in:", error);
@@ -291,7 +247,7 @@
             }
         }
 
-        // 共通の初期化処理を呼び出し、認証完了後に打刻ページの処理を実行
+        // 共通の初期化処理を呼び出し、認証完了後にIndexページの処理を実行
         initializePage(setupIndexPage);
     </script>
 </body>
