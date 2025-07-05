@@ -38,8 +38,8 @@
     <!-- モバイルメニューオーバーレイ -->
     <div id="mobile-menu-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-20 hidden"></div>
 
-    <!-- サイドバーメニュー (デフォルトでは非表示、モバイルでは展開時にw-64、デスクトップではw-16またはw-64) -->
-    <div id="sidebar-menu" class="fixed inset-y-0 left-0 w-64 bg-white shadow-lg z-30 transition-transform duration-300 ease-in-out -translate-x-full md:w-16">
+    <!-- サイドバーメニュー (モバイルでは非表示、デスクトップではアイコンのみの幅で表示) -->
+    <div id="sidebar-menu" class="fixed inset-y-0 left-0 w-64 bg-white shadow-lg z-30 transition-transform duration-300 ease-in-out -translate-x-full md:w-16 md:translate-x-0">
         <div class="flex justify-between p-4">
             <!-- 閉じるボタン (モバイル用) -->
             <button id="close-menu-button" class="p-2 rounded-full hover:bg-gray-200 focus:outline-none md:hidden">
@@ -48,7 +48,7 @@
                 </svg>
             </button>
             <!-- デスクトップでサイドバーが展開されているときに表示されるロゴのプレースホルダー -->
-            <img src="images/sidepocket_Logo.png" alt="side pocket ロゴ" class="h-10 w-auto hidden md:block" id="sidebar-logo">
+            <img src="images/sidepocket_Logo.png" alt="side pocket ロゴ" class="h-10 w-auto md:block" id="sidebar-logo">
         </div>
         <nav class="flex flex-col p-2 space-y-2">
             <a href="index.html" class="flex items-center p-2 rounded-md text-gray-700 hover:bg-gray-100">
