@@ -96,6 +96,7 @@
     <script type="module">
         import { collection, addDoc, query, where, onSnapshot, getDocs, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { initializePage, auth, db, showStatus } from './shared.js';
+        import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js"; // Functions SDKをインポート
 
         // Google APIのクライアントIDとAPIキーはFirebaseプロジェクトの設定から取得できます
         const GOOGLE_CLIENT_ID = "887116583823-32evpk9fa2m0ondbbco6tv4m1980i7bj.apps.googleusercontent.com"; 
@@ -132,12 +133,12 @@
         const eventDescriptionInput = document.getElementById('event-description');
         const createEventStatusElement = document.getElementById('create-event-status');
 
+        // Firebase Functionsのインスタンスを取得
+        const functions = getFunctions();
+        // Callable Functionのリファレンスを作成
+        const exchangeGoogleTokenCallable = httpsCallable(functions, 'exchangeGoogleToken');
+        const refreshGoogleAccessTokenCallable = httpsCallable(functions, 'refreshGoogleAccessToken');
 
-        // Firebase FunctionsのエンドポイントURL (例: あなたのプロジェクトIDとリージョンに置き換えてください)
-        // これは、認証コードをアクセストークンに交換するためのサーバーサイド関数です。
-        // onRequestトリガーに切り替えたため、FunctionsのURLを直接指定します。
-        const EXCHANGE_TOKEN_FUNCTION_URL = "https://exchangegoogletoken-ej3atw2f2a-an.a.run.app"; 
-        const REFRESH_TOKEN_FUNCTION_URL = "https://refreshgoogleaccesstoken-ej3atw2f2a-an.a.run.app"; // refreshGoogleAccessTokenのURLも必要になります
 
         /**
          * Google APIクライアントライブラリ (gapi) の初期化
@@ -237,42 +238,26 @@
         async function handleAuthCodeExchange(code) {
             try {
                 showStatus("認証情報を交換中...", false, 'gcal-auth-status');
-                if (!EXCHANGE_TOKEN_FUNCTION_URL) {
-                    throw new Error("Firebase FunctionsのURLが設定されていません。");
-                }
-
-                const firebaseIdToken = await auth.currentUser.getIdToken();
-                if (!firebaseIdToken) {
-                    throw new Error("Firebase認証トークンが取得できません。");
-                }
-
-                const response = await fetch(EXCHANGE_TOKEN_FUNCTION_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${firebaseIdToken}` // Firebase認証トークンを渡す
-                    },
-                    body: JSON.stringify({ code: code, redirectUri: window.location.origin + window.location.pathname })
+                
+                // httpsCallableを使用してFunctionsを呼び出す
+                const result = await exchangeGoogleTokenCallable({ 
+                    code: code, 
+                    redirectUri: window.location.origin + window.location.pathname 
                 });
 
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
-                }
-
-                const data = await response.json();
+                const data = result.data; // Callable Functionのレスポンスはdataプロパティに含まれる
                 if (data.accessToken) {
                     // 取得したアクセストークンをgapiクライアントに設定
                     gapi.client.setToken({ access_token: data.accessToken });
-                    // オプション: リフレッシュトークンをFirestoreに保存するなどして永続化
-                    // data.refreshToken が返された場合、サーバーサイドで安全に保存する
                     updateSignInStatus(true);
                 } else {
                     throw new Error("Failed to get access token from server.");
                 }
             } catch (error) {
                 console.error("Error exchanging auth code for token:", error);
-                showStatus(`認証情報の交換に失敗しました: ${error.message}`, true, 'gcal-auth-status');
+                // HttpsErrorからのメッセージを適切に表示
+                const errorMessage = error.message || '不明なエラー';
+                showStatus(`認証情報の交換に失敗しました: ${errorMessage}`, true, 'gcal-auth-status');
                 updateSignInStatus(false);
             }
         };
@@ -283,32 +268,10 @@
         async function attemptTokenRefresh() {
             showStatus("既存のGoogle連携を確認中...", false, 'gcal-auth-status');
             try {
-                const firebaseIdToken = await auth.currentUser.getIdToken();
-                if (!firebaseIdToken) {
-                    throw new Error("Firebase認証トークンが取得できません。");
-                }
-
-                const response = await fetch(REFRESH_TOKEN_FUNCTION_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${firebaseIdToken}`
-                    }
-                });
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    // 404 (Not Found) はリフレッシュトークンがないことを意味する可能性が高い
-                    if (response.status === 404 || response.status === 401) {
-                        console.warn("Refresh token not found or invalid. User needs to re-authorize.");
-                        showStatus("Google連携の自動更新に失敗しました。再度連携してください。", true, 'gcal-auth-status');
-                        updateSignInStatus(false);
-                        return;
-                    }
-                    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
-                }
-
-                const data = await response.json();
+                // httpsCallableを使用してFunctionsを呼び出す
+                const result = await refreshGoogleAccessTokenCallable();
+                
+                const data = result.data; // Callable Functionのレスポンスはdataプロパティに含まれる
                 if (data.accessToken) {
                     gapi.client.setToken({ access_token: data.accessToken });
                     updateSignInStatus(true); // 認証成功
@@ -317,7 +280,9 @@
                 }
             } catch (error) {
                 console.error("Error refreshing token:", error);
-                showStatus(`Google連携の自動更新に失敗しました: ${error.message} 再度連携してください。`, true, 'gcal-auth-status');
+                // HttpsErrorからのメッセージを適切に表示
+                const errorMessage = error.message || '不明なエラー';
+                showStatus(`Google連携の自動更新に失敗しました: ${errorMessage} 再度連携してください。`, true, 'gcal-auth-status');
                 updateSignInStatus(false); // 認証ボタンを表示
             }
         };
