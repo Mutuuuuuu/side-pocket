@@ -94,7 +94,7 @@ export function setupHeaderMenu(user) {
     const menuTexts = document.querySelectorAll('#sidebar-menu .menu-text'); // メニューテキスト要素
     const appContainer = document.getElementById('app-container'); // メインコンテンツコンテナ
     const logoutButtonMobile = document.getElementById('logout-button-mobile'); // サイドバー内のログアウトボタン
-    const desktopMenuToggle = document.getElementById('desktop-menu-toggle'); // デスクトップ用ハンバーガーメニュー
+    // desktopMenuToggle は _header.html から削除済み
     const sidebarLogo = document.getElementById('sidebar-logo'); // サイドバー内のロゴ
 
     // ユーザー情報の表示
@@ -122,91 +122,66 @@ export function setupHeaderMenu(user) {
         });
     }
 
-    let isSidebarExpanded = false; // サイドバーの展開状態を管理するフラグ (デスクトップ用)
-
     /**
      * デスクトップとモバイルでサイドバーの表示状態を切り替える関数
      */
     const applySidebarState = () => {
         // 各要素の存在を確実にチェック
-        if (!sidebarMenu || !appContainer || !menuToggle || !closeMenuButton || !mobileMenuOverlay || !desktopMenuToggle || !sidebarLogo) {
+        // desktopMenuToggle は _header.html から削除済みなのでチェックから除外
+        if (!sidebarMenu || !appContainer || !menuToggle || !closeMenuButton || !mobileMenuOverlay || !sidebarLogo) {
             console.warn("Sidebar or related elements not found. Skipping sidebar setup.");
             return;
         }
 
         if (window.innerWidth >= 768) { // デスクトップ (md breakpoint)
-            // デスクトップではサイドバーを常に表示
+            // デスクトップではサイドバーを常に表示 (w-16)
             sidebarMenu.classList.remove('-translate-x-full'); // モバイルの非表示状態を解除
             sidebarMenu.classList.add('translate-x-0'); // 常に表示位置に
+            sidebarMenu.classList.remove('w-64'); // モバイルの展開幅を解除
+            sidebarMenu.classList.add('w-16'); // デスクトップのデフォルト幅
 
-            // デスクトップのハンバーガーメニューを表示
-            desktopMenuToggle.classList.remove('hidden');
+            // メインコンテンツにマージンを適用
+            appContainer.classList.remove('md:ml-64');
+            appContainer.classList.add('md:ml-16');
+            appContainer.style.marginLeft = ''; // インラインスタイルをクリア
 
-            // モバイル用のハンバーガーメニュー、閉じるボタン、オーバーレイを非表示
+            // モバイル用の要素は非表示
             menuToggle.classList.add('hidden');
             closeMenuButton.classList.add('hidden');
             mobileMenuOverlay.classList.add('hidden');
 
-            // デスクトップのサイドバー状態に基づいて幅とテキスト表示を調整
-            if (isSidebarExpanded) {
-                sidebarMenu.classList.remove('w-16');
-                sidebarMenu.classList.add('w-64');
-                appContainer.classList.remove('md:ml-16');
-                appContainer.classList.add('md:ml-64');
-                // テキストを常に表示にする（デスクトップ展開時）
-                menuTexts.forEach(span => {
-                    span.classList.remove('hidden');
-                    span.classList.add('inline-block');
-                });
-                sidebarLogo.classList.remove('hidden'); // ロゴを表示
-            } else {
-                sidebarMenu.classList.remove('w-64');
-                sidebarMenu.classList.add('w-16');
-                appContainer.classList.remove('md:ml-64');
-                appContainer.classList.add('md:ml-16');
-                // テキストを非表示にする（デスクトップ折りたたみ時）
-                menuTexts.forEach(span => {
-                    span.classList.add('hidden');
-                    span.classList.remove('inline-block');
-                });
-                sidebarLogo.classList.add('hidden'); // ロゴを非表示
-            }
-
-            // デスクトップではホバーイベントリスナーを削除（クリックで制御するため）
-            sidebarMenu.onmouseenter = null;
-            sidebarMenu.onmouseleave = null;
-
+            // メニューテキストとロゴはデスクトップでは常に非表示 (アイコンのみ表示)
+            menuTexts.forEach(span => {
+                span.classList.add('hidden');
+            });
+            sidebarLogo.classList.add('hidden'); // ロゴも非表示
+            
         } else { // モバイル
-            // モバイルではサイドバーを初期非表示
+            // モバイルではサイドバーを初期非表示 (w-64)
             sidebarMenu.classList.remove('w-16'); // デスクトップのアイコン幅を解除
-            sidebarMenu.classList.remove('w-64'); // デスクトップの展開幅を解除
+            sidebarMenu.classList.remove('translate-x-0'); // デスクトップの位置を解除
             sidebarMenu.classList.add('w-64'); // モバイルの展開幅
             // モバイルでの初期状態は常に隠れている
             if (!sidebarMenu.classList.contains('-translate-x-full')) {
                  sidebarMenu.classList.add('-translate-x-full');
             }
 
-
             appContainer.classList.remove('md:ml-16'); // デスクトップのマージンを解除
             appContainer.classList.remove('md:ml-64');
             appContainer.style.marginLeft = '0px'; // モバイルではマージンを0に
 
-            // メニューテキストをモバイルでは常に表示
+            // モバイル用の要素を表示
+            menuToggle.classList.remove('hidden');
+            // closeMenuButton.classList.remove('hidden'); // これはクリックイベントで制御される
+            mobileMenuOverlay.classList.add('hidden'); // オーバーレイはデフォルトで非表示
+
+            // メニューテキストはモバイルでは常に表示
             menuTexts.forEach(span => {
                 span.classList.remove('hidden');
                 span.classList.add('inline-block');
             });
-
-            // モバイルではハンバーガーメニュー、閉じるボタン、オーバーレイを表示
-            menuToggle.classList.remove('hidden');
-            closeMenuButton.classList.remove('hidden');
-            mobileMenuOverlay.classList.remove('hidden');
-            desktopMenuToggle.classList.add('hidden'); // デスクトップ用を非表示
-            sidebarLogo.classList.add('hidden'); // ロゴを非表示
-
-            // モバイルではホバーイベントリスナーを削除
-            sidebarMenu.onmouseenter = null;
-            sidebarMenu.onmouseleave = null;
+            // モバイルでサイドバーが開いたときにロゴを表示
+            sidebarLogo.classList.add('hidden'); // 初期状態は非表示
         }
     };
 
@@ -214,34 +189,46 @@ export function setupHeaderMenu(user) {
     applySidebarState();
     window.addEventListener('resize', applySidebarState);
 
-    // デスクトップ用ハンバーガーメニューのクリックイベント (サイドバーの展開/収納)
-    if (desktopMenuToggle) { // nullチェックを追加
-        desktopMenuToggle.addEventListener('click', () => {
-            isSidebarExpanded = !isSidebarExpanded; // 状態を反転
-            applySidebarState(); // 状態を適用
-        });
-    }
+    // デスクトップ用ハンバーガーメニューのクリックイベントは削除済み
 
     // --- モバイル用ハンバーガーメニューの開閉ロジック ---
-    if (menuToggle) { // nullチェックを追加
+    if (menuToggle) {
         menuToggle.addEventListener('click', (event) => {
             event.stopPropagation(); // クリックイベントがbodyに伝播するのを防ぐ
             sidebarMenu.classList.remove('-translate-x-full');
             mobileMenuOverlay.classList.remove('hidden');
+            // モバイルメニューが開いたらロゴとテキストを表示
+            sidebarLogo.classList.remove('hidden');
+            menuTexts.forEach(span => {
+                span.classList.remove('hidden');
+                span.classList.add('inline-block');
+            });
         });
     }
 
-    if (closeMenuButton) { // nullチェックを追加
+    if (closeMenuButton) {
         closeMenuButton.addEventListener('click', () => {
             sidebarMenu.classList.add('-translate-x-full');
             mobileMenuOverlay.classList.add('hidden');
+            // モバイルメニューが閉じたらロゴとテキストを非表示
+            sidebarLogo.classList.add('hidden');
+            menuTexts.forEach(span => {
+                span.classList.add('hidden');
+                span.classList.remove('inline-block');
+            });
         });
     }
 
-    if (mobileMenuOverlay) { // nullチェックを追加
+    if (mobileMenuOverlay) {
         mobileMenuOverlay.addEventListener('click', () => {
             sidebarMenu.classList.add('-translate-x-full');
             mobileMenuOverlay.classList.add('hidden');
+            // モバイルメニューが閉じたらロゴとテキストを非表示
+            sidebarLogo.classList.add('hidden');
+            menuTexts.forEach(span => {
+                span.classList.add('hidden');
+                span.classList.remove('inline-block');
+            });
         });
     }
 
@@ -251,6 +238,12 @@ export function setupHeaderMenu(user) {
             if (window.innerWidth < 768) { // モバイルメニューの場合のみ閉じる
                 sidebarMenu.classList.add('-translate-x-full');
                 mobileMenuOverlay.classList.add('hidden');
+                // モバイルメニューが閉じたらロゴとテキストを非表示
+                sidebarLogo.classList.add('hidden');
+                menuTexts.forEach(span => {
+                    span.classList.add('hidden');
+                    span.classList.remove('inline-block');
+                });
             }
         });
     });
