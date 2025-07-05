@@ -152,7 +152,7 @@ export function setupHeaderMenu(user) {
      */
     const applySidebarState = () => {
         // 各要素の存在を確実にチェック
-        if (!sidebarMenu || !appContainer || !mobileMenuOverlay) { // mobileMenuOverlayもチェック対象に追加
+        if (!sidebarMenu || !appContainer || !mobileMenuOverlay || !menuToggle || !closeMenuButton) { 
             console.warn("Sidebar or app container elements not found. Skipping sidebar state application.");
             return;
         }
@@ -165,8 +165,8 @@ export function setupHeaderMenu(user) {
             sidebarMenu.classList.remove('w-64'); // 展開時の幅を削除 (CSSのhoverで制御)
 
             // モバイル用のハンバーガーメニュー、閉じるボタン、オーバーレイを非表示
-            if (menuToggle) menuToggle.classList.add('hidden');
-            if (closeMenuButton) closeMenuButton.classList.add('hidden');
+            menuToggle.classList.add('hidden');
+            closeMenuButton.classList.add('hidden'); // デスクトップでは閉じるボタンも非表示
             mobileMenuOverlay.classList.add('hidden'); // デスクトップでは常にオーバーレイを非表示
 
             // コンテンツの左マージンを調整 (サイドバーの幅に応じて)
@@ -190,8 +190,8 @@ export function setupHeaderMenu(user) {
             appContainer.classList.remove('md:ml-64');
 
             // モバイルではハンバーガーメニュー、閉じるボタン、オーバーレイを表示
-            if (menuToggle) menuToggle.classList.remove('hidden');
-            if (closeMenuButton) closeMenuButton.classList.remove('hidden');
+            menuToggle.classList.remove('hidden');
+            closeMenuButton.classList.remove('hidden'); // モバイルでは閉じるボタンを表示
             mobileMenuOverlay.classList.add('hidden'); // モバイルでも初期状態はオーバーレイを非表示
 
             // モバイルではホバーイベントリスナーを削除
